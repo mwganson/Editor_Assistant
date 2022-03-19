@@ -1,0 +1,459 @@
+#Editor Assistant
+#Adds some capabilities to the python editor
+#as a new task panel dialog
+#https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
+#2022, <TheMarkster> LGPL2.1 or later
+__version__ = "1.08"
+from PySide import QtGui,QtCore
+try:
+    import shiboken2 as shiboken
+except:
+    shiboken = None
+mw = FreeCADGui.getMainWindow()
+
+class FindEdit (QtGui.QLineEdit):
+    def __init__(self, parent=None, form=None):
+        super(FindEdit, self).__init__()
+        self.form = form
+        self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.__contextMenu)
+
+    def __contextMenu(self):
+        self._normalMenu = self.createStandardContextMenu()
+        self._addCustomMenuItems(self._normalMenu)
+        self._normalMenu.exec_(QtGui.QCursor.pos())
+
+    def _addCustomMenuItems(self, menu):
+        menu.addSeparator()
+        action = QtGui.QAction("Use selected", self)
+        action.triggered.connect(self.useSelected)
+        action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "")
+        menu.addAction(action)
+
+    def useSelected(self):
+        txt_cur = self.form.currentEditor.textCursor()
+        txt = txt_cur.selectedText()
+        self.setText(txt)
+
+
+class TaskEditorAssistant:
+    def __init__(self):
+        self.found = False
+        self.editorDict = {}
+        self.editors = []
+        self.parents = []
+        self.grandparents = []
+        self.titles = []
+        self.currentEditor = None
+        self.timers = [] #toasts use this
+        self.getEditors()
+        self.blockSignals = False
+        self.form = QtGui.QWidget()
+        self.form.setObjectName("Editor assistant")
+        self.form.setWindowTitle("Editor assistant v"+__version__)
+        #self.print(f"self.editors = {self.editors}")
+        for ed in self.editors:
+            self.editorDict [ed.parent().parent().windowTitle()] = ed
+        #self.print(f"self.editorDict = {self.editorDict}")
+        layout = QtGui.QVBoxLayout()
+        self.form.setLayout(layout)
+        topLabelLayout = QtGui.QHBoxLayout()
+        self.msgLabel = QtGui.QLabel("")
+        self.msgLabel.setStyleSheet("color:red")
+        layout.addLayout(topLabelLayout)
+
+        self.editorList = QtGui.QListWidget()
+        self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
+        self.editorList.setToolTip("Open editors, press Refresh to update")
+        layout.addWidget(self.editorList)
+        self.populateList()
+
+        self.topButtonBox = QtGui.QHBoxLayout()
+        layout.addWidget(self.msgLabel)
+
+        refreshBtn = QtGui.QPushButton("Refresh editor list")
+        refreshBtn.clicked.connect(self.onRefreshBtnClicked)
+        layout.addWidget(refreshBtn)
+
+        findEditLayout = QtGui.QHBoxLayout()
+        findEditLayout.addWidget(QtGui.QLabel("Find: "))
+        self.findEdit = FindEdit(form=self)
+        self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
+        self.findEdit.textChanged.connect(self.onFindEditTextChanged)
+
+        findEditLayout.addWidget(self.findEdit)
+        self.findBtn = QtGui.QPushButton("Find next ->")
+        self.findBtn.clicked.connect(self.onFindBtnClicked)
+        self.findBackBtn = QtGui.QPushButton("<- Find previous")
+        self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
+        layout.addLayout(findEditLayout)
+
+        replaceEditLayout = QtGui.QHBoxLayout()
+        replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
+        self.replaceEdit = FindEdit(form=self)
+        replaceEditLayout.addWidget(self.replaceEdit)
+        layout.addLayout(replaceEditLayout)
+
+        flagsLayout = QtGui.QHBoxLayout()
+        self.matchWholeCheckBox = QtGui.QCheckBox("Whole words")
+        self.matchCaseCheckBox = QtGui.QCheckBox("Match case")
+        flagsLayout.addWidget(self.matchCaseCheckBox)
+        flagsLayout.addWidget(self.matchWholeCheckBox)
+        self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
+
+        layout.addLayout(flagsLayout)
+
+        findBtnLayout = QtGui.QHBoxLayout()
+
+        self.replaceBtn = QtGui.QPushButton("Replace ->")
+        self.replaceBtn.setToolTip("Replace current selection and find next")
+        self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
+        self.replaceAllBtn = QtGui.QPushButton("Replace all")
+        self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
+        findBtnLayout.addWidget(self.findBtn)
+        findBtnLayout.addWidget(self.findBackBtn)
+        layout.addLayout(findBtnLayout)
+
+        replaceBtnLayout = QtGui.QHBoxLayout()
+        replaceBtnLayout.addWidget(self.replaceBtn)
+        replaceBtnLayout.addWidget(self.replaceAllBtn)
+        layout.addLayout(replaceBtnLayout)
+
+        gotoLayout = QtGui.QHBoxLayout()
+        gotoLayout.addWidget(QtGui.QLabel("Goto line: "))
+        self.gotoLineEdit = QtGui.QLineEdit()
+        self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
+        self.gotoLineBtn = QtGui.QPushButton("Goto line")
+        self.gotoLineBtn.clicked.connect(self.onGotoLineBtnClicked)
+        gotoLayout.addWidget(self.gotoLineEdit)
+        layout.addLayout(gotoLayout)
+        #gotoLayout.addWidget(self.gotoLineBtn)
+
+        indentLayout = QtGui.QHBoxLayout()
+        self.indentBtn = QtGui.QPushButton("indent ->")
+        self.indentBtn.setToolTip("Increase indentation of selection")
+        self.indentBtn.clicked.connect(self.onIndentBtnClicked)
+        indentLayout.addWidget(self.indentBtn)
+        self.indentBackBtn = QtGui.QPushButton("<- indent")
+        self.indentBackBtn.setToolTip("Decrease indentation of selection")
+        self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
+        indentLayout.addWidget(self.indentBackBtn)
+        layout.addLayout(indentLayout)
+
+        consoleLayout = QtGui.QHBoxLayout()
+        consoleLayout.addWidget(QtGui.QLabel("To console:"))
+        self.consoleEdit = QtGui.QLineEdit()
+        self.consoleEdit.returnPressed.connect(self.onConsoleEditReturnPressed)
+        self.consoleEdit.setToolTip("Access QPlainTextEdit of current editor directly.\n\
+Enter command here and press return\n\
+Variable 'editor' will remain afterwards for direct access from the console.\n\
+Type 'help(editor)' in the console for help.\n\
+")
+        self.consoleEdit.setText("editor.selectAll()")
+        self.consoleSendBtn = QtGui.QPushButton("Send")
+        self.consoleSendBtn.clicked.connect(self.onConsoleBtnClicked)
+        consoleLayout.addWidget(self.consoleEdit)
+        #consoleLayout.addWidget(self.consoleSendBtn)
+        layout.addLayout(consoleLayout)
+
+    def getEditors(self):
+        self.editors = [child for child in mw.findChildren(QtGui.QPlainTextEdit) if child.objectName() != "Python console"]
+        self.parents = [ed.parent() for ed in self.editors]
+        self.grandparents = [p.parent() for p in self.parents]
+        self.titles = [g.windowTitle() for g in self.grandparents]
+
+    def setCurrentEditor(self, name=""):
+        if name:
+            self.currentEditor = self.editorDict[name]
+            if name in self.titles:
+                self.editorList.setCurrentRow(self.titles.index(name))
+        else:
+            if self.editorList.currentItem():
+                name = self.editorList.currentItem().text()
+                self.currentEditor = self.editorDict[name]
+        if shiboken and shiboken.isValid(self.currentEditor) and self.currentEditor and not self.currentEditor.hasFocus():
+            self.currentEditor.setFocus()
+        #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
+
+    def onEditorListCurrentItemChanged(self, current, previous):
+        if self.blockSignals:
+            return
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        self.onFindEditTextChanged(None)
+
+    def doCommand(self, cmd):
+        FreeCADGui.doCommand(cmd)
+
+    def setText(self, name, txt):
+        self.editorDict[name].setPlainText(txt)
+        document = self.editorDict[name].document()
+        document.setModified(True)
+
+    def getText(self, name):
+        return self.editorDict[name].toPlainText()
+
+    def replace(self, name, txt, newTxt, flags=None):
+        if flags:
+            findflags = "', "+flags
+        else:
+            findflags = "'"
+        text = self.getText(name)
+        newText = text.replace(txt, newTxt)
+        self.setText(name, newText)
+
+    def find(self, name, txt, backward = False):
+        self.setCurrentEditor()
+        if not self.currentEditor:
+            self.toast("No editor selected")
+            return
+        if not txt:
+            self.toast("Nothing to find.")
+            return
+        str1 = "'"
+        findFlagsList = []
+
+        if self.matchCaseCheckBox.checkState():
+            findFlagsList.append("QtGui.QTextDocument.FindFlag.FindCaseSensitively")
+        if self.matchWholeCheckBox.checkState():
+            findFlagsList.append("QtGui.QTextDocument.FindFlag.FindWholeWords")
+        if backward:
+            findFlagsList.append("QtGui.QTextDocument.FindFlag.FindBackward")
+        if findFlagsList:
+            str1 = "', "
+            findFlags = "|".join(findFlagsList)
+        else:
+            findFlags = ""
+        newtxt = txt.replace('"', '\\"').replace("'","\\'")
+        #self.currentEditor.find(txt, flags)
+        #self.toast(f"self.currentEditor.find({txt},{flags})", "black",10000)
+
+        cmd = """
+from PySide import QtGui
+__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
+__parents__ = [ed.parent() for ed in __editors__]
+__grandparents__ = [p.parent().windowTitle() for p in __parents__]
+__editor__ = __editors__[__grandparents__.index('""" + name + """')]
+__editor__.find('""" + newtxt + str1 + findFlags + """)
+del(__editors__, __parents__, __grandparents__, __editor__)
+
+"""
+
+        self.doCommand(cmd)
+
+
+    def onConsoleEditReturnPressed(self):
+        self.onConsoleBtnClicked(True)
+
+    def toast(self,msg,color='red',length=5000):
+        self.timers.append(msg)
+        self.msgLabel.setText(msg)
+        self.msgLabel.setStyleSheet(f"color: {color}")
+        QtCore.QTimer().singleShot(length,self.clearToast)
+
+    def clearToast(self):
+        #in case there are new messages we don't want to delete them yet, let their timers do it later
+        if len(self.timers) == 1:
+            self.msgLabel.setText("")
+            self.timers.pop()
+        elif len(self.timers) > 1:
+            self.timers.pop()
+
+    def onConsoleBtnClicked(self, arg1):
+        consoleCmd = self.consoleEdit.text()
+        name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not name:
+            self.toast("No editor selected")
+            return
+        cmd = """
+from PySide import QtGui
+__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
+__parents__ = [ed.parent() for ed in __editors__]
+__grandparents__ = [p.parent().windowTitle() for p in __parents__]
+editor = __editors__[__grandparents__.index('""" + name + """')]
+"""+ consoleCmd + """
+del(__editors__, __parents__, __grandparents__)
+"""
+        self.doCommand(cmd)
+        self.currentEditor.document().setModified(True)
+        self.toast("editor now available as variable in python console","black")
+
+    def onFindEditReturnPressed(self):
+        self.onFindBtnClicked(True)
+
+    def onFindEditTextChanged(self, arg1):
+        matchCase = self.matchCaseCheckBox.checkState()
+        plainText = self.currentEditor.toPlainText()
+        txt = self.findEdit.text()
+        if not matchCase:
+            plainText = plainText.lower()
+            txt = txt.lower()
+        name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        count = plainText.count(txt)
+        if name and txt:
+            self.toast(f"{txt} count in {name}: {count}","black")
+
+    def onFindBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        name = self.editorList.currentItem().text()
+        txt = self.findEdit.text()
+        matchCase = self.matchCaseCheckBox.checkState()
+        self.find(name, txt)
+
+    def onFindBackBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        name = self.editorList.currentItem().text()
+        txt = self.findEdit.text()
+        self.find(name, txt, True)
+
+    def onIndentBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        tc = self.currentEditor.textCursor()
+        txt = tc.selectedText()
+        if not txt:
+            self.toast("nothing selected to indent")
+            return
+        lines = txt.splitlines()
+        lines2 = ['    '+line for line in lines]
+        joined = '\u2029'.join(lines2)
+        tc.insertText(joined)
+        self.currentEditor.document().setModified(True)
+        tc.movePosition(QtGui.QTextCursor.Up, QtGui.QTextCursor.KeepAnchor, len(lines2)-1)
+        tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
+        self.currentEditor.setTextCursor(tc)
+
+    def onIndentBackBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        tc = self.currentEditor.textCursor()
+        txt = tc.selectedText()
+        if not txt:
+            self.toast("nothing selected to unindent")
+            return
+        lines = txt.splitlines()
+        hasLeading = True
+        for line in lines:
+            if not line[:4] == '    ':
+                hasLeading = False
+        if not hasLeading:
+            self.print("Editor assistant: Cannot unindent selected block","Warning")
+            return
+        lines2 = [line[4:] for line in lines]
+        joined = '\u2029'.join(lines2)
+        tc.insertText(joined)
+        self.currentEditor.document().setModified(True)
+        tc.movePosition(QtGui.QTextCursor.Up, QtGui.QTextCursor.KeepAnchor, len(lines2)-1)
+        tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
+        self.currentEditor.setTextCursor(tc)
+
+    def onReplaceAllBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        name = self.editorList.currentItem().text()
+        txt = self.findEdit.text()
+        newTxt = self.replaceEdit.text()
+        flags = None
+        self.replace(name, txt, newTxt, flags)
+
+    def onReplaceBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        document = self.currentEditor.document()
+        name = self.editorList.currentItem().text()
+        text_cursor = self.currentEditor.textCursor()
+        txt = self.currentEditor.toPlainText()
+        start = text_cursor.selectionStart()
+        end = text_cursor.selectionEnd()
+        if start == end:
+            self.toast("Nothing selected, press Find and try again")
+            return
+        txt1 = txt[:start]
+        txt2 = txt[end:]
+        newtxt = self.replaceEdit.text()
+        newText = txt1 + newtxt + txt2
+        self.setText(name,newText)
+        document.setModified(True)
+        text_cursor.setPosition(end)
+        self.currentEditor.setTextCursor(text_cursor)
+        self.onFindBtnClicked(True)
+
+    def onRefreshBtnClicked(self, arg1):
+        self.getEditors()
+        #self.print(f"(btnRefresh): self.editors: {self.editors}")
+        self.editorDict = {}
+        for zz in zip(self.editors, self.parents, self.grandparents):
+            self.editorDict [zz[2].windowTitle()] = zz[0]
+            #self.print(f"ed = {ed}")
+        self.populateList()
+        self.setCurrentEditor()
+
+    def onGotoLineEditReturnPressed(self):
+        self.onGotoLineBtnClicked(True)
+
+    def onGotoLineBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.currentEditor.setFocus()
+        try:
+            line = int(self.gotoLineEdit.text())
+        except ValueError:
+            self.toast(f"Cannot parse {self.gotoLineEdit.text()} as integer value")
+            return
+        document = self.currentEditor.document()
+        text_block = document.findBlockByLineNumber(line-1)
+        if not text_block.isValid():
+            self.toast(f"Cannot goto Line# {line} of {self.editorList.currentItem().text()}")
+            return
+        text_cursor = self.currentEditor.textCursor()
+        text_cursor.setPosition(text_block.position())
+        self.currentEditor.setFocus()
+        self.currentEditor.setTextCursor(text_cursor)
+        self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","black")
+
+    def populateList(self):
+        self.blockSignals = True
+        current = None
+        if self.editorList.count() != 0:
+            current = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        self.editorList.clear()
+        for k in sorted(self.editorDict.keys()):
+            self.editorList.addItem(k)
+
+        if current and current in self.editorDict:
+            items = self.editorList.findItems(current, QtCore.Qt.MatchExactly)
+            self.editorList.setCurrentItem(items[0] if items else self.editorList.item(0))
+            pass
+        else:
+            self.editorList.setCurrentRow(0)
+
+        self.setCurrentEditor()
+        self.blockSignals = False
+
+    def print(self,message,type="Message"):
+        if type == "Message":
+            FreeCAD.Console.PrintMessage(message+"\n")
+        elif type == "Error":
+            FreeCAD.Console.PrintError(message+"\n")
+        elif type == "Warning":
+            FreeCAD.Console.PrintWarning(message+"\n")
+
+    def getStandardButtons(self):
+        return int(QtGui.QDialogButtonBox.Close)
+
+    def reject(self):
+        FreeCADGui.Control.closeDialog()
+        if FreeCADGui.activeDocument():
+            FreeCADGui.activeDocument().resetEdit()
+
+def showEditorAssistantDialog():
+    '''show the editor assistant dialog'''
+    if not FreeCADGui.Control.activeDialog():
+        dlg = TaskEditorAssistant()
+        FreeCADGui.Control.showDialog(dlg)
+    else:
+        FreeCAD.Console.PrintError("Another task dialog is active.  Close that one and try again.\n")
+        return
+
+showEditorAssistantDialog()
