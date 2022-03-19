@@ -26,25 +26,27 @@ This is a QLineEdit containing replacement text (replacing the text in the Find 
 This is a QCheckBox.  If checked searches are case-sensitive.  (Replace All is always case-sensitive.)
 ### Match word
 This is a QCheckBox.  If checked, then searches are for the entire word.  For example, "en" will not find "end" as a match if Match word is checked.
-### Find next ->
+### Find next
 Click this button to find the next instance of the text in the Find Edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.
-### <- Find previous
+### Find previous
 Like Find next except it searches backward.
-### Replace ->
+### Replace
 Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  There is no Undo for this at this time.  Close without saving and reopen your document if you make a mistake.  Use with caution!
 ### Replace all
 Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This is always a case-sensitive replacement regardless of the Match case checkbox state.  There is no Undo for this.  Use with caution!
 ### Goto line
 Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
-### indent ->
+### Indent
 Moves the selected text in the current editor to the right by 4 spaces.
-### <- indent
+### Unindent
 Moves the selected text in the current editor to the left by 4 spaces if there are 4 spaces in front of every selected line.  If not every line has 4 leading spaces the operation will not be done.
 ### To console
 Enter a python command here and press enter.  The variable "editor" refers to the current editor.  Once this is done you can use "editor" as a variable in the python console to directly access the QPlainTextEdit of the current editor.  Refer to PySide documentation for attributes available.  You can also enter "help(editor)" in the console (without the quotes) to see a brief summary of available attributes.
 
 
 ## Changelog
+### 1.10 (2022.03.19)
+* add icons to the dialog
 ### 1.09c (2022.03.19)
 * new icon
 ### 1.09b (2022.03.19)
