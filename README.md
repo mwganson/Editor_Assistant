@@ -45,6 +45,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.09c (2022.03.19)
+* new icon
 ### 1.09b (2022.03.19)
 * remove icon, to be replaced
 ### 1.09 (2022.03.19)
