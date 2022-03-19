@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.09c"
+__version__ = "1.10"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -117,7 +117,7 @@ class FindEdit (QtGui.QLineEdit):
         self.setText(txt)
 
 
-class TaskEditorAssistant:
+class TaskEditorAssistant ():
     def __init__(self):
         self.found = False
         self.editorDict = {}
@@ -131,7 +131,8 @@ class TaskEditorAssistant:
         self.blockSignals = False
         self.form = QtGui.QWidget()
         self.form.setObjectName("Editor assistant")
-        self.form.setWindowTitle("Editor assistant v"+__version__)
+        self.form.setWindowTitle(" Editor assistant v"+__version__)
+        self.form.setWindowIcon(QIconFromXPMString(__icon__))
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
@@ -141,6 +142,7 @@ class TaskEditorAssistant:
         topLabelLayout = QtGui.QHBoxLayout()
         self.msgLabel = QtGui.QLabel("")
         self.msgLabel.setStyleSheet("color:red")
+        topLabelLayout.addWidget(self.msgLabel)
         layout.addLayout(topLabelLayout)
 
         self.editorList = QtGui.QListWidget()
@@ -150,9 +152,9 @@ class TaskEditorAssistant:
         self.populateList()
 
         self.topButtonBox = QtGui.QHBoxLayout()
-        layout.addWidget(self.msgLabel)
 
         refreshBtn = QtGui.QPushButton("Refresh editor list")
+        refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
         refreshBtn.clicked.connect(self.onRefreshBtnClicked)
         layout.addWidget(refreshBtn)
 
@@ -163,9 +165,11 @@ class TaskEditorAssistant:
         self.findEdit.textChanged.connect(self.onFindEditTextChanged)
 
         findEditLayout.addWidget(self.findEdit)
-        self.findBtn = QtGui.QPushButton("Find next ->")
+        self.findBtn = QtGui.QPushButton("Find next")
+        self.findBtn.setIcon(QIconFromStandard('SP_ArrowDown'))
         self.findBtn.clicked.connect(self.onFindBtnClicked)
-        self.findBackBtn = QtGui.QPushButton("<- Find previous")
+        self.findBackBtn = QtGui.QPushButton("Find previous")
+        self.findBackBtn.setIcon(QIconFromStandard('SP_ArrowUp'))
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         layout.addLayout(findEditLayout)
 
@@ -186,10 +190,12 @@ class TaskEditorAssistant:
 
         findBtnLayout = QtGui.QHBoxLayout()
 
-        self.replaceBtn = QtGui.QPushButton("Replace ->")
+        self.replaceBtn = QtGui.QPushButton("Replace next")
         self.replaceBtn.setToolTip("Replace current selection and find next")
         self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
+        self.replaceBtn.setIcon(QIconFromStandard("SP_ArrowRight"))
         self.replaceAllBtn = QtGui.QPushButton("Replace all")
+        self.replaceAllBtn.setIcon(QIconFromStandard("SP_FileDialogContentsView"))
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         findBtnLayout.addWidget(self.findBtn)
         findBtnLayout.addWidget(self.findBackBtn)
@@ -211,11 +217,13 @@ class TaskEditorAssistant:
         #gotoLayout.addWidget(self.gotoLineBtn)
 
         indentLayout = QtGui.QHBoxLayout()
-        self.indentBtn = QtGui.QPushButton("indent ->")
+        self.indentBtn = QtGui.QPushButton("Indent")
+        self.indentBtn.setIcon(QIconFromStandard("SP_MediaSeekForward"))
         self.indentBtn.setToolTip("Increase indentation of selection")
         self.indentBtn.clicked.connect(self.onIndentBtnClicked)
         indentLayout.addWidget(self.indentBtn)
-        self.indentBackBtn = QtGui.QPushButton("<- indent")
+        self.indentBackBtn = QtGui.QPushButton("Unindent")
+        self.indentBackBtn.setIcon(QIconFromStandard("SP_MediaSeekBackward"))
         self.indentBackBtn.setToolTip("Decrease indentation of selection")
         self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
         indentLayout.addWidget(self.indentBackBtn)
@@ -527,6 +535,17 @@ del(__editors__, __parents__, __grandparents__)
         FreeCADGui.Control.closeDialog()
         if FreeCADGui.activeDocument():
             FreeCADGui.activeDocument().resetEdit()
+
+def QIconFromXPMString(xpm_string):
+    xpm = xpm_string.replace("\"","").replace(',','').splitlines()[4:-1]
+    pixmap = QtGui.QPixmap(xpm)
+    icon = QtGui.QIcon(pixmap)
+    return icon
+
+def QIconFromStandard(name):
+    pixmap = getattr(QtGui.QStyle,name)
+    icon = QtGui.QPushButton().style().standardIcon(pixmap)
+    return icon
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
