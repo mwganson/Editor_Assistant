@@ -45,6 +45,12 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.15 (2022.03.20)
+* Use a button for toast messages instead of a label.  That way it can be clicked and the last toast reshown.
+* Use message types instead of colors direction.  message types: warning, error, message, information
+* Set background color for some message types to get a nice contrast.
+* Set a maximum length for undo queue and pop the oldest when the max is reached.  This is to prevent out of memory issues potentially.
+* UNDO_QUEUE_MAX_SIZE = 100 (subject to change)
 ### 1.14b (2022.03.19)
 * avoid infinite loop if replace all is clicked without anything in the Find edit
 ### 1.14 (2022.03.19)
