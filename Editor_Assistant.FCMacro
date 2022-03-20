@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.14"
+__version__ = "1.14b"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -310,6 +310,9 @@ Type 'help(editor)' in the console for help.\n\
             return txt
 
     def replace(self, name, txt, newTxt):
+        if not txt:
+            self.toast("nothing to replace","red")
+            return
         fullText = self.getText(name)
         if self.matchCaseCheckBox.checkState():
             txt = self.filterBackSlashes(txt)
