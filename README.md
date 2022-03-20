@@ -45,6 +45,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.12b (2022.03.19)
+* fix type in Replace all handler.
 ### 1.12 (2022.03.19)
 * Disable Replace all if Whole words is checked.
 ### 1.11 (2022.03.19)
