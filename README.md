@@ -45,6 +45,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.14 (2022.03.19)
+* implement Undo button
+### 1.13 (2022.03.19)
+* handle backslashed characters in Find edit, such as \t, \n
 ### 1.12b (2022.03.19)
 * fix type in Replace all handler.
 ### 1.12 (2022.03.19)
