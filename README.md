@@ -15,7 +15,7 @@ Execute the macro to bring up the new task dialog.  If another task dialog is cu
 ### Editor List
 This is the QListWidget at the top of the dialog.  It will list the names of the documents currently registered with the dialog.  Select an item in the list to make make that item the current editor.  This also sets the focus on that editor.  All the actions in the dialog will work on that current editor even if you select a different editor in FreeCAD's MDI widget.  It is recommended to select the editor here so the dialog is in sync with the correct editor.
 ### Toast
-Just below the Editor List and above the Refresh button there is an empty area reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.
+At the top of the page, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see again the most recent message.  Only the most recent message is stored for viewing again.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
 ### Refresh button
 This button is labeled "Refresh editor list".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
 ### Find Edit
@@ -36,6 +36,8 @@ Replace the currently selected text in the current editor with the text in the R
 Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  There is no Undo for this.  Use with caution!
 ### Goto line
 Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
+### Undo button
+Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
 ### Indent
 Moves the selected text in the current editor to the right by 4 spaces.
 ### Unindent
