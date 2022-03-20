@@ -45,6 +45,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.14b (2022.03.19)
+* avoid infinite loop if replace all is clicked without anything in the Find edit
 ### 1.14 (2022.03.19)
 * implement Undo button
 ### 1.13 (2022.03.19)
