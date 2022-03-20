@@ -5,7 +5,7 @@ FreeCAD macro adds functionality to FreeCAD's built-in python editor
 Install via the Addon manager (soon).
 
 ## Toolbar icon
-Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a href="Editor_Assistant_Icon.svg">Link</a><br/>
+Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a href="Editor_Assistant_Icon.svg"> Link</a><br/>
 
 ## Screenshot
 <img src="Editor_Assistant_scr1.png" alt="screenshot">
