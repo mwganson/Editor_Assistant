@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.11"
+__version__ = "1.12"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -181,6 +181,7 @@ class TaskEditorAssistant ():
 
         flagsLayout = QtGui.QHBoxLayout()
         self.matchWholeCheckBox = QtGui.QCheckBox("Whole words")
+        self.matchWholeCheckBox.stateChanged.connect(self.onMatchWholeCheckBoxStateChanged)
         self.matchCaseCheckBox = QtGui.QCheckBox("Match case")
         flagsLayout.addWidget(self.matchCaseCheckBox)
         flagsLayout.addWidget(self.matchWholeCheckBox)
@@ -310,6 +311,9 @@ Type 'help(editor)' in the console for help.\n\
             count = len(indices)
         self.setText(name, newText)
         self.toast(f"{count} instances of {txt} replaced in {name}","black")
+
+    def onMatchWholeCheckBoxStateChanged(self, arg1):
+        self.replaceAllBtn.setEnabled(not self.matchWholeCheckBox.checkState())
 
     def find(self, name, txt, backward = False):
         self.setCurrentEditor()
@@ -474,6 +478,9 @@ del(__editors__, __parents__, __grandparents__)
         self.currentEditor.setTextCursor(tc)
 
     def onReplaceAllBtnClicked(self, arg1):
+        if self.matchWordCheckBox.checkState():
+            self.toast("Replace All does not work with Match word = checked","red",10000)
+            return
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "red")
