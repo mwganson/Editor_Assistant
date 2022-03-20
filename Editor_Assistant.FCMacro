@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.12b"
+__version__ = "1.13"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -283,14 +283,21 @@ Type 'help(editor)' in the console for help.\n\
     def getText(self, name):
         return self.editorDict[name].toPlainText()
 
+    def filterBackSlashes(self, instring):
+            txt = instring.replace('\\t',chr(9)).replace('\\n',chr(10)).replace('\\r',chr(13))
+            txt = txt.replace('\\b',chr(8)).replace('\\f',chr(12)).replace('\'',chr(39))
+            txt = txt.replace('\\',chr(92))
+            return txt
+
     def replace(self, name, txt, newTxt):
         fullText = self.getText(name)
         if self.matchCaseCheckBox.checkState():
+            txt = self.filterBackSlashes(txt)
             newText = fullText.replace(txt, newTxt)
             count = fullText.count(txt)
         else:
             fulltextlower = fullText.lower()
-            txtlower = txt.lower()
+            txtlower = self.filterBackSlashes(txt.lower())
             indices = []#(from,to) tuples
             idx = 0
             while idx != -1:
@@ -299,7 +306,6 @@ Type 'help(editor)' in the console for help.\n\
                     break
                 indices.append(tuple([idx,idx+len(txtlower)]))
                 idx += len(txtlower)
-            self.print(f"{indices}")
             chunks = []
             last = -1
             for i in reversed(indices):
@@ -400,7 +406,7 @@ del(__editors__, __parents__, __grandparents__)
             self.toast("current editor is invalid", "red")
             return
         plainText = self.currentEditor.toPlainText()
-        txt = self.findEdit.text()
+        txt = self.filterBackSlashes(self.findEdit.text())
         if not matchCase:
             plainText = plainText.lower()
             txt = txt.lower()
