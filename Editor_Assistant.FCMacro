@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.16"
+__version__ = "1.17"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -20,6 +20,20 @@ class FindEdit (QtGui.QLineEdit):
         self.form = form
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.__contextMenu)
+        self.installEventFilter(self)
+        self.setToolTip("Double click to set text from current selection in editor")
+
+    def eventFilter(self, watched, event):
+        if watched == self and event.type() == QtCore.QEvent.MouseButtonDblClick:
+            if shiboken.isValid(self.form.currentEditor) and self.form.currentEditor:
+                sel = self.form.currentEditor.textCursor().selectedText()
+                if sel:
+                    self.setText(sel)
+                else:
+                    self.form.toast("Nothing selected in editor","error")
+            else:
+                self.form.toast("Editor is invalid","error")
+        return QtGui.QLineEdit.eventFilter(self, watched, event)
 
     def __contextMenu(self):
         self._normalMenu = self.createStandardContextMenu()
@@ -62,8 +76,8 @@ class TaskEditorAssistant ():
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
         #self.print(f"self.editorDict = {self.editorDict}")
-        layout = QtGui.QVBoxLayout()
-        self.form.setLayout(layout)
+        self.layout = QtGui.QVBoxLayout()
+        self.form.setLayout(self.layout)
         topLabelLayout = QtGui.QHBoxLayout()
         self.msgBtn = QtGui.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
@@ -71,12 +85,14 @@ class TaskEditorAssistant ():
         self.msgBtn.setToolTip("Toast message area, click to see most recent message")
 
         topLabelLayout.addWidget(self.msgBtn)
-        layout.addLayout(topLabelLayout)
+        self.layout.addLayout(topLabelLayout)
 
+        editorLayout = QtGui.QHBoxLayout()
         self.editorList = QtGui.QListWidget()
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
         self.editorList.setToolTip("Open editors, press Refresh to update")
-        layout.addWidget(self.editorList)
+        editorLayout.addWidget(self.editorList)
+        self.layout.addLayout(editorLayout)
         self.populateList()
 
 #        self.topButtonBox = QtGui.QHBoxLayout()
@@ -94,7 +110,7 @@ class TaskEditorAssistant ():
         self.gotoLineBtn = QtGui.QPushButton("Goto line")
         self.gotoLineBtn.clicked.connect(self.onGotoLineBtnClicked)
         refreshLayout.addWidget(self.gotoLineEdit)
-        layout.addLayout(refreshLayout)
+        self.layout.addLayout(refreshLayout)
 
         undoLayout = QtGui.QHBoxLayout()
         self.undoBtn = QtGui.QPushButton("Undo")
@@ -114,7 +130,7 @@ class TaskEditorAssistant ():
         self.redoBtn.clicked.connect(self.onRedoBtnClicked)
         self.redoBtn.setIcon(QIconFromXPMString(redo_icon))
         self.redoBtn
-        layout.addLayout(undoLayout)
+        self.layout.addLayout(undoLayout)
 
         findEditLayout = QtGui.QHBoxLayout()
         findEditLayout.addWidget(QtGui.QLabel("Find: "))
@@ -129,13 +145,13 @@ class TaskEditorAssistant ():
         self.findBackBtn = QtGui.QPushButton("Find previous")
         self.findBackBtn.setIcon(QIconFromStandard('SP_ArrowUp'))
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
-        layout.addLayout(findEditLayout)
+        self.layout.addLayout(findEditLayout)
 
         replaceEditLayout = QtGui.QHBoxLayout()
         replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
         self.replaceEdit = FindEdit(form=self)
         replaceEditLayout.addWidget(self.replaceEdit)
-        layout.addLayout(replaceEditLayout)
+        self.layout.addLayout(replaceEditLayout)
 
         flagsLayout = QtGui.QHBoxLayout()
         self.matchWholeCheckBox = QtGui.QCheckBox("Whole words")
@@ -145,7 +161,7 @@ class TaskEditorAssistant ():
         flagsLayout.addWidget(self.matchWholeCheckBox)
         self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
 
-        layout.addLayout(flagsLayout)
+        self.layout.addLayout(flagsLayout)
 
         findBtnLayout = QtGui.QHBoxLayout()
 
@@ -158,38 +174,28 @@ class TaskEditorAssistant ():
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         findBtnLayout.addWidget(self.findBtn)
         findBtnLayout.addWidget(self.findBackBtn)
-        layout.addLayout(findBtnLayout)
+        self.layout.addLayout(findBtnLayout)
 
         replaceBtnLayout = QtGui.QHBoxLayout()
         replaceBtnLayout.addWidget(self.replaceBtn)
         replaceBtnLayout.addWidget(self.replaceAllBtn)
-        layout.addLayout(replaceBtnLayout)
-
-        #gotoLayout = QtGui.QHBoxLayout()
-        #gotoLayout.addWidget(QtGui.QLabel("Goto line: "))
-        #self.gotoLineEdit = QtGui.QLineEdit()
-        #self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
-        #self.gotoLineBtn = QtGui.QPushButton("Goto line")
-        #self.gotoLineBtn.clicked.connect(self.onGotoLineBtnClicked)
-        #gotoLayout.addWidget(self.gotoLineEdit)
-        #layout.addLayout(gotoLayout)
-        #gotoLayout.addWidget(self.gotoLineBtn)
+        self.layout.addLayout(replaceBtnLayout)
 
         indentLayout = QtGui.QHBoxLayout()
         self.indentBtn = QtGui.QPushButton("Indent")
-        self.indentBtn.setIcon(QIconFromStandard("SP_MediaSeekForward"))
+        self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
         self.indentBtn.setToolTip("Increase indentation of selection")
         self.indentBtn.clicked.connect(self.onIndentBtnClicked)
         indentLayout.addWidget(self.indentBtn)
         self.indentBackBtn = QtGui.QPushButton("Unindent")
-        self.indentBackBtn.setIcon(QIconFromStandard("SP_MediaSeekBackward"))
+        self.indentBackBtn.setIcon(QIconFromXPMString(unindent_icon))
         self.indentBackBtn.setToolTip("Decrease indentation of selection")
         self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
         indentLayout.addWidget(self.indentBackBtn)
-        layout.addLayout(indentLayout)
+        self.layout.addLayout(indentLayout)
 
-        consoleLayout = QtGui.QHBoxLayout()
-        consoleLayout.addWidget(QtGui.QLabel("To console:"))
+        self.consoleLayout = QtGui.QHBoxLayout()
+        self.consoleLayout.addWidget(QtGui.QLabel("To console:"))
         self.consoleEdit = QtGui.QLineEdit()
         self.consoleEdit.returnPressed.connect(self.onConsoleEditReturnPressed)
         self.consoleEdit.setToolTip("Access QPlainTextEdit of current editor directly.\n\
@@ -200,9 +206,9 @@ Type 'help(editor)' in the console for help.\n\
         self.consoleEdit.setText("editor.selectAll()")
         self.consoleSendBtn = QtGui.QPushButton("Send")
         self.consoleSendBtn.clicked.connect(self.onConsoleBtnClicked)
-        consoleLayout.addWidget(self.consoleEdit)
+        self.consoleLayout.addWidget(self.consoleEdit)
         #consoleLayout.addWidget(self.consoleSendBtn)
-        layout.addLayout(consoleLayout)
+        self.layout.addLayout(self.consoleLayout)
 
     def getEditors(self):
         self.editors = [child for child in mw.findChildren(QtGui.QPlainTextEdit) if child.objectName() != "Python console"]
@@ -894,5 +900,167 @@ static char *edit_redo_XPM[] = {
 "                               %     %%                         ",
 "                                                                "
 };
+"""
+indent_icon = """
+/* XPM */
+static char *indent_xpm[] = {
+/* format */
+"64 64 9 1",
+" 	c None",
+".	c black",
+"+	c #DFDFDF",
+"@	c #3F48CC",
+"#	c #22B14C",
+"$	c black",
+"%	c #FFC90E",
+"&	c #ED1C24",
+"*	c #E2D9D6",
+/* pixels */
+"...................................................             ",
+"...................................................             ",
+"....................................................            ",
+".....................................................           ",
+"....++++++++++++++++++++++++++++++++++++++++++++......          ",
+"....++++++++++++++++++++++++++++++++++++++++++++.......         ",
+"....++++++++++++++++++++++++++++++++++++++++++++........        ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+.....       ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++.....      ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++.....     ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++.....    ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++.....   ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++.....  ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++++..... ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++++.... ",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++++++++++++++....",
+"....+++++++@@@@@@@$@@@##########..........++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++....+++++++++++++++++++++%%%%%........&&&&&&&&&&&&++....",
+"....++++.$$....++++++++++++++++++%%%%%........&&&&&&&&&&&&++....",
+"....++++.$$$$$....++++++*++++++++%%%%%........&&&&&&&&&&&&++....",
+"....++++..$$$$$$....+++++++++++++%%%%%........&&&&&&&&&&&&++....",
+"....++++....$$$$$$....+++++++++++%%%%%........&&&&&&&&&&&&++....",
+"....+++++.....$$$$$$...+++++++++++++++++++++++++++++++++++++....",
+"....+++++++......$$$$...++++++++++++++++++++++++++++++++++++....",
+"....+++++++++......$$$$...++++++++++++++++++++++++++++++++++....",
+"....++++++++++++....$$$$$..+++++++++++++++++++++++++++++++++....",
+"....++++++++++++++....$$$$..++++++++++++++++++++++++++++++++....",
+"....+++++++++++++++....$$$$..+++++++++++++++++++++++++++++++....",
+"....+++++++++++++++++....$$...+++.....##############@@@@@#++....",
+"....+++++++++++*++++++...$$$..+++.....##############@@@@@#++....",
+"....++++++++++++++++.....$$...+++.....##############@@@@@#++....",
+"....++++++++++++++.....$$$$..++++.....##############@@@@@#++....",
+"....+++++++++++++....$$$$$..+++++.....##############@@@@@#++....",
+"....+++++++++++....$$$$$...+++++++++++++++++++++++++++++++++....",
+"....+++++++++....$$$$$$...++++++++++++++++++++++++++++++++++....",
+"....+++++++....$$$$$$...++++++++++++++++++++++++++++++++++++....",
+"....+++++....$$$$$$$...+++++++++++++++++++++++++++++++++++++....",
+"....+++++..$$$$$$$...+++++++++++++++++++++++++++++++++++++++....",
+"....+++++.$$$$$$...+++++++++++++++++++++++++++++++++++++++++....",
+"....+++++.$$$$....+++++++++++++++&&&&&&&.............%%%%%++....",
+"....+++++.$$....++++++++*++++++++&&&&&&&.............%%%%%++....",
+"....+++++.....+++++++++++++++++++&&&&&&&.............%%%%%++....",
+"....+++++++++++++++++++++++++++++&&&&&&&.............%%%%%++....",
+"....+++++++++++++++++++++++++++++&&&&&&&.............%%%%%++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"................................................................",
+"................................................................",
+"................................................................",
+"................................................................"};
+
+"""
+unindent_icon = """
+/* XPM */
+static char * unindent_xpm[] = {
+/* format */
+"64 64 9 1",
+" 	c None",
+".	c #000000",
+"+	c #DFDFDF",
+"@	c #3F48CC",
+"#	c #22B14C",
+"$	c black",
+"%	c #FFC90E",
+"&	c #ED1C24",
+"*	c #E2D9D6",
+/* pixels */
+"...................................................             ",
+"...................................................             ",
+"....................................................            ",
+".....................................................           ",
+"....++++++++++++++++++++++++++++++++++++++++++++......          ",
+"....++++++++++++++++++++++++++++++++++++++++++++.......         ",
+"....++++++++++++++++++++++++++++++++++++++++++++........        ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+.....       ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++.....      ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++.....     ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++.....    ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++.....   ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++.....  ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++++..... ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++++.... ",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++................",
+"....+++++++@@@@@@@@@@@##########..........++++++++++++++++++....",
+"....+++++++@@@@@@@$@@@##########..........++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++%%%%%........&&&&&&&&&&&&++++++++++++++++++.....++++....",
+"....++++%%%%%........&&&&&&&&&&&&+++++++*++++++++....$$.++++....",
+"....++++%%%%%........&&&&&&&&&&&&++++++++++++++....$$$$.++++....",
+"....++++%%%%%........&&&&&&&&&&&&+++++++++++++...$$$$$$.++++....",
+"....++++%%%%%........&&&&&&&&&&&&+++++++++++...$$$$$$$..++++....",
+"....++++++++++++++++++++++++++++++++++++++...$$$$$$$....++++....",
+"....+++++++++++++++++++++++++++++++++++++...$$$$$$....++++++....",
+"....+++++++++++++++++++++++++++++++++++...$$$$$$....++++++++....",
+"....++++++++++++++++++++++++++++++++++...$$$$$....++++++++++....",
+"....+++++++++++++++++++++++++++++++++..$$$$$....++++++++++++....",
+"....++++++++++++++++++++++++++++++++..$$$$.....+++++++++++++....",
+"....++++.....##############@@@@@#++...$$.....+++++++++++++++....",
+"....++++.....##############@@@@@#++..$$$...++++++*++++++++++....",
+"....++++.....##############@@@@@#++...$$....++++++++++++++++....",
+"....++++.....##############@@@@@#+++..$$$$....++++++++++++++....",
+"....++++.....##############@@@@@#++++..$$$$....+++++++++++++....",
+"....++++++++++++++++++++++++++++++++++..$$$$$....+++++++++++....",
+"....+++++++++++++++++++++++++++++++++++...$$$$......++++++++....",
+"....+++++++++++++++++++++++++++++++++++++...$$$$......++++++....",
+"....++++++++++++++++++++++++++++++++++++++...$$$$$$.....++++....",
+"....+++++++++++++++++++++++++++++++++++++++....$$$$$$....+++....",
+"....+++++++++++++++++++++++++++++++++++++++++....$$$$$$..+++....",
+"....++++&&&&&&&.............%%%%%+++++++*++++++....$$$$$.+++....",
+"....++++&&&&&&&.............%%%%%+++++++++++++++++....$$.+++....",
+"....++++&&&&&&&.............%%%%%++++++++++++++++++++....+++....",
+"....++++&&&&&&&.............%%%%%+++++++++++++++++++++++++++....",
+"....++++&&&&&&&.............%%%%%+++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"................................................................",
+"................................................................",
+"................................................................",
+"................................................................"};
+
 """
 showEditorAssistantDialog()
