@@ -19,7 +19,7 @@ At the top of the page, above the Editor List there is a button reserved for "to
 ### Refresh button
 This button is labeled "Refresh editor list".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
 ### Find Edit
-This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.
+This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
 ### Replace Edit
 This is a QLineEdit containing replacement text (replacing the text in the Find Edit) when the Replace or Replace All buttons are used.
 ### Match case
@@ -37,7 +37,11 @@ Replace all occurrences of the text in the Find Edit with the text in the Replac
 ### Goto line
 Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
 ### Undo button
+Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typin that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).
+
 Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
+### Redo button
+When an operation is undone, the undone is popped and sent to the redo queue.  
 ### Indent
 Moves the selected text in the current editor to the right by 4 spaces.
 ### Unindent
@@ -47,6 +51,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.17 (2022.03.20)
+* new icons for indent and unindent
+* double click Find/Replace edits to replace existing content with selected text in current editor
 ### 1.16 (2022.03.20)
 * add redo button
 * add undo queue clear button
