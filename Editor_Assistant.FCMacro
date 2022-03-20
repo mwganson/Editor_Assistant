@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.12"
+__version__ = "1.12b"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -478,8 +478,8 @@ del(__editors__, __parents__, __grandparents__)
         self.currentEditor.setTextCursor(tc)
 
     def onReplaceAllBtnClicked(self, arg1):
-        if self.matchWordCheckBox.checkState():
-            self.toast("Replace All does not work with Match word = checked","red",10000)
+        if self.matchWholeCheckBox.checkState():
+            self.toast("Replace all does not work with Match word = checked","red",10000)
             return
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
