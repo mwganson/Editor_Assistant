@@ -33,7 +33,7 @@ Like Find next except it searches backward.
 ### Replace
 Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  There is no Undo for this at this time.  Close without saving and reopen your document if you make a mistake.  Use with caution!
 ### Replace all
-Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This is always a case-sensitive replacement regardless of the Match case checkbox state.  There is no Undo for this.  Use with caution!
+Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  (But still ignores Match word checkbox state.)  There is no Undo for this.  Use with caution!
 ### Goto line
 Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
 ### Indent
