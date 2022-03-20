@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.10"
+__version__ = "1.11"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -282,14 +282,34 @@ Type 'help(editor)' in the console for help.\n\
     def getText(self, name):
         return self.editorDict[name].toPlainText()
 
-    def replace(self, name, txt, newTxt, flags=None):
-        if flags:
-            findflags = "', "+flags
+    def replace(self, name, txt, newTxt):
+        fullText = self.getText(name)
+        if self.matchCaseCheckBox.checkState():
+            newText = fullText.replace(txt, newTxt)
+            count = fullText.count(txt)
         else:
-            findflags = "'"
-        text = self.getText(name)
-        newText = text.replace(txt, newTxt)
+            fulltextlower = fullText.lower()
+            txtlower = txt.lower()
+            indices = []#(from,to) tuples
+            idx = 0
+            while idx != -1:
+                idx = fulltextlower.find(txtlower,idx)
+                if idx==-1:
+                    break
+                indices.append(tuple([idx,idx+len(txtlower)]))
+                idx += len(txtlower)
+            self.print(f"{indices}")
+            chunks = []
+            last = -1
+            for i in reversed(indices):
+                chunks.insert(0, fullText[i[1]:last])
+                chunks.insert(0, newTxt)
+                last = i[0]
+            chunks.insert(0, fullText[:last])
+            newText = "".join(chunks)
+            count = len(indices)
         self.setText(name, newText)
+        self.toast(f"{count} instances of {txt} replaced in {name}","black")
 
     def find(self, name, txt, backward = False):
         self.setCurrentEditor()
@@ -372,6 +392,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         plainText = self.currentEditor.toPlainText()
         txt = self.findEdit.text()
         if not matchCase:
@@ -384,6 +407,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onFindBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid","red")
+            return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
@@ -392,6 +418,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onFindBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid","red")
+            return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
@@ -399,6 +428,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onIndentBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         self.currentEditor.setFocus()
         tc = self.currentEditor.textCursor()
         txt = tc.selectedText()
@@ -416,6 +448,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         self.currentEditor.setFocus()
         tc = self.currentEditor.textCursor()
         txt = tc.selectedText()
@@ -440,15 +475,20 @@ del(__editors__, __parents__, __grandparents__)
 
     def onReplaceAllBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         newTxt = self.replaceEdit.text()
-        flags = None
-        self.replace(name, txt, newTxt, flags)
+        self.replace(name, txt, newTxt)
 
     def onReplaceBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         self.currentEditor.setFocus()
         document = self.currentEditor.document()
         name = self.editorList.currentItem().text()
@@ -484,6 +524,9 @@ del(__editors__, __parents__, __grandparents__)
 
     def onGotoLineBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+            self.toast("current editor is invalid", "red")
+            return
         self.currentEditor.setFocus()
         try:
             line = int(self.gotoLineEdit.text())
