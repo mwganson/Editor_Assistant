@@ -3,13 +3,14 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.14b"
+__version__ = "1.15"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
 except:
     shiboken = None
 mw = FreeCADGui.getMainWindow()
+UNDO_QUEUE_MAX_SIZE = 100
 
 __icon__="""
 /* XPM */
@@ -128,6 +129,7 @@ class TaskEditorAssistant ():
         self.undoQueue = [] #dictionary list {reason, old_text, name}
         self.currentEditor = None
         self.timers = [] #toasts use this
+        self.lastToast = "No previous toasts"
         self.getEditors()
         self.blockSignals = False
         self.form = QtGui.QWidget()
@@ -141,9 +143,10 @@ class TaskEditorAssistant ():
         layout = QtGui.QVBoxLayout()
         self.form.setLayout(layout)
         topLabelLayout = QtGui.QHBoxLayout()
-        self.msgLabel = QtGui.QLabel("")
-        self.msgLabel.setStyleSheet("color:red")
-        topLabelLayout.addWidget(self.msgLabel)
+        self.msgBtn = QtGui.QPushButton()
+        self.msgBtn.clicked.connect(self.onMsgBtnClicked)
+
+        topLabelLayout.addWidget(self.msgBtn)
         layout.addLayout(topLabelLayout)
 
         self.editorList = QtGui.QListWidget()
@@ -311,7 +314,7 @@ Type 'help(editor)' in the console for help.\n\
 
     def replace(self, name, txt, newTxt):
         if not txt:
-            self.toast("nothing to replace","red")
+            self.toast("nothing to replace","error")
             return
         fullText = self.getText(name)
         if self.matchCaseCheckBox.checkState():
@@ -338,7 +341,7 @@ Type 'help(editor)' in the console for help.\n\
             chunks.insert(0, fullText[:last])
             newText = "".join(chunks)
             count = len(indices)
-        self.toast(f"{count} instances of {txt} replaced in {name}","black")
+        self.toast(f"{count} instances of {txt} replaced in {name}","message")
         if not count == 0:
             self.setText(name, newText, f"replace {txt}")
 
@@ -370,7 +373,7 @@ Type 'help(editor)' in the console for help.\n\
             findFlags = ""
         newtxt = txt.replace('"', '\\"').replace("'","\\'")
         #self.currentEditor.find(txt, flags)
-        #self.toast(f"self.currentEditor.find({txt},{flags})", "black",10000)
+        #self.toast(f"self.currentEditor.find({txt},{flags})", "message",10000)
 
         cmd = """
 from PySide import QtGui
@@ -385,20 +388,31 @@ del(__editors__, __parents__, __grandparents__, __editor__)
 
         self.doCommand(cmd)
 
+    def onMsgBtnClicked(self, arg1):
+        self.toast(self.lastToast,"information")
 
     def onConsoleEditReturnPressed(self):
         self.onConsoleBtnClicked(True)
 
-    def toast(self,msg,color='red',length=5000):
+    def toast(self,msg,msgType='error',length=5000):
         self.timers.append(msg)
-        self.msgLabel.setText(msg)
-        self.msgLabel.setStyleSheet(f"color: {color}")
+        self.msgBtn.setText(msg)
+        if msgType == 'error':
+            self.msgBtn.setStyleSheet("color: red")
+        elif msgType == 'message':
+            self.msgBtn.setStyleSheet("color:black")
+        elif msgType == 'warning':
+            self.msgBtn.setStyleSheet("color:yellow;background-color:navy;font-weight:bold")
+        elif msgType == 'information':
+            self.msgBtn.setStyleSheet("color:blue")
         QtCore.QTimer().singleShot(length,self.clearToast)
 
     def clearToast(self):
         #in case there are new messages we don't want to delete them yet, let their timers do it later
         if len(self.timers) == 1:
-            self.msgLabel.setText("")
+            self.lastToast = self.msgBtn.text()
+            self.msgBtn.setText("")
+            self.msgBtn.setStyleSheet("color:black")
             self.timers.pop()
         elif len(self.timers) > 1:
             self.timers.pop()
@@ -421,7 +435,7 @@ del(__editors__, __parents__, __grandparents__)
 """
         self.doCommand(cmd)
         self.setModified(name, old_text, "Console command")
-        self.toast("editor now available as variable in python console","black")
+        self.toast("editor now available as variable in python console","message")
 
     def onFindEditReturnPressed(self):
         self.onFindBtnClicked(True)
@@ -429,7 +443,7 @@ del(__editors__, __parents__, __grandparents__)
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         plainText = self.currentEditor.toPlainText()
         txt = self.filterBackSlashes(self.findEdit.text())
@@ -439,12 +453,12 @@ del(__editors__, __parents__, __grandparents__)
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         count = plainText.count(txt)
         if name and txt:
-            self.toast(f"{txt} count in {name}: {count}","black")
+            self.toast(f"{txt} count in {name}: {count}","message")
 
     def onFindBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid","red")
+            self.toast("current editor is invalid","error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -466,7 +480,7 @@ del(__editors__, __parents__, __grandparents__)
     def onFindBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid","red")
+            self.toast("current editor is invalid","error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -475,13 +489,16 @@ del(__editors__, __parents__, __grandparents__)
 
     def setModified(self, name, old_text, reason):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason})
+        if len(self.undoQueue) > UNDO_QUEUE_MAX_SIZE:
+            self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\npopping {self.undoQueue[0]['reason']}","warning")
+            self.undoQueue.pop(0)
         self.updateUndoBtn()
         self.currentEditor.document().setModified(True)
 
     def onIndentBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
         old_text = self.currentEditor.toPlainText()
@@ -502,7 +519,7 @@ del(__editors__, __parents__, __grandparents__)
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
         old_text = self.currentEditor.toPlainText()
@@ -518,7 +535,7 @@ del(__editors__, __parents__, __grandparents__)
             if not line[:4] == '    ':
                 hasLeading = False
         if not hasLeading:
-            self.toast("Editor assistant: Cannot unindent selected block","red")
+            self.toast("Editor assistant: Cannot unindent selected block","error")
             return
         lines2 = [line[4:] for line in lines]
         joined = '\u2029'.join(lines2)
@@ -530,11 +547,11 @@ del(__editors__, __parents__, __grandparents__)
 
     def onReplaceAllBtnClicked(self, arg1):
         if self.matchWholeCheckBox.checkState():
-            self.toast("Replace all does not work with Match word = checked","red",10000)
+            self.toast("Replace all does not work with Match word = checked","error",10000)
             return
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -545,7 +562,7 @@ del(__editors__, __parents__, __grandparents__)
     def onReplaceBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
         document = self.currentEditor.document()
@@ -582,7 +599,7 @@ del(__editors__, __parents__, __grandparents__)
     def onGotoLineBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "red")
+            self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
         try:
@@ -598,7 +615,7 @@ del(__editors__, __parents__, __grandparents__)
         text_cursor = self.currentEditor.textCursor()
         text_cursor.setPosition(text_block.position())
         self.currentEditor.setTextCursor(text_cursor)
-        self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","black")
+        self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
 
     def populateList(self):
         self.blockSignals = True
