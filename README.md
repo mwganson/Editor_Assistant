@@ -45,6 +45,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.11 (2022.03.19)
+* Make Replace all respect Match case checkbox (but still not Match word)
 ### 1.10 (2022.03.19)
 * add icons to the dialog
 ### 1.09c (2022.03.19)
