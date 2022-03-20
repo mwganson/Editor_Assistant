@@ -47,6 +47,11 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.16 (2022.03.20)
+* add redo button
+* add undo queue clear button
+* rearrange widgets, putting goto on same line as refresh button
+* add placeholder text to goto line edit
 ### 1.15 (2022.03.20)
 * Use a button for toast messages instead of a label.  That way it can be clicked and the last toast reshown.
 * Use message types instead of colors direction.  message types: warning, error, message, information
