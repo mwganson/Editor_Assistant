@@ -24,7 +24,7 @@ This is a QLineEdit into which you may enter text to search for in the current e
 This is a QLineEdit containing replacement text (replacing the text in the Find Edit) when the Replace or Replace All buttons are used.
 ### Match case
 This is a QCheckBox.  If checked searches are case-sensitive.  (Replace All is always case-sensitive.)
-### Match word
+### Whole words
 This is a QCheckBox.  If checked, then searches are for the entire word.  For example, "en" will not find "end" as a match if Match word is checked.
 ### Find next
 Click this button to find the next instance of the text in the Find Edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.
@@ -33,7 +33,7 @@ Like Find next except it searches backward.
 ### Replace
 Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  There is no Undo for this at this time.  Close without saving and reopen your document if you make a mistake.  Use with caution!
 ### Replace all
-Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  (But still ignores Match word checkbox state.)  There is no Undo for this.  Use with caution!
+Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  There is no Undo for this.  Use with caution!
 ### Goto line
 Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
 ### Indent
@@ -45,8 +45,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.12 (2022.03.19)
+* Disable Replace all if Whole words is checked.
 ### 1.11 (2022.03.19)
-* Make Replace all respect Match case checkbox (but still not Match word)
+* Make Replace all respect Match case checkbox (but still not Whole words)
 ### 1.10 (2022.03.19)
 * add icons to the dialog
 ### 1.09c (2022.03.19)
