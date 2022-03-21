@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.17"
+__version__ = "1.18"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -61,8 +61,9 @@ class TaskEditorAssistant ():
         self.parents = []
         self.grandparents = []
         self.titles = []
-        self.undoQueue = [] #dictionary list {reason, old_text, name}
-        self.redoQueue = []
+        self.undoQueue = [] #dictionary list {reason, old_text, name, tc}
+        self.redoQueue = [] #tc holds a tuple (start, end) of selected text position
+        self.snaps = [] #dictionary list {reason, old_text, name, tc}
         self.currentEditor = None
         self.timers = [] #toasts use this
         self.lastToast = "No previous toasts"
@@ -181,6 +182,24 @@ class TaskEditorAssistant ():
         replaceBtnLayout.addWidget(self.replaceAllBtn)
         self.layout.addLayout(replaceBtnLayout)
 
+        snapLayout = QtGui.QHBoxLayout()
+        self.takeSnapBtn = QtGui.QPushButton("Snapshot")
+        self.takeSnapBtn.setToolTip("Takes a snapshot of the text in the current editor, places it into memory\n\
+Right click on this button for a context menu of advanced actions\n\
+")
+        self.clearSnapsBtn = QtGui.QPushButton("Clear")
+        self.restoreSnapBtn = QtGui.QPushButton("Restore")
+        self.takeSnapBtn.clicked.connect(self.onTakeSnapBtnClicked)
+        self.clearSnapsBtn.clicked.connect(self.onClearSnapsBtnClicked)
+        self.restoreSnapBtn.clicked.connect(self.onRestoreSnapBtnClicked)
+        snapLayout.addWidget(self.takeSnapBtn)
+        snapLayout.addWidget(self.clearSnapsBtn)
+        snapLayout.addWidget(self.restoreSnapBtn)
+        self.takeSnapBtn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.takeSnapBtn.customContextMenuRequested.connect(self.takeSnapBtnContextMenu)
+        self.layout.addLayout(snapLayout)
+
+
         indentLayout = QtGui.QHBoxLayout()
         self.indentBtn = QtGui.QPushButton("Indent")
         self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
@@ -194,8 +213,8 @@ class TaskEditorAssistant ():
         indentLayout.addWidget(self.indentBackBtn)
         self.layout.addLayout(indentLayout)
 
-        self.consoleLayout = QtGui.QHBoxLayout()
-        self.consoleLayout.addWidget(QtGui.QLabel("To console:"))
+        consoleLayout = QtGui.QHBoxLayout()
+        consoleLayout.addWidget(QtGui.QLabel("To console:"))
         self.consoleEdit = QtGui.QLineEdit()
         self.consoleEdit.returnPressed.connect(self.onConsoleEditReturnPressed)
         self.consoleEdit.setToolTip("Access QPlainTextEdit of current editor directly.\n\
@@ -206,9 +225,10 @@ Type 'help(editor)' in the console for help.\n\
         self.consoleEdit.setText("editor.selectAll()")
         self.consoleSendBtn = QtGui.QPushButton("Send")
         self.consoleSendBtn.clicked.connect(self.onConsoleBtnClicked)
-        self.consoleLayout.addWidget(self.consoleEdit)
+        consoleLayout.addWidget(self.consoleEdit)
         #consoleLayout.addWidget(self.consoleSendBtn)
-        self.layout.addLayout(self.consoleLayout)
+        self.layout.addLayout(consoleLayout)
+        self.updateSnapBtns()
 
     def getEditors(self):
         self.editors = [child for child in mw.findChildren(QtGui.QPlainTextEdit) if child.objectName() != "Python console"]
@@ -236,15 +256,26 @@ Type 'help(editor)' in the console for help.\n\
         self.currentEditor.setFocus()
         self.onFindEditTextChanged(None)
         self.updateUndoBtn()
+        self.updateSnapBtns()
 
     def doCommand(self, cmd):
         FreeCADGui.doCommand(cmd)
 
     def setText(self, name, txt, reason):
         old_text = self.editorDict[name].toPlainText()
+        old_cursor = self.editorDict[name].textCursor()
         self.editorDict[name].setPlainText(txt)
-        self.setModified(name, old_text, reason)
+        self.setModified(name, old_text, reason, self.getTC(old_cursor))
 
+    def getTC(self, text_cursor):
+        return tuple([text_cursor.selectionStart(), text_cursor.selectionEnd()])
+
+    def setTextCursor(self, name, tc):
+        ed = self.editorDict[name]
+        text_cursor = ed.textCursor()
+        text_cursor.setPosition(tc[0])
+        text_cursor.setPosition(tc[1], QtGui.QTextCursor.KeepAnchor)
+        ed.setTextCursor(text_cursor)
 
     def getText(self, name):
         return self.editorDict[name].toPlainText()
@@ -368,6 +399,7 @@ del(__editors__, __parents__, __grandparents__, __editor__)
         consoleCmd = self.consoleEdit.text()
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         old_text = self.editorDict[name].toPlainText()
+        old_cursor = self.editorDict[name].textCursor()
         if not name:
             self.toast("No editor selected")
             return
@@ -381,7 +413,7 @@ editor = __editors__[__grandparents__.index('""" + name + """')]
 del(__editors__, __parents__, __grandparents__)
 """
         self.doCommand(cmd)
-        self.setModified(name, old_text, "Console command")
+        self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
         self.toast("editor now available as variable in python console","message")
 
     def onFindEditReturnPressed(self):
@@ -413,14 +445,148 @@ del(__editors__, __parents__, __grandparents__)
         matchCase = self.matchCaseCheckBox.checkState()
         self.find(name, txt)
 
+    def updateSnapBtns(self):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.clearSnapsBtn.setEnabled(False)
+            self.restoreSnapBtn.setEnabled(False)
+            self.restoreSnapBtn.setText("Restore")
+        else:
+            self.clearSnapsBtn.setEnabled(True)
+            self.restoreSnapBtn.setEnabled(True)
+            self.restoreSnapBtn.setText(f"Restore {snaps[0]['reason']}")
+
+    def onTakeSnapBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        self.updateSnapBtns()
+        curName = self.editorList.currentItem().text()
+        curText = self.currentEditor.toPlainText()
+        curCursor = self.currentEditor.textCursor()
+        tc = self.getTC(curCursor)
+        count = 1
+        for snap in self.snaps:
+            if snap["name"] == curName:
+                count += 1
+        thisSnap = {"name":curName, "old_text":curText, "reason":f"Snap #{count}", "tc":tc}
+        self.snaps.append(thisSnap)
+        self.toast(f"{thisSnap['reason']} taken of {curName}","message")
+        if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
+            self.snaps.pop(0)
+            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, popping oldest snap","warning")
+        self.updateSnapBtns()
+
+    def onClearSnapsBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.toast("No snaps to pop for this editor","error")
+            self.updateSnapBtns()
+            return
+        else:
+            self.snaps.remove(snaps[0])
+            self.updateSnapBtns()
+
+    def onRestoreSnapBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.toast("No snaps to restore for this editor","error")
+            self.updateSnapBtns()
+            return
+        else:
+            old_text = self.currentEditor.toPlainText()
+            old_cursor = self.currentEditor.textCursor()
+            self.currentEditor.setPlainText(snaps[0]["old_text"])
+            #self.currentEditor.setTextCursor(snaps[0]['tc'])
+            self.setTextCursor(self.editorList.currentItem().text(), snaps[0]['tc'])
+            self.snaps.remove(snaps[0])
+            self.updateSnapBtns()
+            self.toast(f"Restored {snaps[0]['reason']} to {snaps[0]['name']}","message")
+            self.setModified(curName, old_text, f"Restore {snaps[0]['reason']}", self.getTC(old_cursor))
+
+    def takeSnapBtnContextMenu(self, point):
+        snapContextMenu = QtGui.QMenu(mw)
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+
+        restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
+        restoreToClipboardAction.triggered.connect(self.doRestoreToClipboard)
+        restoreToClipboardAction.setEnabled(len(snaps) > 0)
+        snapContextMenu.addAction(restoreToClipboardAction)
+
+        restoreToTextDocumentAction = QtGui.QAction("Restore to new Text document", mw)
+        restoreToTextDocumentAction.triggered.connect(self.doRestoreToTextDocument)
+        restoreToTextDocumentAction.setEnabled(len(snaps) > 0)
+        snapContextMenu.addAction(restoreToTextDocumentAction)
+
+        saveSnapshotAsAction = QtGui.QAction("Save snapshot as...", mw)
+        saveSnapshotAsAction.triggered.connect(self.doSaveSnapshotAs)
+        saveSnapshotAsAction.setEnabled(len(snaps) > 0)
+        snapContextMenu.addAction(saveSnapshotAsAction)
+
+
+        snapContextMenu.exec_(self.takeSnapBtn.mapToGlobal(point))
+
+    def doSaveSnapshotAs(self):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.toast("No saved snapshot to save as","error")
+            self.updateSnapBtns()
+            return
+        else:
+            fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save snapshot to text file",filter='*.*')[0]
+            if not fname:
+                return
+            with open(fname,"w") as outfile:
+                outfile.write(snaps[0]['old_text'])
+            self.toast(f"Snapshot: {snaps[0]['reason']} saved to {fname}","message")
+
+    def doRestoreToClipboard(self):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.toast("No saved snapshot to send to clipboard","error")
+            self.updateSnapBtns()
+            return
+        else:
+            clipboard = QtGui.QClipboard()
+            clipboard.setText(snaps[0]["old_text"])
+            self.toast(f"Snapshot: {snaps[0]['reason']} sent to clipboard","message")
+
+    def doRestoreToTextDocument(self):
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text()
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        if not snaps:
+            self.toast("No saved snapshot to restore to text document","error")
+            self.updateSnapBtns()
+            return
+        else:
+            doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
+            textDoc = doc.addObject("App::TextDocument","Text document")
+            textDoc.Text = snaps[0]['old_text']
+            self.toast(f"Snapshot: {snaps[0]['reason']} sent to {textDoc.Name}","message")
+            textDoc.ViewObject.doubleClicked()
+            doc.recompute()
+
     def onUndoBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         self.updateUndoBtn()
         curName = self.editorList.currentItem().text()
+        curCursor = self.editorDict[curName].textCursor()
         for queue in reversed(self.undoQueue):
             if curName == queue["name"]:
-                redo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText()}
+                redo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText(), "tc":self.getTC(curCursor)}
                 self.currentEditor.setPlainText(queue["old_text"])
+                self.setTextCursor(curName, queue['tc'])
                 self.redoQueue.append(redo)
                 self.undoQueue.pop()
                 self.updateUndoBtn()
@@ -439,8 +605,10 @@ del(__editors__, __parents__, __grandparents__)
         curName = self.editorList.currentItem().text()
         for queue in reversed(self.redoQueue):
             if curName == queue["name"]:
-                undo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText()}
+                undo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText(), "tc":self.getTC(self.currentEditor.textCursor())}
                 self.currentEditor.setPlainText(queue["old_text"])
+                #self.currentEditor.setTextCursor(queue['tc'])
+                self.setTextCursor(curName, queue['tc'])
                 self.undoQueue.append(undo)
                 self.redoQueue.pop()
                 self.updateUndoBtn()
@@ -477,8 +645,8 @@ del(__editors__, __parents__, __grandparents__)
         txt = self.findEdit.text()
         self.find(name, txt, True)
 
-    def setModified(self, name, old_text, reason):
-        self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason})
+    def setModified(self, name, old_text, reason, tc):
+        self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
         if len(self.undoQueue) > UNDO_QUEUE_MAX_SIZE:
             self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\npopping {self.undoQueue[0]['reason']}","warning")
             self.undoQueue.pop(0)
@@ -501,7 +669,7 @@ del(__editors__, __parents__, __grandparents__)
         lines2 = ['    '+line for line in lines]
         joined = '\u2029'.join(lines2)
         tc.insertText(joined)
-        self.setModified(self.editorList.currentItem().text(), old_text, "Indent >>")
+        self.setModified(self.editorList.currentItem().text(), old_text, "Indent >>", self.getTC(tc))
         tc.movePosition(QtGui.QTextCursor.Up, QtGui.QTextCursor.KeepAnchor, len(lines2)-1)
         tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
         self.currentEditor.setTextCursor(tc)
@@ -513,6 +681,7 @@ del(__editors__, __parents__, __grandparents__)
             return
         self.currentEditor.setFocus()
         old_text = self.currentEditor.toPlainText()
+        old_cursor = self.currentEditor.textCursor()
         name = self.editorList.currentItem().text()
         tc = self.currentEditor.textCursor()
         txt = tc.selectedText()
@@ -530,7 +699,7 @@ del(__editors__, __parents__, __grandparents__)
         lines2 = [line[4:] for line in lines]
         joined = '\u2029'.join(lines2)
         tc.insertText(joined)
-        self.setModified(self.editorList.currentItem().text(), old_text, "<< Unindent")
+        self.setModified(self.editorList.currentItem().text(), old_text, "<< Unindent", self.getTC(old_cursor))
         tc.movePosition(QtGui.QTextCursor.Up, QtGui.QTextCursor.KeepAnchor, len(lines2)-1)
         tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
         self.currentEditor.setTextCursor(tc)
