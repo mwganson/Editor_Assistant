@@ -51,6 +51,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.18 (2022.03.21)
+* add snapshot feature
+* add text cursor positioning to snapshots and undo/redo
 ### 1.17 (2022.03.20)
 * new icons for indent and unindent
 * double click Find/Replace edits to replace existing content with selected text in current editor
