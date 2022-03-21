@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.18"
+__version__ = "1.18b"
 from PySide import QtGui,QtCore
 try:
     import shiboken2 as shiboken
@@ -96,7 +96,6 @@ class TaskEditorAssistant ():
         self.layout.addLayout(editorLayout)
         self.populateList()
 
-#        self.topButtonBox = QtGui.QHBoxLayout()
         refreshLayout = QtGui.QHBoxLayout()
         refreshBtn = QtGui.QPushButton("Refresh editors")
         refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
@@ -398,11 +397,11 @@ del(__editors__, __parents__, __grandparents__, __editor__)
     def onConsoleBtnClicked(self, arg1):
         consoleCmd = self.consoleEdit.text()
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
-        old_text = self.editorDict[name].toPlainText()
-        old_cursor = self.editorDict[name].textCursor()
         if not name:
             self.toast("No editor selected")
             return
+        old_text = self.editorDict[name].toPlainText()
+        old_cursor = self.editorDict[name].textCursor()
         cmd = """
 from PySide import QtGui
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
@@ -447,7 +446,7 @@ del(__editors__, __parents__, __grandparents__)
 
     def updateSnapBtns(self):
         self.onRefreshBtnClicked(True)
-        curName = self.editorList.currentItem().text()
+        curName = self.editorList.currentItem().text() if self.editorList.count() else None
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
             self.clearSnapsBtn.setEnabled(False)
@@ -461,7 +460,10 @@ del(__editors__, __parents__, __grandparents__)
     def onTakeSnapBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         self.updateSnapBtns()
-        curName = self.editorList.currentItem().text()
+        curName = self.editorList.currentItem().text() if self.editorList.count() else ""
+        if not curName:
+            self.toast("No current editor","error")
+            return
         curText = self.currentEditor.toPlainText()
         curCursor = self.currentEditor.textCursor()
         tc = self.getTC(curCursor)
@@ -511,7 +513,9 @@ del(__editors__, __parents__, __grandparents__)
     def takeSnapBtnContextMenu(self, point):
         snapContextMenu = QtGui.QMenu(mw)
         self.onRefreshBtnClicked(True)
-        curName = self.editorList.currentItem().text()
+        curName = self.editorList.currentItem().text() if self.editorList.count() else ""
+        if not curName:
+            self.toast("No current editor","error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
 
         restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
