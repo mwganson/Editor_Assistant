@@ -17,7 +17,9 @@ This is the QListWidget at the top of the dialog.  It will list the names of the
 ### Toast
 At the top of the page, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see again the most recent message.  Only the most recent message is stored for viewing again.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
 ### Refresh button
-This button is labeled "Refresh editor list".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
+This button is labeled "Refresh editors".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
+### Goto line
+Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
 ### Find Edit
 This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
 ### Replace Edit
@@ -34,8 +36,10 @@ Like Find next except it searches backward.
 Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  There is no Undo for this at this time.  Close without saving and reopen your document if you make a mistake.  Use with caution!
 ### Replace all
 Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  There is no Undo for this.  Use with caution!
-### Goto line
-Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
+### Snapshot
+Takes a snapshot of the current editor, including it's full text and position of cursor if there is text selected.  This button also has a context menu with additional features.  Snapshots are kept in a stack, only the head (most recent) can be accessed with the Restore option.  When a snapshot is restored it is popped from the queue, making the next snapshot available.
+### Restore
+Restores a snapshot to the current editor if there is a snapshot in memory for the current editor, replacing existing text with that from the snapshot.  This also pops the snapshot from memory.
 ### Undo button
 Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typin that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).
 
