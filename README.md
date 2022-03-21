@@ -51,6 +51,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.18b (2022.03.21)
+* add error checking for when there are no open editors
 ### 1.18 (2022.03.21)
 * add snapshot feature
 * add text cursor positioning to snapshots and undo/redo
