@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.19"
+__version__ = "1.20"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 
@@ -47,6 +47,13 @@ class FindEdit (QtGui.QLineEdit):
         action.triggered.connect(self.useSelected)
         action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "")
         menu.addAction(action)
+        actionClear = QtGui.QAction("Clear", self)
+        actionClear.triggered.connect(self.clear)
+        actionClear.setEnabled(len(self.text()))
+        menu.addAction(actionClear)
+
+    def clear(self):
+        self.setText("")
 
     def useSelected(self):
         txt_cur = self.form.currentEditor.textCursor()
@@ -58,6 +65,7 @@ class TaskEditorAssistant:
     def __init__(self):
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
         self.found = False
+        self.gotoLineDict = {} #to save goto line edit value for each editor
         self.editorDict = {}
         self.editors = []
         self.parents = []
@@ -104,14 +112,15 @@ class TaskEditorAssistant:
         refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
         refreshBtn.clicked.connect(self.onRefreshBtnClicked)
         refreshLayout.addWidget(refreshBtn)
-        gotoLabel = QtGui.QLabel("Goto:")
-        gotoLabel.setToolTip("Go to line number")
-        refreshLayout.addWidget(gotoLabel)
+
         self.gotoLineEdit = QtGui.QLineEdit()
         self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
-        self.gotoLineEdit.setPlaceholderText("Line number")
-        self.gotoLineBtn = QtGui.QPushButton("Goto line")
-        self.gotoLineBtn.clicked.connect(self.onGotoLineBtnClicked)
+        self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
+        self.gotoLineEdit.setPlaceholderText("Goto Line number")
+        self.gotoMenuBtn = QtGui.QPushButton()
+        self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
+        self.gotoMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
+        refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
         self.layout.addLayout(refreshLayout)
 
@@ -137,8 +146,9 @@ class TaskEditorAssistant:
         self.layout.addLayout(undoLayout)
 
         findEditLayout = QtGui.QHBoxLayout()
-        findEditLayout.addWidget(QtGui.QLabel("Find: "))
+        #findEditLayout.addWidget(QtGui.QLabel("Find: "))
         self.findEdit = FindEdit(form=self)
+        self.findEdit.setPlaceholderText("Find:")
         self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
         self.findEdit.textChanged.connect(self.onFindEditTextChanged)
 
@@ -151,12 +161,25 @@ class TaskEditorAssistant:
         self.findBackBtn.setIcon(QIconFromXPMString(find_previous_icon))
         self.findBackBtn.setToolTip("")
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
+        findEditLayout.addWidget(self.findBtn)
+        findEditLayout.addWidget(self.findBackBtn)
         self.layout.addLayout(findEditLayout)
 
         replaceEditLayout = QtGui.QHBoxLayout()
-        replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
+        #replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
         self.replaceEdit = FindEdit(form=self)
+        self.replaceEdit.setPlaceholderText("Replace:")
         replaceEditLayout.addWidget(self.replaceEdit)
+        self.replaceBtn = QtGui.QPushButton()
+        self.replaceBtn.setToolTip("Replace current selection and find next")
+        self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
+        self.replaceBtn.setIcon(QIconFromXPMString(replace_icon))
+        self.replaceAllBtn = QtGui.QPushButton()
+        self.replaceAllBtn.setToolTip("Replace all")
+        self.replaceAllBtn.setIcon(QIconFromXPMString(replace_all_icon))
+        self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
+        replaceEditLayout.addWidget(self.replaceBtn)
+        replaceEditLayout.addWidget(self.replaceAllBtn)
         self.layout.addLayout(replaceEditLayout)
 
         flagsLayout = QtGui.QHBoxLayout()
@@ -170,24 +193,8 @@ class TaskEditorAssistant:
         flagsLayout.addWidget(self.matchCaseCheckBox)
         flagsLayout.addWidget(self.matchWholeCheckBox)
         self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
-
         self.layout.addLayout(flagsLayout)
 
-        findBtnLayout = QtGui.QHBoxLayout()
-
-        self.replaceBtn = QtGui.QPushButton()
-        self.replaceBtn.setToolTip("Replace current selection and find next")
-        self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
-        self.replaceBtn.setIcon(QIconFromXPMString(replace_icon))
-        self.replaceAllBtn = QtGui.QPushButton()
-        self.replaceAllBtn.setToolTip("Replace all")
-        self.replaceAllBtn.setIcon(QIconFromXPMString(replace_all_icon))
-        self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
-        findBtnLayout.addWidget(self.findBtn)
-        findBtnLayout.addWidget(self.findBackBtn)
-        findBtnLayout.addWidget(self.replaceBtn)
-        findBtnLayout.addWidget(self.replaceAllBtn)
-        self.layout.addLayout(findBtnLayout)
 
         snapLayout = QtGui.QHBoxLayout()
         self.takeSnapBtn = QtGui.QPushButton()
@@ -208,7 +215,6 @@ class TaskEditorAssistant:
         self.popSnapBtn.setToolTip("Pop the latest snap and discard it")
         snapCenterBtnLayout.addWidget(self.popSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
-        
         self.snapMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
         self.snapMenuBtn.setToolTip("Snapshots menu")
         self.restoreSnapBtn = QtGui.QPushButton("Restore")
@@ -278,9 +284,17 @@ Type 'help(editor)' in the console for help.\n\
             return
         self.onRefreshBtnClicked(True)
         self.currentEditor.setFocus()
+        if not self.currentEditor.hasFocus():
+            self.toast(f"cannot set focus on {self.editorList.currentItem().text()}","warning")
         self.onFindEditTextChanged(None)
         self.updateUndoBtn()
         self.updateSnapBtns()
+        name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if name:
+            if name in self.gotoLineDict:
+                self.gotoLineEdit.setText(self.gotoLineDict[name])
+            else:
+                self.gotoLineEdit.setText("")
 
     def doCommand(self, cmd):
         FreeCADGui.doCommand(cmd)
@@ -805,21 +819,93 @@ del(__editors__, __parents__, __grandparents__)
         self.populateList()
         self.setCurrentEditor()
 
-    def onGotoLineEditReturnPressed(self):
-        self.onGotoLineBtnClicked(True)
+    def gotoLineActionTriggered(self):
+        line = self.getFirstLine()
+        self.gotoLine(line)
 
-    def onGotoLineBtnClicked(self, arg1):
-        self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
-            return
-        self.currentEditor.setFocus()
+    def parseLine(self, line_as_string):
         try:
-            line = int(self.gotoLineEdit.text())
-        except ValueError:
-            self.toast(f"Cannot parse {self.gotoLineEdit.text()} as integer value")
+            parsed = int(line_as_string)
+            return parsed
+        except ValueError as ve:
+            self.print(f"{ve}","Error")
+            return 0
+
+    def getFirstLine(self):
+        """gets first line in the Goto line edit"""
+        if not self.gotoLineEdit.text():
+            return 0
+        else:
+            lines = self.gotoLineEdit.text().split(',')
+            if lines:
+                return self.parseLine(lines[0])
+            else:
+                self.toast("Unable to parse lines","error")
+                return 0
+
+    def getGotoLines(self):
+        if not self.gotoLineEdit.text():
+            return []
+        lines = self.gotoLineEdit.text().split(',')
+        parsed = [self.parseLine(line) for line in lines if self.parseLine(line)]
+        return parsed
+
+    def onGotoLineEditTextChanged(self, arg1):
+        """save the goto line edit text for each editor"""
+        name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not name:
             return
+        self.gotoLineDict[name] = arg1
+
+    def onGotoMenuBtnClicked(self, arg1):
+
+        gotoMenu = QtGui.QMenu(mw)
+        self.onRefreshBtnClicked(True)
+        curName = self.editorList.currentItem().text() if self.editorList.count() else ""
+        if not curName:
+            self.toast("No current editor","error")
+
+        lineNums = self.getGotoLines()
+        def makeLambda(x): return lambda: self.gotoLine(x)
+        gotoLineLambdas = [makeLambda(lineNum) for lineNum in lineNums]
+        gotoLineActions = []
+        for ii,lineNum in enumerate(lineNums):
+            gotoLineActions.append(QtGui.QAction(f"Go to line {lineNum}", mw))
+            gotoLineActions[-1].triggered.connect(gotoLineLambdas[ii])
+            gotoLineActions[-1].setEnabled(len(self.gotoLineEdit.text()) > 0)
+            gotoMenu.addAction(gotoLineActions[-1])
+
+        #classDefLines = (class name, def/class text, line number)
+        classDefLines = sorted(self.getClassDefLines())
+        classDefLineActions = []
+        classDefLineLambdas = [makeLambda(cl[2]) for cl in classDefLines]
+        for ii,classDefLine in enumerate(classDefLines):
+            if "class" in classDefLine[1]:
+                classDefLineActions.append(QtGui.QAction(f"{classDefLine[1]} ({classDefLine[2]})", mw))
+            else: #def line
+                classDefLineActions.append(QtGui.QAction(f"({classDefLine[0]}) {classDefLine[1]} ({classDefLine[2]})", mw))
+            classDefLineActions[-1].triggered.connect(classDefLineLambdas[ii])
+            gotoMenu.addAction(classDefLineActions[-1])
+
+        gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
+
+
+    def onGotoLineEditReturnPressed(self):
+        lines = self.getGotoLines()
+        if len(lines) == 1:
+            self.gotoLine(lines[0])
+        else:
+            self.onGotoMenuBtnClicked(True)
+
+    def gotoLine(self,line):
+        self.onRefreshBtnClicked(True)
         document = self.currentEditor.document()
+        if line < 0:
+            txt = self.currentEditor.toPlainText()
+            txt_lines = txt.splitlines()
+            txt_len = len(txt_lines)
+            line = txt_len + line
+            pass
         text_block = document.findBlockByLineNumber(line-1)
         if not text_block.isValid():
             self.toast(f"Cannot goto Line# {line} of {self.editorList.currentItem().text()}")
@@ -828,6 +914,53 @@ del(__editors__, __parents__, __grandparents__)
         text_cursor.setPosition(text_block.position())
         self.currentEditor.setTextCursor(text_cursor)
         self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
+
+    def getLines(self,name=None):
+        """get plain text as string list"""
+        if name:
+            ed = self.editorDict[name]
+            txt = ed.getPlainText()
+        else:
+            txt = self.currentEditor.toPlainText()
+        return txt.splitlines()
+
+    def getTrimmedLines(self, name=None):
+        """remove all leading whitespace"""
+        lines = self.getLines(name)
+        lines2 = []
+        for line in lines:
+            lines2.append(line.strip())
+        return lines2
+
+    def getClassDefLines(self):
+        """tuple(class name, class/def line, line number)"""
+        lines = self.getTrimmedLines()
+        classDefLines = []
+        curClass = ""
+        for ii,line in enumerate(lines):
+            if "class " in line and ":" in line:
+                commIdx = line.find("#")
+                idx = line.find("class ")
+                if bool(commIdx == -1 or commIdx > idx) and idx == 0:
+                    idx2 = line.find(":", idx)
+                    curClass = line[idx + len("class "):idx2]
+                    if "(" in curClass and ")" in curClass:
+                        idx3 = curClass.find("(")
+                        idx4 = curClass.find(")",idx3)
+                        if idx4 > idx3:
+                            curClass = curClass[:idx3]
+                        else:
+                            curClass = ""
+
+                    classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
+
+            elif "def " in line and ":" in line:
+                commIdx = line.find("#")
+                idx = line.find("def ")
+                if commIdx == -1 or commIdx > idx and idx == 0:
+                    idx2 = line.find(":", idx)
+                    classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
+        return classDefLines
 
     def populateList(self):
         self.blockSignals = True
@@ -1181,35 +1314,35 @@ static char *indent_xpm[] = {
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++....+++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++.$$....++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++.$$$$$....++++++*++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++..$$$$$$....+++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++....$$$$$$....+++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++.....$$$$$$...+++++++++++++++++++++++++++++++++++++....",
-"....+++++++......$$$$...++++++++++++++++++++++++++++++++++++....",
-"....+++++++++......$$$$...++++++++++++++++++++++++++++++++++....",
-"....++++++++++++....$$$$$..+++++++++++++++++++++++++++++++++....",
-"....++++++++++++++....$$$$..++++++++++++++++++++++++++++++++....",
-"....+++++++++++++++....$$$$..+++++++++++++++++++++++++++++++....",
-"....+++++++++++++++++....$$...+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++++++++*++++++...$$$..+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++++++++++++++.....$$...+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....++++++++++++++.....$$$$..++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++++++++++....$$$$$..+++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++++++++....$$$$$...+++++++++++++++++++++++++++++++++....",
-"....+++++++++....$$$$$$...++++++++++++++++++++++++++++++++++....",
-"....+++++++....$$$$$$...++++++++++++++++++++++++++++++++++++....",
-"....+++++....$$$$$$$...+++++++++++++++++++++++++++++++++++++....",
-"....+++++..$$$$$$$...+++++++++++++++++++++++++++++++++++++++....",
-"....+++++.$$$$$$...+++++++++++++++++++++++++++++++++++++++++....",
-"....+++++.$$$$....+++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++.$$....++++++++*++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++.....+++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++++++++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
-"....+++++++++++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++....+++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....+++.....++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$..++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$...++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$...++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....++++..$$$$$$...++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++++..$$$$$$$...++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++++++..$$$$$$$...+++++++++++++++++++++++++++++++++++++....",
+"....+++++++++..$$$$$$...++++++++++++++++++++++++++++++++++++....",
+"....+++++++++++..$$$$$$..+++++++++++++++++++++++++++++++++++....",
+"....+++++++++++++..$$$$$$..+++++++++++++++++++++++++++++++++....",
+"....+++++++++++++++..$$$$$..++++++++++++++++++++++++++++++++....",
+"....+++++++++++++++++..$$$$..+++++++++++++++++++++++++++++++....",
+"....++++++++++++++++++..$$$$..+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....++++++++++++++++++..$$$$..+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....++++++++++++++++++..$$$$..+++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....++++++++++++++++..$$$$$..++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++++++++++++++..$$$$$..+++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++++++++++++..$$$$$$..+++++++++++++++++++++++++++++++++....",
+"....+++++++++++..$$$$$$$..++++++++++++++++++++++++++++++++++....",
+"....+++++++++..$$$$$$$..++++++++++++++++++++++++++++++++++++....",
+"....+++++++..$$$$$$$$..+++++++++++++++++++++++++++++++++++++....",
+"....+++++..$$$$$$$$..+++++++++++++++++++++++++++++++++++++++....",
+"....++++..$$$$$$$..+++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$..++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$..+++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....+++.....+++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
+"....++++...++++++++++++++++++++++%%%%%%%%%%%%%%%%%%%%%%%%%++....",
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
 "....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
@@ -1548,80 +1681,80 @@ unindent_icon = """
 static char * unindent_xpm[] = {
 /* format */
 "64 64 9 1",
-" 	c None",
-".	c #000000",
-"+	c #DFDFDF",
-"@	c #3F48CC",
-"#	c #22B14C",
-"$	c #3F48CC",
-"%	c black",
-"&	c #ED1C24",
-"*	c #E2D9D6",
+"   c None",
+"z  c #000000",
+"+  c #DFDFDF",
+"@  c #3F48CC",
+"#  c #22B14C",
+"x  c #3F48CC",
+"%  c black",
+"&  c #ED1C24",
+"*  c #E2D9D6",
 /* pixels */
-"...................................................             ",
-"...................................................             ",
-"....................................................            ",
-".....................................................           ",
-"....++++++++++++++++++++++++++++++++++++++++++++......          ",
-"....++++++++++++++++++++++++++++++++++++++++++++.......         ",
-"....++++++++++++++++++++++++++++++++++++++++++++........        ",
-"....++++++++++++++++++++++++++++++++++++++++++++...+.....       ",
-"....++++++++++++++++++++++++++++++++++++++++++++...++.....      ",
-"....++++++++++++++++++++++++++++++++++++++++++++...+++.....     ",
-"....++++++++++++++++++++++++++++++++++++++++++++...++++.....    ",
-"....++++++++++++++++++++++++++++++++++++++++++++...+++++.....   ",
-"....++++++++++++++++++++++++++++++++++++++++++++...++++++.....  ",
-"....++++++++++++++++++++++++++++++++++++++++++++...+++++++..... ",
-"....++++++++++++++++++++++++++++++++++++++++++++...++++++++.... ",
-"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
-"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
-"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
-"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++....",
-"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++.....++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++*++++++++....$$.++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++....$$$$.++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++...$$$$$$.++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++...$$$$$$$..++++....",
-"....++++++++++++++++++++++++++++++++++++++...$$$$$$$....++++....",
-"....+++++++++++++++++++++++++++++++++++++...$$$$$$....++++++....",
-"....+++++++++++++++++++++++++++++++++++...$$$$$$....++++++++....",
-"....++++++++++++++++++++++++++++++++++...$$$$$....++++++++++....",
-"....+++++++++++++++++++++++++++++++++..$$$$$....++++++++++++....",
-"....++++++++++++++++++++++++++++++++..$$$$.....+++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++...$$.....+++++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++..$$$...++++++*++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++...$$....++++++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++..$$$$....++++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++++..$$$$....+++++++++++++....",
-"....++++++++++++++++++++++++++++++++++..$$$$$....+++++++++++....",
-"....+++++++++++++++++++++++++++++++++++...$$$$......++++++++....",
-"....+++++++++++++++++++++++++++++++++++++...$$$$......++++++....",
-"....++++++++++++++++++++++++++++++++++++++...$$$$$$.....++++....",
-"....+++++++++++++++++++++++++++++++++++++++....$$$$$$....+++....",
-"....+++++++++++++++++++++++++++++++++++++++++....$$$$$$..+++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++*++++++....$$$$$.+++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++....$$.+++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++++....+++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++++++++++++....",
-"....++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
-"................................................................",
-"................................................................",
-"................................................................",
-"................................................................"};
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz              ",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz             ",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz            ",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz           ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzzzzz          ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzzzzzz         ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzzzzzzz        ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz+zzzzz       ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz++zzzzz      ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz+++zzzzz     ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz++++zzzzz    ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz+++++zzzzz   ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz++++++zzzzz  ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz+++++++zzzzz ",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++zzz++++++++zzzz ",
+"zzzz+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++zzzzzzzzzzzzzzzz",
+"zzzz+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++zzzzzzzzzzzzzzzz",
+"zzzz+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++zzzzzzzzzzzzzzzz",
+"zzzz+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++zzzz",
+"zzzz+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++++++++++++++++zz+++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++++zzzzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++zzxxzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++zzxxxxzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++zzxxxxxxzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++zzxxxxxxxzz++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++++++zzxxxxxxxxzz+++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++zzxxxxxxxxzz++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++zzxxxxxxxxzz++++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++zzxxxxxxxzz++++++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++zzxxxxxxxzz++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++zzxxxxxxzz++++++++++++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++zzxxxxxxzz+++++++++++++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++zzxxxxzz+++++++++++++++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++zzxxxxxzz++++++++++++++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%+++zzxxxxxzzz++++++++++++++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++zzxxxxxxzz+++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++zzxxxxxxxzz+++++++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++zzzxxxxxxzzz+++++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++++zzzxxxxxxzz++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++zzzxxxxxxzz+++++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++++++zzzzxxxxxxzz+++++zzzz",
+"zzzz+++++++++++++++++++++++++++++++++++++++++zzzzxxxxxxzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++zzzzxxxxzz+++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++zzxxxxzz++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++zzxxxzz++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%+++++++++++++++++++zzxxzz++zzzz",
+"zzzz++++%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++++zzzzz++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++zzz+++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzz++++++++++++++++++++++++++++++++++++++++++++++++++++++++zzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"};
 """
 snapshot_icon = """
 /* XPM */
@@ -1704,72 +1837,72 @@ static char *_647901377770[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 3 1 ",
 "  c black",
-". c #C3C3C3",
-"X c None",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............          ......................................XX",
-"XX...........           ......................................XX",
-"XX...........           ......................................XX",
-"XX..........             .....................................XX",
-"XX..........             .....................................XX",
-"XX..........              ....................................XX",
-"XX.........               ....................................XX",
-"XX.........               ....................................XX",
-"XX.........       .        ...............           .........XX",
-"XX........        .        ............                 ......XX",
-"XX........       ...       ...........                   .....XX",
-"XX........       ...        .........                    .....XX",
-"XX.......        ...        .........                     ....XX",
-"XX.......        ....       ........         .....        ....XX",
-"XX......        .....        ...........    .......       ....XX",
-"XX......        .....        .....................        ....XX",
-"XX......        ......        ...............             ....XX",
-"XX.....                       ...........                 ....XX",
-"XX.....                       ........                    ....XX",
-"XX.....                        ......            ..       ....XX",
-"XX....                         .....         ......       ....XX",
-"XX....                         .....        .......       ....XX",
-"XX....                          ....       .......        ....XX",
-"XX...                           ....        .....         ....XX",
-"XX...        ...........        ....                      ....XX",
-"XX...        ...........         ...                      ....XX",
-"XX...        ...........         ....             .        ...XX",
-"XX...       .............         ....           ...       ...XX",
-"XX...       .............         ......       .....       ...XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX............................................................XX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+"z c #C3C3C3",
+"x c None",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzzzzzzzzzzzzzzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzzzzzzzzzzzzzzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzz          zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxzz           zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxzz           zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz             zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz             zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz              zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxzz               zzxxxxxxxxxxxzzzzzzzzzzzzzzzzzzzzxxxxx",
+"xxxxxxxxxzz               zzxxxxxxxxxxxxzzzzzzzzzzzzzzzzzxxxxxxx",
+"xxxxxxxxxzz       z        zzxxxxxxxxxxxzz           zzzzzxxxxxx",
+"xxxxxxxxzz        z        zzxxxxxxxxzz                 zzzzxxxx",
+"xxxxxxxxzz       zzz       zzxxxxxxxzz                   zzzxxxx",
+"xxxxxxxxzz       zzz        zzxxxxxzz                    zzzxxxx",
+"xxxxxxxzz        zzz        zzxxxxxzz                     zzxxxx",
+"xxxxxxxzz        zzzz       zzxxxxzz         zzzzz        zzxxxx",
+"xxxxxxzz        zzzzz        zzxxxxxzzzz    zzzzzzz       zzxxxx",
+"xxxxxxzz        zzzzz        zzxxxxxzzzzzzzzzzzzzz        zzxxxx",
+"xxxxxxzz        zzzzzz        zzxxxxxxxzzzzzz             zzxxxx",
+"xxxxxzz                       zzxxxxxxzzz                 zzxxxx",
+"xxxxxzz                       zzxxxxzz                    zzxxxx",
+"xxxxxzz                        zzxxzz            zz       zzxxxx",
+"xxxxzz                         zzxzz         zzzzzz       zzxxxx",
+"xxxxzz                         zzxzz        zzzzzzz       zzxxxx",
+"xxxxzz                          zzzz       zzzzzzz        zzxxxx",
+"xxxzz                           zzzz        zzzzz         zzxxxx",
+"xxxzz        zzzzzzzzzzz        zzzz                      zzxxxx",
+"xxxzz        zzzzzzzzzzz         zzz                      zzxxxx",
+"xxxzz        zzxxxxxxxzz         zzzz             z        zzxxx",
+"xxxzz       zzxxxxxxxxxzz         zzzz           zzz       zzxxx",
+"xxxzz       zzxxxxxxxxxzz         zzxxzz       zzzzz       zzxxx",
+"xxzzzzzzzzzzzzxxxxxxxxxzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzxx",
+"xxzzzzzzzzzzzzxxxxxxxxxzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 };
 """
 match_whole_word_icon = """
@@ -1778,72 +1911,74 @@ static char *_647901969918[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 3 1 ",
 "  c black",
-". c #C3C3C3",
-"X c None",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX............................................................XX",
-"XX............................................................XX",
-"XX..............................................................",
-"XX..............................................................",
-"XX..............................................................",
-"XX............          ........................................",
-"XX...........           ........................................",
-"XX...........           ........................................",
-"XX..........             .......................................",
-"XX..........             .......................................",
-"XX..........              ......................................",
-"XX.........               ......................................",
-"XX.........               ......................................",
-"XX.........       .        ...............           ...........",
-"XX........        .        ............                 ........",
-"XX........       ...       ...........                   .......",
-"XX........       ...        .........                    .......",
-"XX.......        ...        .........                     ......",
-"XX.......        ....       ........         .....        ......",
-"XX......        .....        ...........    .......       ......",
-"XX......        .....        .....................        ......",
-"XX......        ......        ...............             ......",
-"XX.....                       ...........                 ......",
-"XX.....                       ........                    ......",
-"XX.....                        ......            ..       ......",
-"XX....                         .....         ......       ......",
-"XX....                         .....        .......       ......",
-"XX....                          ....       .......        ......",
-"XX...                           ....        .....         ......",
-"XX...        ...........        ....                      ......",
-"XX...        ...........         ...                      ......",
-"XX...        ...........         ....             .        .....",
-"XX...       .............         ....           ...       .....",
-"XX...       .............         ......       .....       .....",
-"XX..............................................................",
-"XX..............................................................",
-"XX..............................................................",
-"XX..............................................................",
-"XX..............................................................",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XX                                                             X",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+"z c #C3C3C3",
+"x c None",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzzzzzzzzzzzzzzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzzzzzzzzzzzzzzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxzz          zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxzz           zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxzz           zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz             zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz             zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxzz              zzxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxzz               zzxxxxxxxxxxxzzzzzzzzzzzzzzzzzzzzxxxxx",
+"xxxxxxxxxzz               zzxxxxxxxxxxxxzzzzzzzzzzzzzzzzzxxxxxxx",
+"xxxxxxxxxzz       z        zzxxxxxxxxxxxzz           zzzzzxxxxxx",
+"xxxxxxxxzz        z        zzxxxxxxxxzz                 zzzzxxxx",
+"xxxxxxxxzz       zzz       zzxxxxxxxzz                   zzzxxxx",
+"xxxxxxxxzz       zzz        zzxxxxxzz                    zzzxxxx",
+"xxxxxxxzz        zzz        zzxxxxxzz                     zzxxxx",
+"xxxxxxxzz        zzzz       zzxxxxzz         zzzzz        zzxxxx",
+"xxxxxxzz        zzzzz        zzxxxxxzzzz    zzzzzzz       zzxxxx",
+"xxxxxxzz        zzzzz        zzxxxxxzzzzzzzzzzzzzz        zzxxxx",
+"xxxxxxzz        zzzzzz        zzxxxxxxxzzzzzz             zzxxxx",
+"xxxxxzz                       zzxxxxxxzzz                 zzxxxx",
+"xxxxxzz                       zzxxxxzz                    zzxxxx",
+"xxxxxzz                        zzxxzz            zz       zzxxxx",
+"xxxxzz                         zzxzz         zzzzzz       zzxxxx",
+"xxxxzz                         zzxzz        zzzzzzz       zzxxxx",
+"xxxxzz                          zzzz       zzzzzzz        zzxxxx",
+"xxxzz                           zzzz        zzzzz         zzxxxx",
+"xxxzz        zzzzzzzzzzz        zzzz                      zzxxxx",
+"xxxzz        zzzzzzzzzzz         zzz                      zzxxxx",
+"xxxzz        zzxxxxxxxzz         zzzz             z        zzxxx",
+"xxxzz       zzxxxxxxxxxzz         zzzz           zzz       zzxxx",
+"xxxzz       zzxxxxxxxxxzz         zzxxzz       zzzzz       zzxxx",
+"xxzzzzzzzzzzzzxxxxxxxxxzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzxx",
+"xxzzzzzzzzzzzzxxxxxxxxxzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzxx",
+"xxzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zz                                                            zz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 };
 """
 modifiers = QtGui.QApplication.keyboardModifiers()
