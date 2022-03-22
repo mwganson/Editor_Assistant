@@ -20,8 +20,25 @@ This is the QListWidget at the top of the dialog.  It will list the names of the
 At the top of the page, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see again the most recent message.  Only the most recent message is stored for viewing again.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
 ### Refresh button
 This button is labeled "Refresh editors".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
-### Goto line
-Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.
+### Goto menu button
+Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.
+#### Go to line
+These depend on whether you have entered a list of line numbers in the Goto line edit.  Each number in the list gets a menu item.  Click the menu item to go to that line in the current editor.
+#### Class/Def lines
+In this menu you can go to any line in the source that begins with class or def.  An attempt is made to arrange it so all of the class functions are together, but it's a very simple algorithm.  Each time a line is found with "class" in it the curClass variable is updated. This variable is shown with each "def" line encountered up until the next "class" is found.  It is not guaranteed that all the defs will actually belong to that class.
+#### Bookmarks
+You can enter a comment in the source code to create a bookmark for that line.  Then you can go to that bookmark from the Goto menu.  The marker is 2 pound symbols in a row followed by a colon, then a description.  Example:
+
+<pre>##: menu text goes here</pre>
+
+You must include a description of at least one character or else the bookmark will not show up in the menu.  The comment does not have to be at the beginning of the line.
+
+#### Find results
+If there is text in the Find edit, then on every line where this text appears there will be a menu item in the find results menu, allowing to go to that line.  This function respects the Match case checkbox, but not the Whole words checkbox.
+
+### Goto line edit
+Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.  You may enter multiple numbers separated by commas.  Then when you press enter you get a menu item for each of the line numbers.  This is also accessible from the Goto menu button.  Each open editor gets its own list of line numbers, so when you switch editors this line edit gets cleared and when you switch back to this editor, the contents are put back in it from before.
+
 ### Find Edit
 This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
 ### Replace Edit
