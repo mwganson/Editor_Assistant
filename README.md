@@ -57,6 +57,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.21 (2022.03.22)
+* add bookmark functionality
+* put submenus in goto menu for line numbers, class/defs, and bookmarks
 ### 1.20 (2022.03.22)
 * rearrange some icons
 * add goto menu
