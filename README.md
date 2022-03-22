@@ -11,7 +11,9 @@ Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a hr
 <img src="Editor_Assistant_scr1.png" alt="screenshot">
 
 ## Usage
-Execute the macro to bring up the new task dialog.  If another task dialog is currently active you will get an error message and the macro will exit.  The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  At the top of the dialog is the editor list, showing the documents currently open.  (This will need to be refreshed if you open/close a document, using the "Refresh editor list" button.)
+As of v1.19 the macro now opens as a dockable widget rather than as a task panel dialog.  If you prefer having the task panel dialog, hold Alt key down while executing the macro.  This will enable the macro to remain open while other task panels are being used.  IMO, the best place to put it is to drag/drop on top of the combo view, which sets it as a tabbed view sibling with the combo view.
+
+The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  At the top of the dialog is the editor list, showing the documents currently open.  (This will need to be refreshed if you open/close a document, using the "Refresh editor list" button.)
 ### Editor List
 This is the QListWidget at the top of the dialog.  It will list the names of the documents currently registered with the dialog.  Select an item in the list to make make that item the current editor.  This also sets the focus on that editor.  All the actions in the dialog will work on that current editor even if you select a different editor in FreeCAD's MDI widget.  It is recommended to select the editor here so the dialog is in sync with the correct editor.
 ### Toast
