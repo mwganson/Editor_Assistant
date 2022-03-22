@@ -57,6 +57,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.20 (2022.03.22)
+* rearrange some icons
+* add goto menu
+* allow for multiple line numbers (comma separated list) in goto line edit
 ### 1.19 (2022.03.21)
 * change from task panel to dockable widget (Hold Alt key while executing macro for old behavior.)
 * rework some icons  
