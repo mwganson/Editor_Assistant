@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.21"
+__version__ = "1.22"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -119,8 +119,11 @@ class TaskEditorAssistant:
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
         self.gotoLineEdit.setPlaceholderText("Goto Line number")
         self.gotoMenuBtn = QtGui.QPushButton()
-        self.gotoMenuBtn.setToolTip(f"Line numbers = comma separated lines in Goto line edit\n\
-Bookmarks = lines with {BOOKMARK_MARKER} bookmark description")
+        self.gotoMenuBtn.setToolTip(f"\
+Line numbers = comma separated lines in Goto line edit\n\
+Bookmarks = lines with {BOOKMARK_MARKER} bookmark description\n\
+Find results = results of searches for text in Find line edit\n\
+")
         self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
         self.gotoMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
         refreshLayout.addWidget(self.gotoMenuBtn)
@@ -901,17 +904,27 @@ del(__editors__, __parents__, __grandparents__)
 
         bookmarks = sorted(self.getBookmarks())
         bookmarksMenu = QtGui.QMenu("Bookmarks")
-        bookmarksMenu.setToolTipsVisible(True)
         bookmarkActions = []
         bookmarkLambdas = [makeLambda(bm[1]) for bm in bookmarks]
         for ii,bm in enumerate(bookmarks):
             bookmarkActions.append(QtGui.QAction(f"{bm[0]} ({bm[1]})", mw))
             bookmarkActions[-1].triggered.connect(bookmarkLambdas[ii])
             bookmarksMenu.addAction(bookmarkActions[-1])
-
         gotoMenu.addMenu(bookmarksMenu)
         if not bookmarks:
             bookmarksMenu.setEnabled(False)
+
+        findResults = sorted(self.getFindResults())
+        findResultsMenu = QtGui.QMenu("Find results")
+        findResultActions = []
+        findResultLambdas = [makeLambda(fr[1]) for fr in findResults]
+        for ii,fr in enumerate(findResults):
+            findResultActions.append(QtGui.QAction(f"{fr[0]} ({fr[1]})", mw))
+            findResultActions[-1].triggered.connect(findResultLambdas[ii])
+            findResultsMenu.addAction(findResultActions[-1])
+        gotoMenu.addMenu(findResultsMenu)
+        if not findResults:
+            findResultsMenu.setEnabled(False)
 
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
@@ -957,6 +970,23 @@ del(__editors__, __parents__, __grandparents__)
         for line in lines:
             lines2.append(line.strip())
         return lines2
+
+    def getFindResults(self):
+        lines = self.getTrimmedLines()
+        findResults = []
+        find = self.findEdit.text()
+        description_range = 35
+        if not find:
+            return []
+        for ii,line in enumerate(lines):
+            if find in line:
+                idx = line.find(find)
+                if len(line) - description_range > idx:
+                    desc = line[idx:idx+description_range]
+                else:
+                    desc = line[idx:]
+                findResults.append(tuple([desc, ii+1]))
+        return findResults
 
     def getBookmarks(self):
         lines = self.getTrimmedLines()
