@@ -57,6 +57,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.22b (2022.03.22)
+* make Find results menu respect Match case checkbox
 ### 1.22 (2022.03.22)
 * add find results to goto menu
 ### 1.21 (2022.03.22)
