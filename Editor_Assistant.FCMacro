@@ -3,9 +3,10 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.20"
+__version__ = "1.21"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
+BOOKMARK_MARKER = "##:"
 
 from PySide import QtGui,QtCore
 try:
@@ -118,6 +119,8 @@ class TaskEditorAssistant:
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
         self.gotoLineEdit.setPlaceholderText("Goto Line number")
         self.gotoMenuBtn = QtGui.QPushButton()
+        self.gotoMenuBtn.setToolTip(f"Line numbers = comma separated lines in Goto line edit\n\
+Bookmarks = lines with {BOOKMARK_MARKER} bookmark description")
         self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
         self.gotoMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
         refreshLayout.addWidget(self.gotoMenuBtn)
@@ -865,6 +868,7 @@ del(__editors__, __parents__, __grandparents__)
         if not curName:
             self.toast("No current editor","error")
 
+        lineNumsMenu = QtGui.QMenu("Line numbers")
         lineNums = self.getGotoLines()
         def makeLambda(x): return lambda: self.gotoLine(x)
         gotoLineLambdas = [makeLambda(lineNum) for lineNum in lineNums]
@@ -873,9 +877,14 @@ del(__editors__, __parents__, __grandparents__)
             gotoLineActions.append(QtGui.QAction(f"Go to line {lineNum}", mw))
             gotoLineActions[-1].triggered.connect(gotoLineLambdas[ii])
             gotoLineActions[-1].setEnabled(len(self.gotoLineEdit.text()) > 0)
-            gotoMenu.addAction(gotoLineActions[-1])
+            #gotoMenu.addAction(gotoLineActions[-1])
+            lineNumsMenu.addAction(gotoLineActions[-1])
+        gotoMenu.addMenu(lineNumsMenu)
+        if not gotoLineLambdas:
+            lineNumsMenu.setEnabled(False)
 
         #classDefLines = (class name, def/class text, line number)
+        classDefLinesMenu = QtGui.QMenu("Class/Def lines")
         classDefLines = sorted(self.getClassDefLines())
         classDefLineActions = []
         classDefLineLambdas = [makeLambda(cl[2]) for cl in classDefLines]
@@ -885,7 +894,24 @@ del(__editors__, __parents__, __grandparents__)
             else: #def line
                 classDefLineActions.append(QtGui.QAction(f"({classDefLine[0]}) {classDefLine[1]} ({classDefLine[2]})", mw))
             classDefLineActions[-1].triggered.connect(classDefLineLambdas[ii])
-            gotoMenu.addAction(classDefLineActions[-1])
+            classDefLinesMenu.addAction(classDefLineActions[-1])
+        gotoMenu.addMenu(classDefLinesMenu)
+        if not classDefLineLambdas:
+            classDefLinesMenu.setEnabled(False)
+
+        bookmarks = sorted(self.getBookmarks())
+        bookmarksMenu = QtGui.QMenu("Bookmarks")
+        bookmarksMenu.setToolTipsVisible(True)
+        bookmarkActions = []
+        bookmarkLambdas = [makeLambda(bm[1]) for bm in bookmarks]
+        for ii,bm in enumerate(bookmarks):
+            bookmarkActions.append(QtGui.QAction(f"{bm[0]} ({bm[1]})", mw))
+            bookmarkActions[-1].triggered.connect(bookmarkLambdas[ii])
+            bookmarksMenu.addAction(bookmarkActions[-1])
+
+        gotoMenu.addMenu(bookmarksMenu)
+        if not bookmarks:
+            bookmarksMenu.setEnabled(False)
 
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
@@ -932,6 +958,17 @@ del(__editors__, __parents__, __grandparents__)
             lines2.append(line.strip())
         return lines2
 
+    def getBookmarks(self):
+        lines = self.getTrimmedLines()
+        bookmarks = []
+        for ii,line in enumerate(lines):
+            if BOOKMARK_MARKER in line:
+                descIdx = line.find(BOOKMARK_MARKER) + len(BOOKMARK_MARKER)
+                desc = line[descIdx:].strip()
+                if desc:
+                    bookmarks.append(tuple([desc, ii+1]))
+        return bookmarks
+
     def getClassDefLines(self):
         """tuple(class name, class/def line, line number)"""
         lines = self.getTrimmedLines()
@@ -939,27 +976,21 @@ del(__editors__, __parents__, __grandparents__)
         curClass = ""
         for ii,line in enumerate(lines):
             if "class " in line and ":" in line:
-                commIdx = line.find("#")
                 idx = line.find("class ")
-                if bool(commIdx == -1 or commIdx > idx) and idx == 0:
-                    idx2 = line.find(":", idx)
-                    curClass = line[idx + len("class "):idx2]
-                    if "(" in curClass and ")" in curClass:
-                        idx3 = curClass.find("(")
-                        idx4 = curClass.find(")",idx3)
-                        if idx4 > idx3:
-                            curClass = curClass[:idx3]
-                        else:
-                            curClass = ""
-
-                    classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
-
+                idx2 = line.find(":", idx)
+                curClass = line[idx + len("class "):idx2]
+                if "(" in curClass and ")" in curClass:
+                    idx3 = curClass.find("(")
+                    idx4 = curClass.find(")",idx3)
+                    if idx4 > idx3:
+                        curClass = curClass[:idx3]
+                    else:
+                        curClass = ""
+                classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
             elif "def " in line and ":" in line:
-                commIdx = line.find("#")
                 idx = line.find("def ")
-                if commIdx == -1 or commIdx > idx and idx == 0:
-                    idx2 = line.find(":", idx)
-                    classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
+                idx2 = line.find(":", idx)
+                classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
         return classDefLines
 
     def populateList(self):
@@ -1000,11 +1031,9 @@ del(__editors__, __parents__, __grandparents__)
 class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
         super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
-        self.wid = QtGui.QWidget()
         dlg = TaskEditorAssistant()
-        self.wid.setWindowIcon(QIconFromXPMString(__icon__))
-        self.wid.setLayout(dlg.layout)
-        self.setWidget(self.wid)
+        QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
+        self.setWidget(dlg.form)
         self.setWindowTitle(f"Editor assistant v{__version__}")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
 
@@ -1021,11 +1050,9 @@ def QIconFromStandard(name):
 
 def showEditorAssistantAsDockWidget():
     dockWidget = Dockable(mw)
-    cv = mw.findChild(QtGui.QWidget,"Combo View")
     dockWidget.show()
-    #mw.addDockWidget(mw.dockWidgetArea(cv), dockWidget)
-    #mw.splitDockWidget(dockWidget, cv, QtCore.Qt.Horizontal)
-    #dockWidget.show()
+
+
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
