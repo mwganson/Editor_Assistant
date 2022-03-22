@@ -74,6 +74,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.22c (2022.03.22)
+* improve cursor centering
+* check macro hasn't been closed before attempting to clear toast
+* warn that find results do not respect whole words checkbox
 ### 1.22b (2022.03.22)
 * make Find results menu respect Match case checkbox
 ### 1.22 (2022.03.22)
