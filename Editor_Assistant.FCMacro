@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.22b"
+__version__ = "1.22c"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -400,6 +400,7 @@ __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
 __editor__ = __editors__[__grandparents__.index('""" + name + """')]
 __editor__.find('""" + newtxt + str1 + findFlags + """)
+__editor__.centerCursor()
 del(__editors__, __parents__, __grandparents__, __editor__)
 
 """
@@ -430,6 +431,8 @@ del(__editors__, __parents__, __grandparents__, __editor__)
 
     def clearToast(self):
         #in case there are new messages we don't want to delete them yet, let their timers do it later
+        if not shiboken.isValid(self.msgBtn):
+            return
         if len(self.timers) == 1:
             self.lastToast = self.msgBtn.text()
             self.msgBtn.setText("")
@@ -725,6 +728,7 @@ del(__editors__, __parents__, __grandparents__)
             self.undoQueue.pop(0)
         self.updateUndoBtn()
         self.currentEditor.document().setModified(True)
+        self.currentEditor.centerCursor()
 
     def onIndentBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -925,6 +929,9 @@ del(__editors__, __parents__, __grandparents__)
         gotoMenu.addMenu(findResultsMenu)
         if not findResults:
             findResultsMenu.setEnabled(False)
+        else:
+            if self.matchWholeCheckBox.checkState():
+                self.toast("Whole words checkbox ignored in Find results menu","warning")
 
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
@@ -952,6 +959,7 @@ del(__editors__, __parents__, __grandparents__)
         text_cursor = self.currentEditor.textCursor()
         text_cursor.setPosition(text_block.position())
         self.currentEditor.setTextCursor(text_cursor)
+        self.currentEditor.centerCursor()
         self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
 
     def getLines(self,name=None):
