@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.23"
+__version__ = "1.24"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -11,6 +11,7 @@ BOOKMARK_MARKER = "##:"
 from PySide import QtGui,QtCore
 import difflib
 import json
+from PySide2 import QtWebEngineWidgets as Web
 
 try:
     import shiboken2 as shiboken
@@ -711,22 +712,39 @@ del(__editors__, __parents__, __grandparents__)
 
     def showDiff(self, name, idx):
         """make a diff of the snap and the text in the current editor"""
+
         snaps = self.getDiffSnaps(name)
         plainText = self.editorDict[name].toPlainText().splitlines()
         snapText = snaps[idx]['old_text'].splitlines()
-        d = difflib.Differ()
-        diff = d.compare(snapText, plainText)
-        diffLines = [f"{ii}) {dl}" for ii,dl in enumerate(diff) if dl.startswith("-") or dl.startswith("+")]
-        if not diffLines:
-            self.toast("No differences found","information")
-            return
-        doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
-        textDoc = doc.addObject("App::TextDocument",snaps[idx]['reason'])
-        textDoc.Text = '\n'.join(diffLines)
-        textDoc.ViewObject.doubleClicked()
-        doc.recompute()
+        d = difflib.HtmlDiff(tabsize=4)
+        diff = d.make_file(snapText, plainText, context=True, numlines=5)
+        ds = DiffSaver(form=self)
+        ds.diff = diff
+        layout = QtGui.QVBoxLayout()
+        ds.setLayout(layout)
+        ds.setWindowTitle(f"Editor assistant v{__version__}")
+        ds.setWindowIcon(QIconFromXPMString(__icon__))
+        from PySide2 import QtWebEngineWidgets as Web
+        ds.webView = Web.QWebEngineView()
+        layout.addWidget(ds.webView)
+        ds.webView.setHtml(ds.diff)
+        saveBtn = QtGui.QPushButton("Save to html...")
+        saveBtn.clicked.connect(ds.saveDiffToHtml)
+        layout.addWidget(saveBtn)
+        ds.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        ds.slider.setRange(25, 500)
+        ds.slider.valueChanged.connect(ds.onSliderValueChanged)
+        ds.slider.setMinimum(25)
+        ds.slider.setMaximum(500)
+        ds.slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        ds.slider.setTickInterval(25)
+        ds.slider.setValue(100)
+        layout.addWidget(ds.slider)
+        ds.show()
+        ds.resize(640,480)
         self.onRefreshBtnClicked(True)
         self.toast(f"make diff of snap = {idx}","message")
+
 
     def doSaveSnapshotAs(self):
         self.onRefreshBtnClicked(True)
@@ -1188,6 +1206,26 @@ del(__editors__, __parents__, __grandparents__)
         FreeCADGui.Control.closeDialog()
         if FreeCADGui.activeDocument():
             FreeCADGui.activeDocument().resetEdit()
+
+class DiffSaver (QtGui.QDialog):
+    def __init__(self, parent=mw, form=None):
+        super(DiffSaver, self).__init__(parent, QtCore.Qt.Tool)
+        self.diff = ""
+        self.form=form
+        self.slider=None
+        self.webView=None
+
+    def onSliderValueChanged(self, value):
+            self.webView.setZoomFactor(value/100.0)
+            self.setWindowTitle(f"Editor assistant v{__version__}           [zoom:{self.slider.value()}%]")
+
+    def saveDiffToHtml(self):
+        fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save diff to html file",filter='*.html')[0]
+        if not fname:
+            return
+        with open(fname,"w") as outfile:
+            outfile.write(self.diff)
+        self.form.toast(f"Diff saved to {fname}","message")
 
 class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
