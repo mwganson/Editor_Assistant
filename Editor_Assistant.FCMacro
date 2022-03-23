@@ -3,12 +3,15 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.22c"
+__version__ = "1.23"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
 
 from PySide import QtGui,QtCore
+import difflib
+import json
+
 try:
     import shiboken2 as shiboken
 except:
@@ -120,6 +123,7 @@ class TaskEditorAssistant:
         self.gotoLineEdit.setPlaceholderText("Goto Line number")
         self.gotoMenuBtn = QtGui.QPushButton()
         self.gotoMenuBtn.setToolTip(f"\
+Goto menu\n\
 Line numbers = comma separated lines in Goto line edit\n\
 Bookmarks = lines with {BOOKMARK_MARKER} bookmark description\n\
 Find results = results of searches for text in Find line edit\n\
@@ -222,7 +226,17 @@ Find results = results of searches for text in Find line edit\n\
         snapCenterBtnLayout.addWidget(self.popSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
         self.snapMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
-        self.snapMenuBtn.setToolTip("Snapshots menu")
+        self.snapMenuBtn.setToolTip("\
+Snapshots menu\n\
+Restore = replace current text with snap and discard snap\n\
+Restore to clipboard and keep snap in memory\n\
+Restore to Text document and keep snap in memory\n\
+Save to new text file and keep snap in memory\n\
+Save all snaps to JSON file and keep all in memory\n\
+Load = load all snaps from JSON file, replacing any in memory\n\
+Pop = remove and discard snap\n\
+Diff = show difference between snap and current text\n\
+")
         self.restoreSnapBtn = QtGui.QPushButton("Restore")
         self.takeSnapBtn.clicked.connect(self.onTakeSnapBtnClicked)
         self.snapMenuBtn.clicked.connect(self.onSnapMenuBtnClicked)
@@ -499,10 +513,12 @@ del(__editors__, __parents__, __grandparents__)
         if not snaps:
             self.restoreSnapBtn.setEnabled(False)
             self.restoreSnapBtn.setText("Restore")
+            self.restoreSnapBtn.setToolTip("Restore and discard latest snap")
             self.popSnapBtn.setEnabled(False)
         else:
             self.restoreSnapBtn.setEnabled(True)
             self.restoreSnapBtn.setText(f"Restore {snaps[0]['reason']}")
+            self.restoreSnapBtn.setToolTip(f"Restore and discard {snaps[0]['reason']}")
             self.popSnapBtn.setEnabled(True)
 
     def onTakeSnapBtnClicked(self, arg1):
@@ -527,16 +543,21 @@ del(__editors__, __parents__, __grandparents__)
             self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, popping oldest snap","warning")
         self.updateSnapBtns()
 
-    def popSnap(self):
+    def getSnaps(self):
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        return snaps
+
+    def popSnap(self,idx=0):
+        """pop (delete) a snap, default=0 = latest snap"""
+        snaps = self.getSnaps()
         if not snaps:
             self.toast("No snaps to pop for this editor","error")
             self.updateSnapBtns()
             return
         else:
-            self.snaps.remove(snaps[0])
+            self.snaps.remove(snaps[idx])
             self.updateSnapBtns()
 
     def popAllSnaps(self):
@@ -575,38 +596,137 @@ del(__editors__, __parents__, __grandparents__)
             self.toast("No current editor","error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
 
+        restoreMenu = QtGui.QMenu("Restore last snap")
         restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
         restoreToClipboardAction.triggered.connect(self.doRestoreToClipboard)
         restoreToClipboardAction.setEnabled(len(snaps) > 0)
-        snapContextMenu.addAction(restoreToClipboardAction)
+        restoreMenu.addAction(restoreToClipboardAction)
 
         restoreToTextDocumentAction = QtGui.QAction("Restore to new Text document", mw)
         restoreToTextDocumentAction.triggered.connect(self.doRestoreToTextDocument)
         restoreToTextDocumentAction.setEnabled(len(snaps) > 0)
-        snapContextMenu.addAction(restoreToTextDocumentAction)
+        restoreMenu.addAction(restoreToTextDocumentAction)
+        snapContextMenu.addMenu(restoreMenu)
+        if not len(self.getSnaps()):
+            restoreMenu.setEnabled(False)
 
+        saveMenu = QtGui.QMenu("Save")
         saveSnapshotAsAction = QtGui.QAction("Save snapshot as...", mw)
         saveSnapshotAsAction.triggered.connect(self.doSaveSnapshotAs)
         saveSnapshotAsAction.setEnabled(len(snaps) > 0)
-        snapContextMenu.addAction(saveSnapshotAsAction)
+        saveMenu.addAction(saveSnapshotAsAction)
 
-        snapContextMenu.addSeparator()
+        saveAllSnapshotAsAction = QtGui.QAction("Save all snaps to JSON file...", mw)
+        saveAllSnapshotAsAction.triggered.connect(self.saveSnapsToJSON)
+        saveAllSnapshotAsAction.setEnabled(len(snaps) > 0)
+        saveMenu.addAction(saveAllSnapshotAsAction)
+        snapContextMenu.addMenu(saveMenu)
+        if not len(self.getSnaps()):
+            saveMenu.setEnabled(False)
 
-        popAction = QtGui.QAction("Pop latest snap", mw)
-        popAction.setToolTip("Disards most recent snap for the current editor")
+        loadMenu = QtGui.QMenu("Load")
+        loadSnapshotAction = QtGui.QAction("Load snapshots from JSON...", mw)
+        loadSnapshotAction.triggered.connect(self.loadSnapsFromJSON)
+        loadMenu.addAction(loadSnapshotAction)
+
+        snapContextMenu.addMenu(loadMenu)
+        popMenu = QtGui.QMenu("Pop")
+
+        def makePopSnapLambda(x): return lambda: self.popSnap(x)
+
+        popAction = QtGui.QAction("Pop/discard latest snap", mw)
+        popAction.setToolTip("Discards most recent snap for the current editor")
         popAction.triggered.connect(self.popSnap)
         popAction.setEnabled(len(snaps) > 0)
-        snapContextMenu.addAction(popAction)
+        popMenu.addAction(popAction)
 
-        popAllAction = QtGui.QAction("Pop all snaps", mw)
+        popAllAction = QtGui.QAction("Pop/discard all snaps", mw)
         popAllAction.setToolTip("Disards all snaps for all editors")
         popAllAction.triggered.connect(self.popAllSnaps)
         popAllAction.setEnabled(len(snaps) > 0)
-        snapContextMenu.addAction(popAllAction)
+        popMenu.addAction(popAllAction)
 
+        popSnaps = self.getSnaps()
+        popSnapActions = []
+        popSnapLambdas = [makePopSnapLambda(ii) for ii,snap in enumerate(popSnaps)]
+        for ii,snap in enumerate(popSnaps):
+            popSnapActions.append(QtGui.QAction(f"Pop/discard {snap['reason']}", mw))
+            popSnapActions[-1].triggered.connect(popSnapLambdas[ii])
+            popMenu.addAction(popSnapActions[-1])
+        if not popSnaps:
+            popMenu.setEnabled(False)
+
+        snapContextMenu.addMenu(popMenu)
+
+        def makeDiffLambda(x,y): return lambda: self.showDiff(x,y)
+
+        diffSnaps = self.getDiffSnaps(curName)
+        diffSnapsMenu = QtGui.QMenu("Diff")
+        diffSnapActions = []
+        diffSnapLambdas = [makeDiffLambda(snap['name'],ii) for ii,snap in enumerate(diffSnaps)]
+        for ii,snap in enumerate(diffSnaps):
+            diffSnapActions.append(QtGui.QAction(f"Diff {snap['reason']}", mw))
+            diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii])
+            diffSnapsMenu.addAction(diffSnapActions[-1])
+        snapContextMenu.addMenu(diffSnapsMenu)
+        if not diffSnaps:
+            diffSnapsMenu.setEnabled(False)
 
         snapContextMenu.exec_(self.snapMenuBtn.mapToGlobal(point))
-        #snapContextMenu.exec_(self.takeSnapBtn.mapToGlobal(point))
+
+    def saveSnapsToJSON(self):
+        """save all snaps to a JSON text file"""
+        fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save all snaps to a JSON file",filter='*.*')[0]
+        if not fname:
+            return
+        with open(fname, "w") as outfile:
+            json.dump(self.snaps, outfile)
+        self.toast(f"All snaps saved to {outfile}", "information")
+
+    def loadSnapsFromJSON(self):
+        """load previously saved snaps from a JSON file"""
+        fname = QtGui.QFileDialog.getOpenFileName(FreeCADGui.getMainWindow(),"Open a JSON file",filter='*.*')[0]
+        if not fname:
+            return
+        try:
+            f = open(fname)
+        except Exception as ex:
+            self.toast(f"{ex}","error")
+            return
+        try:
+            self.snaps = json.load(f)
+        except Exception as ex:
+            self.toast(f"{ex}","error")
+            f.close()
+            return
+        self.updateSnapBtns()
+        self.toast(f"Snaps loaded and restored from {fname}","message")
+
+
+    def getDiffSnaps(self, name):
+        self.onRefreshBtnClicked(True)
+        curName = name
+        snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+        return snaps
+
+    def showDiff(self, name, idx):
+        """make a diff of the snap and the text in the current editor"""
+        snaps = self.getDiffSnaps(name)
+        plainText = self.editorDict[name].toPlainText().splitlines()
+        snapText = snaps[idx]['old_text'].splitlines()
+        d = difflib.Differ()
+        diff = d.compare(snapText, plainText)
+        diffLines = [f"{ii}) {dl}" for ii,dl in enumerate(diff) if dl.startswith("-") or dl.startswith("+")]
+        if not diffLines:
+            self.toast("No differences found","information")
+            return
+        doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
+        textDoc = doc.addObject("App::TextDocument",snaps[idx]['reason'])
+        textDoc.Text = '\n'.join(diffLines)
+        textDoc.ViewObject.doubleClicked()
+        doc.recompute()
+        self.onRefreshBtnClicked(True)
+        self.toast(f"make diff of snap = {idx}","message")
 
     def doSaveSnapshotAs(self):
         self.onRefreshBtnClicked(True)
