@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.24"
+__version__ = "1.25"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -712,25 +712,35 @@ del(__editors__, __parents__, __grandparents__)
 
     def showDiff(self, name, idx):
         """make a diff of the snap and the text in the current editor"""
-
         snaps = self.getDiffSnaps(name)
         plainText = self.editorDict[name].toPlainText().splitlines()
         snapText = snaps[idx]['old_text'].splitlines()
         d = difflib.HtmlDiff(tabsize=4)
-        diff = d.make_file(snapText, plainText, context=True, numlines=5)
-        ds = DiffSaver(form=self)
-        ds.diff = diff
+        ds = DiffSaver(form=self, snapText=snapText, plainText=plainText)
+        ds.setWindowFlag(QtCore.Qt.WindowMinimizeButtonHint, True)
+        ds.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
+        ds.resizeEvent = ds.onResize
         layout = QtGui.QVBoxLayout()
         ds.setLayout(layout)
-        ds.setWindowTitle(f"Editor assistant v{__version__}")
         ds.setWindowIcon(QIconFromXPMString(__icon__))
         from PySide2 import QtWebEngineWidgets as Web
         ds.webView = Web.QWebEngineView()
-        layout.addWidget(ds.webView)
         ds.webView.setHtml(ds.diff)
         saveBtn = QtGui.QPushButton("Save to html...")
         saveBtn.clicked.connect(ds.saveDiffToHtml)
-        layout.addWidget(saveBtn)
+        sliderLayout=QtGui.QHBoxLayout()
+        sliderLayout.addWidget(saveBtn)
+        ds.numlinesSpinBox = QtGui.QSpinBox()
+        ds.numlinesSpinBox.setValue(5)
+        ds.contextCheckBox = QtGui.QCheckBox()
+        ds.contextCheckBox.setCheckState(QtCore.Qt.Checked)
+        sliderLayout.addWidget(QtGui.QLabel("Context:"))
+        sliderLayout.addWidget(ds.contextCheckBox)
+        sliderLayout.addWidget(QtGui.QLabel("Context lines:"))
+        sliderLayout.addWidget(ds.numlinesSpinBox)
+        ds.contextCheckBox.stateChanged.connect(ds.onContextCheckBoxStateChanged)
+        ds.numlinesSpinBox.valueChanged.connect(ds.onNumlinesSpinBoxValueChanged)
+        sliderLayout.addWidget(QtGui.QLabel("Zoom:"))
         ds.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
         ds.slider.setRange(25, 500)
         ds.slider.valueChanged.connect(ds.onSliderValueChanged)
@@ -739,7 +749,20 @@ del(__editors__, __parents__, __grandparents__)
         ds.slider.setTickPosition(QtGui.QSlider.TicksBelow)
         ds.slider.setTickInterval(25)
         ds.slider.setValue(100)
-        layout.addWidget(ds.slider)
+        sliderLayout.addWidget(ds.slider)
+        sliderLayout.addWidget(QtGui.QLabel("Col width:"))
+        ds.widthSlider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        ds.widthSlider.setRange(25, 2000)
+        ds.widthSlider.valueChanged.connect(ds.onWidthSliderValueChanged)
+        ds.widthSlider.setMinimum(25)
+        ds.widthSlider.setMaximum(2000)
+        ds.widthSlider.setTickPosition(QtGui.QSlider.TicksBelow)
+        ds.widthSlider.setTickInterval(25)
+        ds.widthSlider.setValue(500)
+        sliderLayout.addWidget(ds.widthSlider)
+        layout.addLayout(sliderLayout)
+        layout.addWidget(ds.webView)
+
         ds.show()
         ds.resize(640,480)
         self.onRefreshBtnClicked(True)
@@ -1208,16 +1231,55 @@ del(__editors__, __parents__, __grandparents__)
             FreeCADGui.activeDocument().resetEdit()
 
 class DiffSaver (QtGui.QDialog):
-    def __init__(self, parent=mw, form=None):
+    def __init__(self, parent=mw, form=None, plainText=None, snapText=None):
         super(DiffSaver, self).__init__(parent, QtCore.Qt.Tool)
-        self.diff = ""
         self.form=form
         self.slider=None
         self.webView=None
+        self.widthSlider=None
+        self.contextCheckBox = None
+        self.numlinesSpinBox = None
+        self.plainText = plainText
+        self.snapText = snapText
+        self.makeDiff()
+        self.blockSignals = False
+        self.diff = ""
+
+    def onContextCheckBoxStateChanged(self, arg1):
+        self.makeDiff()
+
+    def onNumlinesSpinBoxValueChanged(self, val):
+        self.makeDiff()
+
+    def makeDiff(self,width=None):
+        if not self.webView:
+            return
+        d = difflib.HtmlDiff(tabsize=4)
+        numlines2 = 5 if not self.numlinesSpinBox else self.numlinesSpinBox.value()
+        context2 = self.contextCheckBox.checkState() if self.contextCheckBox else True
+        self.diff = d.make_file(self.snapText, self.plainText, context=context2, numlines=numlines2)
+        colWidth = width if width else self.width()/2-70
+        MAXWIDTH=f"{colWidth}" #chr(123) = {, 125 = }
+        width_string= f"<style>table td {chr(123)}overflow:auto;max-width:{MAXWIDTH}px;word-wrap:break-word;{chr(125)}</style></head>"
+        new_diff = self.diff.replace("</head>",width_string)
+        self.webView.setHtml(new_diff)
+
+    def updateTitle(self):
+        if self.widthSlider and self.slider:
+            self.setWindowTitle(f"Editor assistant v{__version__}   [zoom:{self.slider.value()}%; Col width: {self.widthSlider.value()}px]")
+
+    def onResize(self, event):
+        self.blockSignals = True
+        width = self.width()/2-70
+        self.widthSlider.setValue(width)
+        self.setColWidth(width)
 
     def onSliderValueChanged(self, value):
-            self.webView.setZoomFactor(value/100.0)
-            self.setWindowTitle(f"Editor assistant v{__version__}           [zoom:{self.slider.value()}%]")
+        if self.blockSignals:
+            self.blockSignals = False
+            return
+        self.webView.setZoomFactor(value/100.0)
+        self.updateTitle()
 
     def saveDiffToHtml(self):
         fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save diff to html file",filter='*.html')[0]
@@ -1226,6 +1288,14 @@ class DiffSaver (QtGui.QDialog):
         with open(fname,"w") as outfile:
             outfile.write(self.diff)
         self.form.toast(f"Diff saved to {fname}","message")
+
+    def setColWidth(self, value):
+        self.makeDiff(width=value)
+        self.updateTitle()
+
+    def onWidthSliderValueChanged(self, value):
+        self.setColWidth(value)
+
 
 class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
