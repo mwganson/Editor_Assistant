@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.25 (2022.03.23)
+* improve diff viewer
 ### 1.24 (2022.03.23)
 * make diffs into html and show in a web browser view
 ### 1.23 (2022.03.22)
