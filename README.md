@@ -74,6 +74,11 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.23 (2022.03.22)
+* improve tooltips for snaps menu button and goto menu button
+* allow to pop individual snaps out of order
+* add load/save to/from JSON files (all snaps for all editors)
+* add snap diff functionality (diff text goes to new Text document object) 
 ### 1.22c (2022.03.22)
 * improve cursor centering
 * check macro hasn't been closed before attempting to clear toast
