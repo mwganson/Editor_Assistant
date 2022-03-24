@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.25"
+__version__ = "1.26"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -300,6 +300,11 @@ Type 'help(editor)' in the console for help.\n\
             self.currentEditor.setFocus()
         #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
 
+    def checkForTabs(self):
+        txt = self.getText()
+        if txt.count("\t") > 0:
+            self.toast(f"{self.editorList.currentItem().text()}: contains tabs.","warning")
+
     def onEditorListCurrentItemChanged(self, current, previous):
         if self.blockSignals:
             return
@@ -307,6 +312,7 @@ Type 'help(editor)' in the console for help.\n\
         self.currentEditor.setFocus()
         if not self.currentEditor.hasFocus():
             self.toast(f"cannot set focus on {self.editorList.currentItem().text()}","warning")
+        self.checkForTabs()
         self.onFindEditTextChanged(None)
         self.updateUndoBtn()
         self.updateSnapBtns()
@@ -321,7 +327,7 @@ Type 'help(editor)' in the console for help.\n\
         FreeCADGui.doCommand(cmd)
 
     def setText(self, name, txt, reason):
-        old_text = self.editorDict[name].toPlainText()
+        old_text = self.getText(name)
         old_cursor = self.editorDict[name].textCursor()
         self.editorDict[name].setPlainText(txt)
         self.setModified(name, old_text, reason, self.getTC(old_cursor))
@@ -336,7 +342,14 @@ Type 'help(editor)' in the console for help.\n\
         text_cursor.setPosition(tc[1], QtGui.QTextCursor.KeepAnchor)
         ed.setTextCursor(text_cursor)
 
-    def getText(self, name):
+    def getText(self, name=None):
+        if not name:
+            self.onRefreshBtnClicked(True)
+            if not self.editorList.currentItem():
+                self.toast("No editor","error")
+                return ""
+            else:
+                name = self.editorList.currentItem().text()
         return self.editorDict[name].toPlainText()
 
     def filterBackSlashes(self, instring):
@@ -463,7 +476,7 @@ del(__editors__, __parents__, __grandparents__, __editor__)
         if not name:
             self.toast("No editor selected")
             return
-        old_text = self.editorDict[name].toPlainText()
+        old_text = self.getText(name)
         old_cursor = self.editorDict[name].textCursor()
         cmd = """
 from PySide import QtGui
@@ -529,7 +542,7 @@ del(__editors__, __parents__, __grandparents__)
         if not curName:
             self.toast("No current editor","error")
             return
-        curText = self.currentEditor.toPlainText()
+        curText = self.getText(curName)
         curCursor = self.currentEditor.textCursor()
         tc = self.getTC(curCursor)
         count = 1
@@ -575,7 +588,7 @@ del(__editors__, __parents__, __grandparents__)
             self.updateSnapBtns()
             return
         else:
-            old_text = self.currentEditor.toPlainText()
+            old_text = self.getText(curName)
             old_cursor = self.currentEditor.textCursor()
             self.currentEditor.setPlainText(snaps[0]["old_text"])
             #self.currentEditor.setTextCursor(snaps[0]['tc'])
@@ -673,7 +686,37 @@ del(__editors__, __parents__, __grandparents__)
         if not diffSnaps:
             diffSnapsMenu.setEnabled(False)
 
+        def makeEditReasonLambda(name,reason,idx): return lambda: self.editReason(name,reason,idx)
+
+        editReasons = self.getEditReasons(curName)
+        editReasonsMenu = QtGui.QMenu("Edit reason")
+        editReasonActions = []
+        editReasonLambdas = [makeEditReasonLambda(tup[0],tup[1],ii) for ii,tup in enumerate(editReasons)]
+        for ii,tup in enumerate(editReasons):
+            editReasonActions.append(QtGui.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
+            editReasonActions[-1].triggered.connect(editReasonLambdas[ii])
+            editReasonsMenu.addAction(editReasonActions[-1])
+        snapContextMenu.addMenu(editReasonsMenu)
+        if not editReasons:
+            editReasonsMenu.setEnabled(False)
+
         snapContextMenu.exec_(self.snapMenuBtn.mapToGlobal(point))
+
+    def editReason(self, name, reason, idx):
+        snap = self.snaps[idx]
+        new_reason,ok = QtGui.QInputDialog.getText(mw,"Edit reason",f"Enter a new reason in place of:\n\
+{reason}\n", text=reason)
+        if not ok:
+            return
+        snap['reason'] = new_reason
+        self.snaps[idx] = snap
+        self.toast(f"snap of {name}:{reason} updated to {new_reason}","information")
+        return
+
+    def getEditReasons(self,curName):
+        """list of tuple(name, reason, idx)"""
+        editReasons = [tuple([snap['name'],snap['reason'],ii]) for ii,snap in enumerate(self.snaps)]
+        return editReasons
 
     def saveSnapsToJSON(self):
         """save all snaps to a JSON text file"""
@@ -713,7 +756,7 @@ del(__editors__, __parents__, __grandparents__)
     def showDiff(self, name, idx):
         """make a diff of the snap and the text in the current editor"""
         snaps = self.getDiffSnaps(name)
-        plainText = self.editorDict[name].toPlainText().splitlines()
+        plainText = self.getText(name).splitlines()
         snapText = snaps[idx]['old_text'].splitlines()
         d = difflib.HtmlDiff(tabsize=4)
         ds = DiffSaver(form=self, snapText=snapText, plainText=plainText)
@@ -821,7 +864,7 @@ del(__editors__, __parents__, __grandparents__)
         curCursor = self.editorDict[curName].textCursor()
         for queue in reversed(self.undoQueue):
             if curName == queue["name"]:
-                redo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText(), "tc":self.getTC(curCursor)}
+                redo = {"name":curName, "reason":queue["reason"], "old_text":self.getText(curName), "tc":self.getTC(curCursor)}
                 self.currentEditor.setPlainText(queue["old_text"])
                 self.setTextCursor(curName, queue['tc'])
                 self.redoQueue.append(redo)
@@ -842,7 +885,7 @@ del(__editors__, __parents__, __grandparents__)
         curName = self.editorList.currentItem().text()
         for queue in reversed(self.redoQueue):
             if curName == queue["name"]:
-                undo = {"name":curName, "reason":queue["reason"], "old_text":self.currentEditor.toPlainText(), "tc":self.getTC(self.currentEditor.textCursor())}
+                undo = {"name":curName, "reason":queue["reason"], "old_text":self.getText(curName), "tc":self.getTC(self.currentEditor.textCursor())}
                 self.currentEditor.setPlainText(queue["old_text"])
                 #self.currentEditor.setTextCursor(queue['tc'])
                 self.setTextCursor(curName, queue['tc'])
@@ -897,7 +940,7 @@ del(__editors__, __parents__, __grandparents__)
             self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
-        old_text = self.currentEditor.toPlainText()
+        old_text = self.getText()
         tc = self.currentEditor.textCursor()
         txt = tc.selectedText()
         if not txt:
@@ -918,7 +961,7 @@ del(__editors__, __parents__, __grandparents__)
             self.toast("current editor is invalid", "error")
             return
         self.currentEditor.setFocus()
-        old_text = self.currentEditor.toPlainText()
+        old_text = self.getText()
         old_cursor = self.currentEditor.textCursor()
         name = self.editorList.currentItem().text()
         tc = self.currentEditor.textCursor()
@@ -965,7 +1008,7 @@ del(__editors__, __parents__, __grandparents__)
         document = self.currentEditor.document()
         name = self.editorList.currentItem().text()
         text_cursor = self.currentEditor.textCursor()
-        txt = self.currentEditor.toPlainText()
+        txt = self.getText(name)
         start = text_cursor.selectionStart()
         end = text_cursor.selectionEnd()
         if start == end:
@@ -1106,9 +1149,12 @@ del(__editors__, __parents__, __grandparents__)
 
     def gotoLine(self,line):
         self.onRefreshBtnClicked(True)
+        if not shiboken.isValid(self.currentEditor):
+            self.toast("No valid current editor","error")
+            return
         document = self.currentEditor.document()
         if line < 0:
-            txt = self.currentEditor.toPlainText()
+            txt = self.getText()
             txt_lines = txt.splitlines()
             txt_len = len(txt_lines)
             line = txt_len + line
@@ -1125,11 +1171,7 @@ del(__editors__, __parents__, __grandparents__)
 
     def getLines(self,name=None):
         """get plain text as string list"""
-        if name:
-            ed = self.editorDict[name]
-            txt = ed.getPlainText()
-        else:
-            txt = self.currentEditor.toPlainText()
+        txt = self.getText(name)
         return txt.splitlines()
 
     def getTrimmedLines(self, name=None):
@@ -1576,15 +1618,15 @@ indent_icon = """
 static char *indent_xpm[] = {
 /* format */
 "64 64 9 1",
-" 	c None",
-".	c black",
-"+	c #DFDFDF",
-"@	c #3F48CC",
-"#	c green",
-"$	c #3F48CC",
-"%	c black",
-"&	c #ED1C24",
-"*	c #E2D9D6",
+"   c None",
+".  c black",
+"+  c #DFDFDF",
+"@  c #3F48CC",
+"#  c green",
+"$  c #3F48CC",
+"%  c black",
+"&  c #ED1C24",
+"*  c #E2D9D6",
 /* pixels */
 "...................................................             ",
 "...................................................             ",
