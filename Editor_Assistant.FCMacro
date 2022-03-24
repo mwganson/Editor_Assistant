@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.27"
+__version__ = "1.28"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -91,7 +91,20 @@ class TaskEditorAssistant:
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
-        #self.print(f"self.editorDict = {self.editorDict}")
+
+        #self.layout = VBox = main layout (rest are all HBox)
+        #topLabelLayout = toast label
+        #editorLayout = editor list widget
+        #refreshLayout = refresh button + goto menu button + goto line edit
+        #undoLayout =  undo + pop undos + redo
+        #findEditLayout = Find edit + search + search previous
+        #replaceEditLayout = Replace edit + replace + replace all
+        #flagsLayout = Match case checkbox + whole words checkbox
+        #snapLayout = snap button + discard button + snap menu + pop button
+        #indentLayout = indent button + unindent button
+        #consoleLayout = to console label + console line edit
+
+
         self.layout = QtGui.QVBoxLayout()
         self.form.setLayout(self.layout)
         topLabelLayout = QtGui.QHBoxLayout()
@@ -298,7 +311,10 @@ Type 'help(editor)' in the console for help.\n\
                 name = self.editorList.currentItem().text()
                 self.currentEditor = self.editorDict[name]
         if shiboken and shiboken.isValid(self.currentEditor) and self.currentEditor and not self.currentEditor.hasFocus():
-            self.currentEditor.setFocus()
+            if self.form.parent():
+                self.form.parent().hide()
+                self.currentEditor.setFocus()
+                self.form.parent().show()
         #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
 
     def checkForTabs(self):
@@ -510,7 +526,7 @@ del(__editors__, __parents__, __grandparents__)
         if name and txt:
             self.toast(f"{txt} count in {name}: {count}","message")
 
-    def onFindBtnClicked(self, arg1):
+    def onFindBtnClicked(self, arg1=True):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid","error")
@@ -1382,9 +1398,9 @@ class DiffSaver (QtGui.QDialog):
 class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
         super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
-        dlg = TaskEditorAssistant()
+        self.dlg = TaskEditorAssistant()
         QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
-        self.setWidget(dlg.form)
+        self.setWidget(self.dlg.form)
         self.setWindowTitle(f"Editor assistant v{__version__}")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
 
