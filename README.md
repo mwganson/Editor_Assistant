@@ -74,6 +74,11 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.29 (2022.03.24)
+* add Loop checkbox
+* Ctrl+Find to search from beginning
+* Ctrl+Find previous to search from end
+* Alt+Find / Find previous to search using selected text
 ### 1.28 (2022.03.24)
 * fix failure to set current editor (causes some blinking)
 ### 1.27 (2022.03.23)
