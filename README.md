@@ -74,6 +74,11 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.28 (2022.03.24)
+* fix failure to set current editor (causes some blinking)
+### 1.27 (2022.03.23)
+* add restore any functionality
+* rename some buttons so pop, restore, discard always mean the same things
 ### 1.26 (2022.03.23)
 * add reason editor
 * check for tabs and warn if any are found
