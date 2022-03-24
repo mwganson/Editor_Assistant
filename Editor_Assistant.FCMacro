@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.26"
+__version__ = "1.27"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -220,32 +220,33 @@ Find results = results of searches for text in Find line edit\n\
         snapCenterBtnLayout.setSpacing(0)
         self.snapCenterBtn.setLayout(snapCenterBtnLayout)
         self.snapCenterBtn.setMaximumWidth(64)
-        self.popSnapBtn = QtGui.QPushButton()
-        self.popSnapBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
-        self.popSnapBtn.clicked.connect(self.popSnap)
-        self.popSnapBtn.setToolTip("Pop the latest snap and discard it")
-        snapCenterBtnLayout.addWidget(self.popSnapBtn)
+        self.discardSnapBtn = QtGui.QPushButton()
+        self.discardSnapBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.discardSnapBtn.clicked.connect(self.discardSnap)
+        self.discardSnapBtn.setToolTip("Discard the latest snap")
+        snapCenterBtnLayout.addWidget(self.discardSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
         self.snapMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
         self.snapMenuBtn.setToolTip("\
 Snapshots menu\n\
-Restore = replace current text with snap and discard snap\n\
+Restore = replace current text with snap and keep snap\n\
 Restore to clipboard and keep snap in memory\n\
 Restore to Text document and keep snap in memory\n\
+Restore any = Possibility to restore to different document or a snap out of order\n\
 Save to new text file and keep snap in memory\n\
 Save all snaps to JSON file and keep all in memory\n\
 Load = load all snaps from JSON file, replacing any in memory\n\
-Pop = remove and discard snap\n\
+Pop = restore and discard snap\n\
 Diff = show difference between snap and current text\n\
 ")
-        self.restoreSnapBtn = QtGui.QPushButton("Restore")
+        self.popSnapBtn = QtGui.QPushButton("Restore")
         self.takeSnapBtn.clicked.connect(self.onTakeSnapBtnClicked)
         self.snapMenuBtn.clicked.connect(self.onSnapMenuBtnClicked)
-        self.restoreSnapBtn.clicked.connect(self.onRestoreSnapBtnClicked)
+        self.popSnapBtn.clicked.connect(self.onPopSnapBtnClicked)
         snapLayout.addWidget(self.takeSnapBtn)
 
         snapLayout.addWidget(self.snapCenterBtn)
-        snapLayout.addWidget(self.restoreSnapBtn)
+        snapLayout.addWidget(self.popSnapBtn)
         #self.snapMenuBtn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         #self.snapMenuBtn.customContextMenuRequested.connect(self.snapMenuBtnContextMenu)
         self.layout.addLayout(snapLayout)
@@ -525,15 +526,15 @@ del(__editors__, __parents__, __grandparents__)
         curName = self.editorList.currentItem().text() if self.editorList.count() else None
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
-            self.restoreSnapBtn.setEnabled(False)
-            self.restoreSnapBtn.setText("Restore")
-            self.restoreSnapBtn.setToolTip("Restore and discard latest snap")
             self.popSnapBtn.setEnabled(False)
+            self.popSnapBtn.setText("Pop")
+            self.popSnapBtn.setToolTip("Pop/restore and discard latest snap")
+            self.discardSnapBtn.setEnabled(False)
         else:
-            self.restoreSnapBtn.setEnabled(True)
-            self.restoreSnapBtn.setText(f"Restore {snaps[0]['reason']}")
-            self.restoreSnapBtn.setToolTip(f"Restore and discard {snaps[0]['reason']}")
             self.popSnapBtn.setEnabled(True)
+            self.popSnapBtn.setText(f"Pop {snaps[0]['reason']}")
+            self.popSnapBtn.setToolTip(f"Pop/restore and discard {snaps[0]['reason']}")
+            self.discardSnapBtn.setEnabled(True)
 
     def onTakeSnapBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -554,7 +555,7 @@ del(__editors__, __parents__, __grandparents__)
         self.toast(f"{thisSnap['reason']} taken of {curName}","message")
         if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
             self.snaps.pop(0)
-            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, popping oldest snap","warning")
+            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","warning")
         self.updateSnapBtns()
 
     def getSnaps(self):
@@ -563,23 +564,23 @@ del(__editors__, __parents__, __grandparents__)
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         return snaps
 
-    def popSnap(self,idx=0):
-        """pop (delete) a snap, default=0 = latest snap"""
+    def discardSnap(self,idx=0):
+        """discard a snap, default=0 = latest snap"""
         snaps = self.getSnaps()
         if not snaps:
-            self.toast("No snaps to pop for this editor","error")
+            self.toast("No snaps to discard for this editor","error")
             self.updateSnapBtns()
             return
         else:
             self.snaps.remove(snaps[idx])
             self.updateSnapBtns()
 
-    def popAllSnaps(self):
+    def discardAllSnaps(self):
         self.onRefreshBtnClicked(True)
         self.snaps = []
         self.updateSnapBtns()
 
-    def onRestoreSnapBtnClicked(self, arg1):
+    def onPopSnapBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
@@ -624,6 +625,20 @@ del(__editors__, __parents__, __grandparents__)
         if not len(self.getSnaps()):
             restoreMenu.setEnabled(False)
 
+        def makeRestoreAnyLambda(name,reason,idx): return lambda: self.restoreAny(name,reason,idx)
+
+        restoreAnys = self.getRestoreAnys()
+        restoreAnysMenu = QtGui.QMenu("Restore Any")
+        restoreAnyActions = []
+        restoreAnyLambdas = [makeRestoreAnyLambda(tup[0],tup[1],ii) for ii,tup in enumerate(restoreAnys)]
+        for ii,tup in enumerate(restoreAnys):
+            restoreAnyActions.append(QtGui.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
+            restoreAnyActions[-1].triggered.connect(restoreAnyLambdas[ii])
+            restoreAnysMenu.addAction(restoreAnyActions[-1])
+        snapContextMenu.addMenu(restoreAnysMenu)
+        if not restoreAnys:
+            restoreAnysMenu.setEnabled(False)
+
         saveMenu = QtGui.QMenu("Save")
         saveSnapshotAsAction = QtGui.QAction("Save snapshot as...", mw)
         saveSnapshotAsAction.triggered.connect(self.doSaveSnapshotAs)
@@ -644,33 +659,33 @@ del(__editors__, __parents__, __grandparents__)
         loadMenu.addAction(loadSnapshotAction)
 
         snapContextMenu.addMenu(loadMenu)
-        popMenu = QtGui.QMenu("Pop")
+        discardMenu = QtGui.QMenu("Discard")
 
-        def makePopSnapLambda(x): return lambda: self.popSnap(x)
+        def makeDiscardSnapLambda(x): return lambda: self.discardSnap(x)
 
-        popAction = QtGui.QAction("Pop/discard latest snap", mw)
-        popAction.setToolTip("Discards most recent snap for the current editor")
-        popAction.triggered.connect(self.popSnap)
-        popAction.setEnabled(len(snaps) > 0)
-        popMenu.addAction(popAction)
+        discardAction = QtGui.QAction("Discard latest snap", mw)
+        discardAction.setToolTip("Discards most recent snap for the current editor")
+        discardAction.triggered.connect(self.discardSnap)
+        discardAction.setEnabled(len(snaps) > 0)
+        discardMenu.addAction(discardAction)
 
-        popAllAction = QtGui.QAction("Pop/discard all snaps", mw)
-        popAllAction.setToolTip("Disards all snaps for all editors")
-        popAllAction.triggered.connect(self.popAllSnaps)
-        popAllAction.setEnabled(len(snaps) > 0)
-        popMenu.addAction(popAllAction)
+        discardAllAction = QtGui.QAction("Discard all snaps", mw)
+        discardAllAction.setToolTip("Disards all snaps for all editors")
+        discardAllAction.triggered.connect(self.discardAllSnaps)
+        discardAllAction.setEnabled(len(snaps) > 0)
+        discardMenu.addAction(discardAllAction)
 
-        popSnaps = self.getSnaps()
-        popSnapActions = []
-        popSnapLambdas = [makePopSnapLambda(ii) for ii,snap in enumerate(popSnaps)]
-        for ii,snap in enumerate(popSnaps):
-            popSnapActions.append(QtGui.QAction(f"Pop/discard {snap['reason']}", mw))
-            popSnapActions[-1].triggered.connect(popSnapLambdas[ii])
-            popMenu.addAction(popSnapActions[-1])
-        if not popSnaps:
-            popMenu.setEnabled(False)
+        discardSnaps = self.getSnaps()
+        discardSnapActions = []
+        discardSnapLambdas = [makeDiscardSnapLambda(ii) for ii,snap in enumerate(discardSnaps)]
+        for ii,snap in enumerate(discardSnaps):
+            discardSnapActions.append(QtGui.QAction(f"Discard {snap['reason']}", mw))
+            discardSnapActions[-1].triggered.connect(discardSnapLambdas[ii])
+            discardMenu.addAction(discardSnapActions[-1])
+        if not discardSnaps:
+            discardMenu.setEnabled(False)
 
-        snapContextMenu.addMenu(popMenu)
+        snapContextMenu.addMenu(discardMenu)
 
         def makeDiffLambda(x,y): return lambda: self.showDiff(x,y)
 
@@ -717,6 +732,31 @@ del(__editors__, __parents__, __grandparents__)
         """list of tuple(name, reason, idx)"""
         editReasons = [tuple([snap['name'],snap['reason'],ii]) for ii,snap in enumerate(self.snaps)]
         return editReasons
+
+    def restoreAny(self, name, reason, idx):
+        """restore any snap to current document"""
+        snap = self.snaps[idx]
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("Invalid current editor","error")
+            return
+        if curName != name:
+            items = ["Oops, wrong document -- cancel",f"I confirm: overwrite {curName} with this snap"]
+            item,ok = QtGui.QInputDialog.getItem(mw,f"Restore",f"You are about to restore:{name}: {reason} to a different document: {curName}.\n",items)
+            if not bool (ok and item == items[1]):
+                return
+        old_text = self.getText(curName)
+        old_cursor = self.currentEditor.textCursor()
+        self.currentEditor.setPlainText(snap["old_text"])
+        self.setTextCursor(self.editorList.currentItem().text(), snap['tc'])
+        self.setModified(curName, old_text, f"Restore {snap['reason']}", self.getTC(old_cursor))
+        self.toast(f"snap of {name}:{reason} updated to {curName}: {snap['reason']}","information")
+        return
+
+    def getRestoreAnys(self):
+        """list of tuple(name, reason, idx)"""
+        restoreAnys = [tuple([snap['name'],snap['reason'],ii]) for ii,snap in enumerate(self.snaps)]
+        return restoreAnys
 
     def saveSnapsToJSON(self):
         """save all snaps to a JSON text file"""
@@ -928,7 +968,7 @@ del(__editors__, __parents__, __grandparents__)
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
         if len(self.undoQueue) > UNDO_QUEUE_MAX_SIZE:
-            self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\npopping {self.undoQueue[0]['reason']}","warning")
+            self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\ndiscarding {self.undoQueue[0]['reason']}","warning")
             self.undoQueue.pop(0)
         self.updateUndoBtn()
         self.currentEditor.document().setModified(True)
