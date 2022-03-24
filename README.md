@@ -74,6 +74,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.26 (2022.03.23)
+* add reason editor
+* check for tabs and warn if any are found
+* remove some tabs from Gimp-generated XPM icon string
 ### 1.25 (2022.03.23)
 * improve diff viewer
 ### 1.24 (2022.03.23)
