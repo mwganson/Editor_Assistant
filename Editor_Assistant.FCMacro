@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.28"
+__version__ = "1.29"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -65,11 +65,19 @@ class FindEdit (QtGui.QLineEdit):
         txt = txt_cur.selectedText()
         self.setText(txt)
 
+class CustomQWidget(QtGui.QWidget):
+    def __init__(self, parent=None, form=None):
+        super(CustomQWidget, self).__init__()
+        self.form = form
+        self.hide()
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+    def setFound(self,found):
+        self.form.found = found
 
 class TaskEditorAssistant:
     def __init__(self):
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
-        self.found = False
+        self.found = False #find result
         self.gotoLineDict = {} #to save goto line edit value for each editor
         self.editorDict = {}
         self.editors = []
@@ -84,10 +92,11 @@ class TaskEditorAssistant:
         self.lastToast = "No previous toasts"
         self.getEditors()
         self.blockSignals = False
-        self.form = QtGui.QWidget()
+        self.form = CustomQWidget(form=self)
         self.form.setObjectName("Editor assistant")
         self.form.setWindowTitle(" Editor assistant v"+__version__)
         self.form.setWindowIcon(QIconFromXPMString(__icon__))
+        #self.form.form = self
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
@@ -179,11 +188,11 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout.addWidget(self.findEdit)
         self.findBtn = QtGui.QPushButton()
         self.findBtn.setIcon(QIconFromXPMString(find_next_icon))
-        self.findBtn.setToolTip("Find next")
+        self.findBtn.setToolTip("Find next\nCtrl+Click = Find from start\nAlt+Click = Find from selection")
         self.findBtn.clicked.connect(self.onFindBtnClicked)
         self.findBackBtn = QtGui.QPushButton()
         self.findBackBtn.setIcon(QIconFromXPMString(find_previous_icon))
-        self.findBackBtn.setToolTip("")
+        self.findBackBtn.setToolTip("Find previous\nCtrl+Click = Find from end\nAlt+Click = Find from selection")
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
@@ -214,11 +223,14 @@ Find results = results of searches for text in Find line edit\n\
         self.matchCaseCheckBox = QtGui.QCheckBox("Case")
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
+        self.loopCheckBox = QtGui.QCheckBox("Loop")
+        self.loopCheckBox.setCheckState(QtCore.Qt.Checked)
+        self.loopCheckBox.setToolTip ("Loop to start/end if text not found")
         flagsLayout.addWidget(self.matchCaseCheckBox)
         flagsLayout.addWidget(self.matchWholeCheckBox)
+        flagsLayout.addWidget(self.loopCheckBox)
         self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
         self.layout.addLayout(flagsLayout)
-
 
         snapLayout = QtGui.QHBoxLayout()
         self.takeSnapBtn = QtGui.QPushButton()
@@ -444,9 +456,11 @@ __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
 __editor__ = __editors__[__grandparents__.index('""" + name + """')]
-__editor__.find('""" + newtxt + str1 + findFlags + """)
+__dlg__ = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant")
+__dlg__.setFound(__editor__.find('""" + newtxt + str1 + findFlags + """))
 __editor__.centerCursor()
-del(__editors__, __parents__, __grandparents__, __editor__)
+
+del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
 """
 
@@ -535,7 +549,20 @@ del(__editors__, __parents__, __grandparents__)
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         matchCase = self.matchCaseCheckBox.checkState()
+        modifiers = QtGui.QApplication.keyboardModifiers()
+        if modifiers & QtCore.Qt.AltModifier:
+            selText = self.currentEditor.textCursor().selectedText()
+            self.findEdit.setText(selText if selText else txt)
+            txt = self.findEdit.text()
+        if modifiers & QtCore.Qt.ControlModifier:
+            self.gotoLine(1, silent=True)
+
+        self.found = False
         self.find(name, txt)
+        if not self.found:
+            if self.loopCheckBox.checkState():
+                self.toast(f"{txt} not found in {name} --Looping back to start","warning")
+                self.gotoLine(1, silent=True)
 
     def updateSnapBtns(self):
         self.onRefreshBtnClicked(True)
@@ -979,7 +1006,22 @@ del(__editors__, __parents__, __grandparents__)
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
+        modifiers = QtGui.QApplication.keyboardModifiers()
+        if modifiers & QtCore.Qt.AltModifier:
+            selText = self.currentEditor.textCursor().selectedText()
+            self.findEdit.setText(selText if selText else txt)
+            txt = self.findEdit.text()
+        if modifiers & QtCore.Qt.ControlModifier:
+            self.gotoLine(-1, silent=True, eol=True)
+
+        self.found = False
         self.find(name, txt, True)
+        if not self.found:
+            if self.loopCheckBox.checkState():
+                self.toast(f"{txt} not found in {name} --Looping back to end","warning")
+                self.gotoLine(-1, silent=True, eol=True)
+            else:
+                self.toast(f"{txt} not found backwards in {name}","message")
 
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
@@ -1203,7 +1245,7 @@ del(__editors__, __parents__, __grandparents__)
         else:
             self.onGotoMenuBtnClicked(True)
 
-    def gotoLine(self,line):
+    def gotoLine(self,line,silent=False,eol=False):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor):
             self.toast("No valid current editor","error")
@@ -1213,17 +1255,19 @@ del(__editors__, __parents__, __grandparents__)
             txt = self.getText()
             txt_lines = txt.splitlines()
             txt_len = len(txt_lines)
-            line = txt_len + line
-            pass
+            line = txt_len + 1 + line
         text_block = document.findBlockByLineNumber(line-1)
         if not text_block.isValid():
             self.toast(f"Cannot goto Line# {line} of {self.editorList.currentItem().text()}")
             return
         text_cursor = self.currentEditor.textCursor()
         text_cursor.setPosition(text_block.position())
+        if eol:
+            text_cursor.movePosition(QtGui.QTextCursor.EndOfLine)
         self.currentEditor.setTextCursor(text_cursor)
         self.currentEditor.centerCursor()
-        self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
+        if not silent:
+            self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
 
     def getLines(self,name=None):
         """get plain text as string list"""
@@ -1399,6 +1443,7 @@ class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
         super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
         self.dlg = TaskEditorAssistant()
+        self.setObjectName("Editor assistant dockwidget")
         QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
         self.setWidget(self.dlg.form)
         self.setWindowTitle(f"Editor assistant v{__version__}")
@@ -1424,8 +1469,9 @@ def showEditorAssistantAsDockWidget():
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
     if not FreeCADGui.Control.activeDialog():
-        dlg = TaskEditorAssistant()
-        FreeCADGui.Control.showDialog(dlg)
+        #dlg = TaskEditorAssistant()
+        dw = Dockable(mw)
+        FreeCADGui.Control.showDialog(dw.dlg)
     else:
         FreeCAD.Console.PrintError("Another task dialog is active.  Showing as dockable widget instead.\n")
         showEditorAssistantAsDockWidget()
