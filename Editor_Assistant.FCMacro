@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.31"
+__version__ = "1.32"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -36,9 +36,9 @@ class FindEdit (QtGui.QLineEdit):
                 if sel:
                     self.setText(sel)
                 else:
-                    self.form.toast("Nothing selected in editor","error")
+                    self.form.toast("Nothing selected in editor","Error")
             else:
-                self.form.toast("Editor is invalid","error")
+                self.form.toast("Editor is invalid","Error")
         return QtGui.QLineEdit.eventFilter(self, watched, event)
 
     def __contextMenu(self):
@@ -89,7 +89,7 @@ class TaskEditorAssistant:
         self.snaps = [] #dictionary list {reason, old_text, name, tc}
         self.currentEditor = None
         self.timers = [] #toasts use this
-        self.lastToast = "No previous toasts"
+        self.toastsLog = [tuple(["No previous toasts","Message"])]
         self.getEditors()
         self.blockSignals = False
         self.form = CustomQWidget(form=self)
@@ -375,7 +375,7 @@ Type 'help(editor)' in the console for help.\n\
         if not name:
             self.onRefreshBtnClicked(True)
             if not self.editorList.currentItem():
-                self.toast("No editor","error")
+                self.toast("No editor","Error")
                 return ""
             else:
                 name = self.editorList.currentItem().text()
@@ -389,7 +389,7 @@ Type 'help(editor)' in the console for help.\n\
 
     def replace(self, name, txt, newTxt):
         if not txt:
-            self.toast("nothing to replace","error")
+            self.toast("nothing to replace","Error")
             return
         fullText = self.getText(name)
         if self.matchCaseCheckBox.checkState():
@@ -416,7 +416,7 @@ Type 'help(editor)' in the console for help.\n\
             chunks.insert(0, fullText[:last])
             newText = "".join(chunks)
             count = len(indices)
-        self.toast(f"{count} instances of {txt} replaced in {name}","message")
+        self.toast(f"{count} instances of {txt} replaced in {name}","Message")
         if not count == 0:
             self.setText(name, newText, f"replace {txt}")
 
@@ -448,7 +448,7 @@ Type 'help(editor)' in the console for help.\n\
             findFlags = ""
         newtxt = txt.replace('"', '\\"').replace("'","\\'")
         #self.currentEditor.find(txt, flags)
-        #self.toast(f"self.currentEditor.find({txt},{flags})", "message",10000)
+        #self.toast(f"self.currentEditor.find({txt},{flags})", "Message",10000)
 
         cmd = """
 from PySide import QtGui
@@ -467,23 +467,29 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         self.doCommand(cmd)
 
     def onMsgBtnClicked(self, arg1):
-        self.toast(self.lastToast,"information")
+        self.toast("Toast log sent to report view","Information",log=False)
+        for ii,toast in enumerate(self.toastsLog):
+            if ii==0:
+                continue
+            self.print(f"{ii}) {toast[0]}",toast[1])
 
     def onConsoleEditReturnPressed(self):
         self.onConsoleBtnClicked(True)
 
-    def toast(self,msg,msgType='error',length=5000):
+    def toast(self,msg,msgType='Error',length=5000,log=True):
         self.timers.append(msg)
         self.msgBtn.setText(msg)
-        if msgType == 'error':
+        if log:
+            self.toastsLog.append(tuple([msg, msgType]))
+        if msgType == 'Error':
             self.msgBtn.setStyleSheet("color: red")
             self.msgBtn.setIcon(QIconFromStandard("SP_MessageBoxCritical"))
-        elif msgType == 'message':
+        elif msgType == 'Message':
             self.msgBtn.setStyleSheet("color:black")
-        elif msgType == 'warning':
+        elif msgType == 'Warning':
             self.msgBtn.setStyleSheet("color:yellow;background-color:navy;font-weight:bold")
             self.msgBtn.setIcon(QIconFromStandard("SP_MessageBoxWarning"))
-        elif msgType == 'information':
+        elif msgType == 'Information':
             self.msgBtn.setStyleSheet("color:blue")
             self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
         QtCore.QTimer().singleShot(length,self.clearToast)
@@ -493,7 +499,6 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         if not shiboken.isValid(self.msgBtn):
             return
         if len(self.timers) == 1:
-            self.lastToast = self.msgBtn.text()
             self.msgBtn.setText("")
             self.msgBtn.setStyleSheet("color:black")
             self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
@@ -522,7 +527,7 @@ del(__editors__, __parents__, __grandparents__)
         self.doCommand(cmd)
         if not old_text == self.getText():
             self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
-        self.toast("editor now available as variable in python console","message")
+        self.toast("editor now available as variable in python console","Message")
         pyconsole = mw.findChild(QtGui.QPlainTextEdit,"Python console")
         pyconsole.setFocus()
         self.form.parent().hide()
@@ -535,7 +540,7 @@ del(__editors__, __parents__, __grandparents__)
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
+            self.toast("current editor is invalid", "Error")
             return
         plainText = self.currentEditor.toPlainText()
         txt = self.filterBackSlashes(self.findEdit.text())
@@ -545,12 +550,12 @@ del(__editors__, __parents__, __grandparents__)
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         count = plainText.count(txt)
         if name and txt:
-            self.toast(f"{txt} count in {name}: {count}","message")
+            self.toast(f"{txt} count in {name}: {count}","Message")
 
     def onFindBtnClicked(self, arg1=True):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid","error")
+            self.toast("current editor is invalid","Error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -591,7 +596,7 @@ del(__editors__, __parents__, __grandparents__)
         self.updateSnapBtns()
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
-            self.toast("No current editor","error")
+            self.toast("No current editor","Error")
             return
         curText = self.getText(curName)
         curCursor = self.currentEditor.textCursor()
@@ -602,7 +607,7 @@ del(__editors__, __parents__, __grandparents__)
                 count += 1
         thisSnap = {"name":curName, "old_text":curText, "reason":f"Snap #{count}", "tc":tc}
         self.snaps.append(thisSnap)
-        self.toast(f"{thisSnap['reason']} taken of {curName}","message")
+        self.toast(f"{thisSnap['reason']} taken of {curName}","Message")
         if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
             self.snaps.pop(0)
             self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","warning")
@@ -618,7 +623,7 @@ del(__editors__, __parents__, __grandparents__)
         """discard a snap, default=0 = latest snap"""
         snaps = self.getSnaps()
         if not snaps:
-            self.toast("No snaps to discard for this editor","error")
+            self.toast("No snaps to discard for this editor","Error")
             self.updateSnapBtns()
             return
         else:
@@ -635,7 +640,7 @@ del(__editors__, __parents__, __grandparents__)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
-            self.toast("No snaps to restore for this editor","error")
+            self.toast("No snaps to restore for this editor","Error")
             self.updateSnapBtns()
             return
         else:
@@ -646,8 +651,8 @@ del(__editors__, __parents__, __grandparents__)
             self.setTextCursor(self.editorList.currentItem().text(), snaps[0]['tc'])
             self.snaps.remove(snaps[0])
             self.updateSnapBtns()
-            self.toast(f"Restored {snaps[0]['reason']} to {snaps[0]['name']}","message")
-            self.setModified(curName, old_text, f"Restore {snaps[0]['reason']}", self.getTC(old_cursor))
+            self.toast(f"Popped and restored {snaps[0]['reason']} to {snaps[0]['name']}","Message")
+            self.setModified(curName, old_text, f"Pop {snaps[0]['reason']}", self.getTC(old_cursor))
 
     def onSnapMenuBtnClicked(self, arg1):
         qp = QtCore.QPoint()
@@ -658,10 +663,15 @@ del(__editors__, __parents__, __grandparents__)
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
-            self.toast("No current editor","error")
+            self.toast("No current editor","Error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
 
         restoreMenu = QtGui.QMenu("Restore last snap")
+        restoreToCurrentEditorAction = QtGui.QAction("Restore to current editor", mw)
+        restoreToCurrentEditorAction.triggered.connect(self.doRestoreToCurrentEditor)
+        restoreToCurrentEditorAction.setEnabled(len(snaps) > 0)
+        restoreMenu.addAction(restoreToCurrentEditorAction)
+
         restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
         restoreToClipboardAction.triggered.connect(self.doRestoreToClipboard)
         restoreToClipboardAction.setEnabled(len(snaps) > 0)
@@ -737,18 +747,36 @@ del(__editors__, __parents__, __grandparents__)
 
         snapContextMenu.addMenu(discardMenu)
 
-        def makeDiffLambda(x,y): return lambda: self.showDiff(x,y)
+        def makeDiffLambda(x,y,xlab="",ylab=""): return lambda: self.showDiff(x,y,xlab,ylab)
 
         diffSnaps = self.getDiffSnaps(curName)
-        diffSnapsMenu = QtGui.QMenu("Diff")
+        diffSnapsMenu = QtGui.QMenu("Diff current editor")
         diffSnapActions = []
         diffSnapLambdas = [makeDiffLambda(snap['name'],ii) for ii,snap in enumerate(diffSnaps)]
         for ii,snap in enumerate(diffSnaps):
             diffSnapActions.append(QtGui.QAction(f"Diff {snap['reason']}", mw))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii])
             diffSnapsMenu.addAction(diffSnapActions[-1])
+
+        for ii,edName in enumerate(self.editorDict.keys()):
+            if edName == curName:
+                continue
+            diffSnapActions.append(QtGui.QAction(f"Diff {edName}"))
+            diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), edName, curName))
+            diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii+len(diffSnaps)])
+            diffSnapsMenu.addAction(diffSnapActions[-1])
+
+        clipText = QtGui.QClipboard().text()
+
+        diffSnapActions.append(QtGui.QAction(f"Diff clipboard text"))
+        diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),"Clipboard text", curName))
+        diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
+        diffSnapsMenu.addAction(diffSnapActions[-1])
+        if not clipText:
+            diffSnapActions[-1].setEnabled(False)
+
         snapContextMenu.addMenu(diffSnapsMenu)
-        if not diffSnaps:
+        if not diffSnapActions:
             diffSnapsMenu.setEnabled(False)
 
         def makeEditReasonLambda(name,reason,idx): return lambda: self.editReason(name,reason,idx)
@@ -775,7 +803,7 @@ del(__editors__, __parents__, __grandparents__)
             return
         snap['reason'] = new_reason
         self.snaps[idx] = snap
-        self.toast(f"snap of {name}:{reason} updated to {new_reason}","information")
+        self.toast(f"snap of {name}:{reason} updated to {new_reason}","Information")
         return
 
     def getEditReasons(self,curName):
@@ -783,12 +811,19 @@ del(__editors__, __parents__, __grandparents__)
         editReasons = [tuple([snap['name'],snap['reason'],ii]) for ii,snap in enumerate(self.snaps)]
         return editReasons
 
+    def doRestoreToCurrentEditor(self):
+        snaps = self.getSnaps()
+        if not snaps:
+            self.toast("No snaps to restore", "Error")
+            return
+        self.restoreAny(snaps[0]['name'], snaps[0]['reason'],0)
+
     def restoreAny(self, name, reason, idx):
         """restore any snap to current document"""
         snap = self.snaps[idx]
         curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         if not curName:
-            self.toast("Invalid current editor","error")
+            self.toast("Invalid current editor","Error")
             return
         if curName != name:
             items = ["Oops, wrong document -- cancel",f"I confirm: overwrite {curName} with this snap"]
@@ -800,7 +835,7 @@ del(__editors__, __parents__, __grandparents__)
         self.currentEditor.setPlainText(snap["old_text"])
         self.setTextCursor(self.editorList.currentItem().text(), snap['tc'])
         self.setModified(curName, old_text, f"Restore {snap['reason']}", self.getTC(old_cursor))
-        self.toast(f"snap of {name}:{reason} updated to {curName}: {snap['reason']}","information")
+        self.toast(f"snap of {name}:{reason} updated to {curName}: {snap['reason']}","Information")
         return
 
     def getRestoreAnys(self):
@@ -815,7 +850,7 @@ del(__editors__, __parents__, __grandparents__)
             return
         with open(fname, "w") as outfile:
             json.dump(self.snaps, outfile)
-        self.toast(f"All snaps saved to {outfile}", "information")
+        self.toast(f"All snaps saved to {outfile}", "Information")
 
     def loadSnapsFromJSON(self):
         """load previously saved snaps from a JSON file"""
@@ -825,16 +860,16 @@ del(__editors__, __parents__, __grandparents__)
         try:
             f = open(fname)
         except Exception as ex:
-            self.toast(f"{ex}","error")
+            self.toast(f"{ex}","Error")
             return
         try:
             self.snaps = json.load(f)
         except Exception as ex:
-            self.toast(f"{ex}","error")
+            self.toast(f"{ex}","Error")
             f.close()
             return
         self.updateSnapBtns()
-        self.toast(f"Snaps loaded and restored from {fname}","message")
+        self.toast(f"Snaps loaded and restored from {fname}","Message")
 
 
     def getDiffSnaps(self, name):
@@ -843,13 +878,21 @@ del(__editors__, __parents__, __grandparents__)
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         return snaps
 
-    def showDiff(self, name, idx):
+    def showDiff(self, name, idx, firstLabel = "", secondLabel = ""):
         """make a diff of the snap and the text in the current editor"""
-        snaps = self.getDiffSnaps(name)
-        plainText = self.getText(name).splitlines()
-        snapText = snaps[idx]['old_text'].splitlines()
+        if isinstance(idx, int):
+            snaps = self.getDiffSnaps(name)
+            plainText = self.getText(name).splitlines()
+            plainLabel = name
+            snapText = snaps[idx]['old_text'].splitlines()
+            snapLabel = snaps[idx]['reason']
+        else: #presume to strings passed in to be diffed
+            snapText = name.splitlines()
+            plainText = idx.splitlines()
+            plainLabel = firstLabel
+            snapLabel = secondLabel
         d = difflib.HtmlDiff(tabsize=4)
-        ds = DiffSaver(form=self, snapText=snapText, plainText=plainText)
+        ds = DiffSaver(form=self, snapText=snapText, plainText=plainText, label1=plainLabel, label2=snapLabel)
         ds.setWindowFlag(QtCore.Qt.WindowMinimizeButtonHint, True)
         ds.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
         ds.resizeEvent = ds.onResize
@@ -894,12 +937,23 @@ del(__editors__, __parents__, __grandparents__)
         ds.widthSlider.setValue(500)
         sliderLayout.addWidget(ds.widthSlider)
         layout.addLayout(sliderLayout)
+        if ds.label1 and ds.label2:
+            labelLayout = QtGui.QHBoxLayout()
+            lab1 = QtGui.QLabel(ds.label1)
+            lab2 = QtGui.QLabel(ds.label2)
+            lab1.setMaximumHeight(20)
+            lab2.setMaximumHeight(20)
+            lab1.setAlignment(QtCore.Qt.AlignCenter)
+            lab2.setAlignment(QtCore.Qt.AlignCenter)
+            labelLayout.addWidget(lab1)
+            labelLayout.addWidget(lab2)
+            layout.addLayout(labelLayout)
         layout.addWidget(ds.webView)
 
         ds.show()
         ds.resize(640,480)
         self.onRefreshBtnClicked(True)
-        self.toast(f"make diff of snap = {idx}","message")
+        #self.toast(f"make diff of snap = {idx}","Message")
 
 
     def doSaveSnapshotAs(self):
@@ -907,7 +961,7 @@ del(__editors__, __parents__, __grandparents__)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
-            self.toast("No saved snapshot to save as","error")
+            self.toast("No saved snapshot to save as","Error")
             self.updateSnapBtns()
             return
         else:
@@ -916,34 +970,34 @@ del(__editors__, __parents__, __grandparents__)
                 return
             with open(fname,"w") as outfile:
                 outfile.write(snaps[0]['old_text'])
-            self.toast(f"Snapshot: {snaps[0]['reason']} saved to {fname}","message")
+            self.toast(f"Snapshot: {snaps[0]['reason']} saved to {fname}","Message")
 
     def doRestoreToClipboard(self):
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
-            self.toast("No saved snapshot to send to clipboard","error")
+            self.toast("No saved snapshot to send to clipboard","Error")
             self.updateSnapBtns()
             return
         else:
             clipboard = QtGui.QClipboard()
             clipboard.setText(snaps[0]["old_text"])
-            self.toast(f"Snapshot: {snaps[0]['reason']} sent to clipboard","message")
+            self.toast(f"Snapshot: {snaps[0]['reason']} sent to clipboard","Message")
 
     def doRestoreToTextDocument(self):
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
-            self.toast("No saved snapshot to restore to text document","error")
+            self.toast("No saved snapshot to restore to text document","Error")
             self.updateSnapBtns()
             return
         else:
             doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
             textDoc = doc.addObject("App::TextDocument","Text document")
             textDoc.Text = snaps[0]['old_text']
-            self.toast(f"Snapshot: {snaps[0]['reason']} sent to {textDoc.Name}","message")
+            self.toast(f"Snapshot: {snaps[0]['reason']} sent to {textDoc.Name}","Message")
             textDoc.ViewObject.doubleClicked()
             doc.recompute()
 
@@ -967,7 +1021,7 @@ del(__editors__, __parents__, __grandparents__)
         self.undoQueue = []
         self.redoQueue = []
         self.updateUndoBtn()
-        self.toast(f"Undo/redo queues purged ({count} items)","message")
+        self.toast(f"Undo/redo queues purged ({count} items)","Message")
 
     def onRedoBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -1008,7 +1062,7 @@ del(__editors__, __parents__, __grandparents__)
     def onFindBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid","error")
+            self.toast("current editor is invalid","Error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -1028,7 +1082,7 @@ del(__editors__, __parents__, __grandparents__)
                 self.toast(f"{txt} not found in {name} --Looping back to end","warning")
                 self.gotoLine(-1, silent=True, eol=True)
             else:
-                self.toast(f"{txt} not found backwards in {name}","message")
+                self.toast(f"{txt} not found backwards in {name}","Message")
 
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
@@ -1042,7 +1096,7 @@ del(__editors__, __parents__, __grandparents__)
     def onIndentBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
+            self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
         old_text = self.getText()
@@ -1063,7 +1117,7 @@ del(__editors__, __parents__, __grandparents__)
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
+            self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
         old_text = self.getText()
@@ -1080,7 +1134,7 @@ del(__editors__, __parents__, __grandparents__)
             if not line[:4] == '    ':
                 hasLeading = False
         if not hasLeading:
-            self.toast("Editor assistant: Cannot unindent selected block","error")
+            self.toast("Editor assistant: Cannot unindent selected block","Error")
             return
         lines2 = [line[4:] for line in lines]
         joined = '\u2029'.join(lines2)
@@ -1092,11 +1146,11 @@ del(__editors__, __parents__, __grandparents__)
 
     def onReplaceAllBtnClicked(self, arg1):
         if self.matchWholeCheckBox.checkState():
-            self.toast("Replace all does not work with Match word = checked","error",10000)
+            self.toast("Replace all does not work with Match word = checked","Error",10000)
             return
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
+            self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
@@ -1107,7 +1161,7 @@ del(__editors__, __parents__, __grandparents__)
     def onReplaceBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
-            self.toast("current editor is invalid", "error")
+            self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
         document = self.currentEditor.document()
@@ -1159,7 +1213,7 @@ del(__editors__, __parents__, __grandparents__)
             if lines:
                 return self.parseLine(lines[0])
             else:
-                self.toast("Unable to parse lines","error")
+                self.toast("Unable to parse lines","Error")
                 return 0
 
     def getGotoLines(self):
@@ -1182,7 +1236,7 @@ del(__editors__, __parents__, __grandparents__)
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
-            self.toast("No current editor","error")
+            self.toast("No current editor","Error")
 
         lineNumsMenu = QtGui.QMenu("Line numbers")
         lineNums = self.getGotoLines()
@@ -1270,7 +1324,7 @@ del(__editors__, __parents__, __grandparents__)
     def gotoLine(self,line,silent=False,eol=False):
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor):
-            self.toast("No valid current editor","error")
+            self.toast("No valid current editor","Error")
             return
         document = self.currentEditor.document()
         if line < 0:
@@ -1289,7 +1343,7 @@ del(__editors__, __parents__, __grandparents__)
         self.currentEditor.setTextCursor(text_cursor)
         self.currentEditor.centerCursor()
         if not silent:
-            self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","message")
+            self.toast(f"Goto Line #{line} of {self.editorList.currentItem().text()}","Message")
 
     def getLines(self,name=None):
         """get plain text as string list"""
@@ -1380,7 +1434,7 @@ del(__editors__, __parents__, __grandparents__)
         self.blockSignals = False
 
     def print(self,message,type="Message"):
-        if type == "Message":
+        if type == "Message" or type == "Information":
             FreeCAD.Console.PrintMessage(message+"\n")
         elif type == "Error":
             FreeCAD.Console.PrintError(message+"\n")
@@ -1396,7 +1450,7 @@ del(__editors__, __parents__, __grandparents__)
             FreeCADGui.activeDocument().resetEdit()
 
 class DiffSaver (QtGui.QDialog):
-    def __init__(self, parent=mw, form=None, plainText=None, snapText=None):
+    def __init__(self, parent=mw, form=None, plainText=None, snapText=None, label1=None, label2=None):
         super(DiffSaver, self).__init__(parent, QtCore.Qt.Tool)
         self.form=form
         self.slider=None
@@ -1406,6 +1460,8 @@ class DiffSaver (QtGui.QDialog):
         self.numlinesSpinBox = None
         self.plainText = plainText
         self.snapText = snapText
+        self.label1 = label1
+        self.label2 = label2
         self.makeDiff()
         self.blockSignals = False
         self.diff = ""
@@ -1452,7 +1508,7 @@ class DiffSaver (QtGui.QDialog):
             return
         with open(fname,"w") as outfile:
             outfile.write(self.diff)
-        self.form.toast(f"Diff saved to {fname}","message")
+        self.form.toast(f"Diff saved to {fname}","Message")
 
     def setColWidth(self, value):
         self.makeDiff(width=value)
