@@ -74,6 +74,13 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.32 (2022.03.24)
+* show log of all toasts when clicking toast button instead of just the last toast
+* add restore last snap to restore any menu
+* allow to diff current editor to any other open editor
+* allow to diff current editor against clipboard text
+* extend showDiff() to be able to make diffs of arbitrary text strings
+* add labels to diff screen
 ### 1.31 (2022.03.24)
 * add find selection results to goto menu
 ### 1.30 (2022.03.24)
