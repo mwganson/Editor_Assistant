@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.30"
+__version__ = "1.31"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -1242,6 +1242,21 @@ del(__editors__, __parents__, __grandparents__)
             if self.matchWholeCheckBox.checkState():
                 self.toast("Whole words checkbox ignored in Find results menu","warning")
 
+        findSelResults = sorted(self.getFindResults(useSelection=True))
+        findSelResultsMenu = QtGui.QMenu("Find selection results")
+        findSelResultActions = []
+        findSelResultLambdas = [makeLambda(fsr[1]) for fsr in findSelResults]
+        for ii,fsr in enumerate(findSelResults):
+            findSelResultActions.append(QtGui.QAction(f"{fsr[0]} ({fsr[1]})", mw))
+            findSelResultActions[-1].triggered.connect(findSelResultLambdas[ii])
+            findSelResultsMenu.addAction(findSelResultActions[-1])
+        gotoMenu.addMenu(findSelResultsMenu)
+        if not findSelResults:
+            findSelResultsMenu.setEnabled(False)
+        else:
+            if self.matchWholeCheckBox.checkState():
+                self.toast("Whole words checkbox ignored in Find selection results menu","warning")
+
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
 
@@ -1289,10 +1304,11 @@ del(__editors__, __parents__, __grandparents__)
             lines2.append(line.strip())
         return lines2
 
-    def getFindResults(self):
+    def getFindResults(self, useSelection=False):
         lines = self.getTrimmedLines()
         findResults = []
-        find = self.findEdit.text()
+        selTxt = self.currentEditor.textCursor().selectedText()
+        find = self.findEdit.text() if not useSelection else selTxt
         description_range = 35
         if not find:
             return []
