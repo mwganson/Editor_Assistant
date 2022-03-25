@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.29"
+__version__ = "1.30"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -134,7 +134,7 @@ class TaskEditorAssistant:
         self.populateList()
 
         refreshLayout = QtGui.QHBoxLayout()
-        refreshBtn = QtGui.QPushButton("Refresh editors")
+        refreshBtn = QtGui.QPushButton("Refresh")
         refreshBtn.setToolTip("Refresh list of editors in the list widget above")
         refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
         refreshBtn.clicked.connect(self.onRefreshBtnClicked)
@@ -216,11 +216,11 @@ Find results = results of searches for text in Find line edit\n\
         self.layout.addLayout(replaceEditLayout)
 
         flagsLayout = QtGui.QHBoxLayout()
-        self.matchWholeCheckBox = QtGui.QCheckBox("Whole words")
+        self.matchWholeCheckBox = QtGui.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
         self.matchWholeCheckBox.setToolTip("Match whole words")
         self.matchWholeCheckBox.stateChanged.connect(self.onMatchWholeCheckBoxStateChanged)
-        self.matchCaseCheckBox = QtGui.QCheckBox("Case")
+        self.matchCaseCheckBox = QtGui.QCheckBox()
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
         self.loopCheckBox = QtGui.QCheckBox("Loop")
@@ -515,12 +515,19 @@ __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
 editor = __editors__[__grandparents__.index('""" + name + """')]
+dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 del(__editors__, __parents__, __grandparents__)
 """
         self.doCommand(cmd)
-        self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
+        if not old_text == self.getText():
+            self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
         self.toast("editor now available as variable in python console","message")
+        pyconsole = mw.findChild(QtGui.QPlainTextEdit,"Python console")
+        pyconsole.setFocus()
+        self.form.parent().hide()
+        pyconsole.parent().show()
+        self.form.parent().show()
 
     def onFindEditReturnPressed(self):
         self.onFindBtnClicked(True)
