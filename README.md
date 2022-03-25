@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.34 (2022.03.25)
+* add main menu button
+* add settings -> layout menu to enable/disable individual lines of widgets
 ### 1.33 (2022.03.25)
 * optimize diff performance
 ### 1.32 (2022.03.24)
