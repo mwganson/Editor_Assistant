@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.33"
+__version__ = "1.34"
 UNDO_QUEUE_MAX_SIZE = 100
 SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
@@ -77,6 +77,8 @@ class CustomQWidget(QtGui.QWidget):
 class TaskEditorAssistant:
     def __init__(self):
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
+        self.pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
+        #GetInt(), SetInt(), GetFloat(), SetFloat(), GetBool(), SetBool(), GetASCII(), SetASCII()
         self.found = False #find result
         self.gotoLineDict = {} #to save goto line edit value for each editor
         self.editorDict = {}
@@ -108,38 +110,45 @@ class TaskEditorAssistant:
         #undoLayout =  undo + pop undos + redo
         #findEditLayout = Find edit + search + search previous
         #replaceEditLayout = Replace edit + replace + replace all
-        #flagsLayout = Match case checkbox + whole words checkbox
+        #indentLayout = unindent button + indent button + Match case checkbox + whole words checkbox
         #snapLayout = snap button + discard button + snap menu + pop button
-        #indentLayout = indent button + unindent button
         #consoleLayout = to console label + console line edit
-
 
         self.layout = QtGui.QVBoxLayout()
         self.form.setLayout(self.layout)
         topLabelLayout = QtGui.QHBoxLayout()
+        self.mainMenuBtn = QtGui.QPushButton()
+        self.mainMenuBtn.setIcon(QIconFromXPMString(__icon__))
+        self.mainMenuBtn.setMaximumWidth(32)
+        self.mainMenuBtn.setToolTip("Main menu")
+        self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
+        topLabelLayout.addWidget(self.mainMenuBtn)
         self.msgBtn = QtGui.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
         self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
         self.msgBtn.setToolTip("Toast message area, click to see most recent message")
-
         topLabelLayout.addWidget(self.msgBtn)
         self.layout.addLayout(topLabelLayout)
 
         editorLayout = QtGui.QHBoxLayout()
+        showEditorList = self.pg.GetBool("ShowEditorList",True)
         self.editorList = QtGui.QListWidget()
+        self.editorList.setMinimumHeight(85)
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
         self.editorList.setToolTip("Open editors, press Refresh to update")
         editorLayout.addWidget(self.editorList)
+        if not showEditorList:
+            self.editorList.setVisible(showEditorList)
         self.layout.addLayout(editorLayout)
         self.populateList()
 
         refreshLayout = QtGui.QHBoxLayout()
-        refreshBtn = QtGui.QPushButton("Refresh")
-        refreshBtn.setToolTip("Refresh list of editors in the list widget above")
-        refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
-        refreshBtn.clicked.connect(self.onRefreshBtnClicked)
-        refreshLayout.addWidget(refreshBtn)
-
+        showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
+        self.refreshBtn = QtGui.QPushButton("Refresh")
+        self.refreshBtn.setToolTip("Refresh list of editors in the list widget above")
+        self.refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
+        self.refreshBtn.clicked.connect(self.onRefreshBtnClicked)
+        refreshLayout.addWidget(self.refreshBtn)
         self.gotoLineEdit = QtGui.QLineEdit()
         self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
@@ -156,7 +165,12 @@ Find results = results of searches for text in Find line edit\n\
         refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
         self.layout.addLayout(refreshLayout)
+        if not showRefreshLine:
+            self.refreshBtn.setVisible(showRefreshLine)
+            self.gotoMenuBtn.setVisible(showRefreshLine)
+            self.gotoLineEdit.setVisible(showRefreshLine)
 
+        showUndoLine = self.pg.GetBool("ShowUndoLine",True)
         undoLayout = QtGui.QHBoxLayout()
         self.undoBtn = QtGui.QPushButton()
         self.undoBtn.setEnabled(False)
@@ -176,15 +190,19 @@ Find results = results of searches for text in Find line edit\n\
         self.redoBtn.clicked.connect(self.onRedoBtnClicked)
         self.redoBtn.setIcon(QIconFromXPMString(redo_icon))
         self.redoBtn
+        if not showUndoLine:
+            self.undoBtn.setVisible(showUndoLine)
+            self.redoBtn.setVisible(showUndoLine)
+            self.undoClearBtn.setVisible(showUndoLine)
         self.layout.addLayout(undoLayout)
 
+
+        showFindLine = self.pg.GetBool("ShowFindLine",True)
         findEditLayout = QtGui.QHBoxLayout()
-        #findEditLayout.addWidget(QtGui.QLabel("Find: "))
         self.findEdit = FindEdit(form=self)
         self.findEdit.setPlaceholderText("Find:")
         self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
         self.findEdit.textChanged.connect(self.onFindEditTextChanged)
-
         findEditLayout.addWidget(self.findEdit)
         self.findBtn = QtGui.QPushButton()
         self.findBtn.setIcon(QIconFromXPMString(find_next_icon))
@@ -196,8 +214,13 @@ Find results = results of searches for text in Find line edit\n\
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
+        if not showFindLine:
+            self.findEdit.setVisible(showFindLine)
+            self.findBtn.setVisible(showFindLine)
+            self.findBackBtn.setVisible(showFindLine)
         self.layout.addLayout(findEditLayout)
 
+        showReplaceLine = self.pg.GetBool("ShowReplaceLine",True)
         replaceEditLayout = QtGui.QHBoxLayout()
         #replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
         self.replaceEdit = FindEdit(form=self)
@@ -213,9 +236,24 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
+        if not showReplaceLine:
+            self.replaceEdit.setVisible(showReplaceLine)
+            self.replaceBtn.setVisible(showReplaceLine)
+            self.replaceAllBtn.setVisible(showReplaceLine)
         self.layout.addLayout(replaceEditLayout)
 
-        flagsLayout = QtGui.QHBoxLayout()
+        showIndentLine = self.pg.GetBool("ShowIndentLine", True)
+        indentLayout = QtGui.QHBoxLayout()
+        self.indentBackBtn = QtGui.QPushButton()
+        self.indentBackBtn.setIcon(QIconFromXPMString(unindent_icon))
+        self.indentBackBtn.setToolTip("Decrease indentation of selection")
+        self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
+        indentLayout.addWidget(self.indentBackBtn)
+        self.indentBtn = QtGui.QPushButton()
+        self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
+        self.indentBtn.setToolTip("Increase indentation of selection")
+        self.indentBtn.clicked.connect(self.onIndentBtnClicked)
+        indentLayout.addWidget(self.indentBtn)
         self.matchWholeCheckBox = QtGui.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
         self.matchWholeCheckBox.setToolTip("Match whole words")
@@ -226,19 +264,30 @@ Find results = results of searches for text in Find line edit\n\
         self.loopCheckBox = QtGui.QCheckBox("Loop")
         self.loopCheckBox.setCheckState(QtCore.Qt.Checked)
         self.loopCheckBox.setToolTip ("Loop to start/end if text not found")
-        flagsLayout.addWidget(self.matchCaseCheckBox)
-        flagsLayout.addWidget(self.matchWholeCheckBox)
-        flagsLayout.addWidget(self.loopCheckBox)
+        indentLayout.addWidget(self.matchCaseCheckBox)
+        indentLayout.addWidget(self.matchWholeCheckBox)
+        indentLayout.addWidget(self.loopCheckBox)
         self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
-        self.layout.addLayout(flagsLayout)
+        if not showIndentLine:
+            self.indentBackBtn.setVisible(showIndentLine)
+            self.indentBackBtn.setVisible(showIndentLine)
+            self.indentBackBtn.setVisible(showIndentLine)
+            self.loopCheckBox.setVisible(showIndentLine)
+            self.matchCaseCheckBox.setVisible(showIndentLine)
+            self.matchWholeCheckBox.setVisible(showIndentLine)
+        self.layout.addLayout(indentLayout)
 
+        showSnapsLine = self.pg.GetBool("ShowSnapLine",True)
         snapLayout = QtGui.QHBoxLayout()
         self.takeSnapBtn = QtGui.QPushButton()
+
         self.takeSnapBtn.setIcon(QIconFromXPMString(snapshot_icon))
         self.takeSnapBtn.setMaximumWidth(48)
         self.takeSnapBtn.setToolTip("Take a snapshot of the text")
         self.snapCenterBtn = QtGui.QPushButton()
+
         self.snapMenuBtn = QtGui.QPushButton()
+
         snapCenterBtnLayout = QtGui.QHBoxLayout()
         snapCenterBtnLayoutMargins = QtCore.QMargins(0,0,0,0)
         snapCenterBtnLayout.setContentsMargins(snapCenterBtnLayoutMargins)
@@ -246,6 +295,7 @@ Find results = results of searches for text in Find line edit\n\
         self.snapCenterBtn.setLayout(snapCenterBtnLayout)
         self.snapCenterBtn.setMaximumWidth(64)
         self.discardSnapBtn = QtGui.QPushButton()
+
         self.discardSnapBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
         self.discardSnapBtn.clicked.connect(self.discardSnap)
         self.discardSnapBtn.setToolTip("Discard the latest snap")
@@ -265,34 +315,29 @@ Pop = restore and discard snap\n\
 Diff = show difference between snap and current text\n\
 ")
         self.popSnapBtn = QtGui.QPushButton("Restore")
+        self.popSnapBtn.setVisible(showSnapsLine)
         self.takeSnapBtn.clicked.connect(self.onTakeSnapBtnClicked)
         self.snapMenuBtn.clicked.connect(self.onSnapMenuBtnClicked)
         self.popSnapBtn.clicked.connect(self.onPopSnapBtnClicked)
         snapLayout.addWidget(self.takeSnapBtn)
-
         snapLayout.addWidget(self.snapCenterBtn)
         snapLayout.addWidget(self.popSnapBtn)
         #self.snapMenuBtn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         #self.snapMenuBtn.customContextMenuRequested.connect(self.snapMenuBtnContextMenu)
         self.layout.addLayout(snapLayout)
+        if not showSnapsLine:
+            self.takeSnapBtn.setVisible(showSnapsLine)
+            self.snapCenterBtn.setVisible(showSnapsLine)
+            self.discardSnapBtn.setVisible(showSnapsLine)
+            self.snapMenuBtn.setVisible(showSnapsLine)
 
-
-        indentLayout = QtGui.QHBoxLayout()
-        self.indentBtn = QtGui.QPushButton()
-        self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
-        self.indentBtn.setToolTip("Increase indentation of selection")
-        self.indentBtn.clicked.connect(self.onIndentBtnClicked)
-        indentLayout.addWidget(self.indentBtn)
-        self.indentBackBtn = QtGui.QPushButton()
-        self.indentBackBtn.setIcon(QIconFromXPMString(unindent_icon))
-        self.indentBackBtn.setToolTip("Decrease indentation of selection")
-        self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
-        indentLayout.addWidget(self.indentBackBtn)
-        self.layout.addLayout(indentLayout)
-
+        showConsoleLine = self.pg.GetBool("ShowConsoleLine", True)
         consoleLayout = QtGui.QHBoxLayout()
-        consoleLayout.addWidget(QtGui.QLabel("To console:"))
+        self.consoleLabel = QtGui.QLabel("To console:")
+
+        consoleLayout.addWidget(self.consoleLabel)
         self.consoleEdit = QtGui.QLineEdit()
+
         self.consoleEdit.returnPressed.connect(self.onConsoleEditReturnPressed)
         self.consoleEdit.setToolTip("Access QPlainTextEdit of current editor directly.\n\
 Enter command here and press return\n\
@@ -305,6 +350,9 @@ Type 'help(editor)' in the console for help.\n\
         consoleLayout.addWidget(self.consoleEdit)
         #consoleLayout.addWidget(self.consoleSendBtn)
         self.layout.addLayout(consoleLayout)
+        if not showConsoleLine:
+            self.consoleLabel.setVisible(showConsoleLine)
+            self.consoleEdit.setVisible(showConsoleLine)
         self.updateSnapBtns()
 
     def getEditors(self):
@@ -468,6 +516,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
     def onMsgBtnClicked(self, arg1):
         self.toast("Toast log sent to report view","Information",log=False)
+        self.print("Toasts log:\n")
         for ii,toast in enumerate(self.toastsLog):
             if ii==0:
                 continue
@@ -496,7 +545,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
     def clearToast(self):
         #in case there are new messages we don't want to delete them yet, let their timers do it later
-        if not shiboken.isValid(self.msgBtn):
+        if not shiboken.isValid(self.msgBtn) or not self.form or not self.form.parent():
             return
         if len(self.timers) == 1:
             self.msgBtn.setText("")
@@ -505,7 +554,9 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.timers.pop()
         elif len(self.timers) > 1:
             self.timers.pop()
-
+        self.mainMenuBtn.show()
+        self.form.resize(self.form.parent().layout().closestAcceptableSize(self.form.parent(), QtCore.QSize(0,0)))
+        self.form.resize(self.form.layout().closestAcceptableSize(self.form, QtCore.QSize(0,0)))
     def onConsoleBtnClicked(self, arg1):
         consoleCmd = self.consoleEdit.text()
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
@@ -653,6 +704,103 @@ del(__editors__, __parents__, __grandparents__)
             self.updateSnapBtns()
             self.toast(f"Popped and restored {snaps[0]['reason']} to {snaps[0]['name']}","Message")
             self.setModified(curName, old_text, f"Pop {snaps[0]['reason']}", self.getTC(old_cursor))
+
+    def showWidgets(self,groupName,show):
+        showDict = {
+            "ShowEditorList": [self.editorList],
+            "ShowRefreshLine": [self.refreshBtn, self.gotoMenuBtn, self.gotoLineEdit],
+            "ShowUndoLine": [self.undoBtn, self.undoClearBtn, self.redoBtn],
+            "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn],
+            "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn],
+            "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.matchCaseCheckBox, \
+                                self.matchWholeCheckBox, self.loopCheckBox],
+            "ShowSnapsLine": [self.takeSnapBtn, self.discardSnapBtn, self.snapCenterBtn, self.snapMenuBtn, self.popSnapBtn],
+            "ShowConsoleLine": [self.consoleLabel, self.consoleEdit]
+            }
+        for widget in showDict[groupName]:
+            widget.setVisible(show)
+
+
+    def setBool(self, name, value):
+        self.pg.SetBool(name,value)
+        self.showWidgets(name,value)
+
+
+    def onMainMenuBtnClicked(self, arg1):
+        """general purpose menu for things not related to going to a line
+           or managing snaps or diffs"""
+
+        def makeToggler(name,value): return lambda: self.setBool(name,value)
+
+        showEditorList = self.pg.GetBool("ShowEditorList", True)
+        showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
+        showUndoLine = self.pg.GetBool("ShowUndoLine", True)
+        showFindLine = self.pg.GetBool("ShowFindLine", True)
+        showReplaceLine = self.pg.GetBool("ShowReplaceLine", True)
+        showIndentLine = self.pg.GetBool("ShowIndentLine", True)
+        showSnapsLine = self.pg.GetBool("ShowSnapsLine", True)
+        showConsoleLine = self.pg.GetBool("ShowConsoleLine", True)
+
+        mainMenu = QtGui.QMenu("Main menu")
+        settingsMenu = QtGui.QMenu("Settings")
+        layoutMenu = QtGui.QMenu("Layout")
+        settingsMenu.addMenu(layoutMenu)
+
+        togglers = []
+
+        editorListAction = QtGui.QAction("Editor list", layoutMenu, checkable=True)
+        editorListAction.setChecked(showEditorList)
+        togglers.append(makeToggler("ShowEditorList",not editorListAction.isChecked()))
+        editorListAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(editorListAction)
+
+        refreshLineAction = QtGui.QAction("Refresh line",layoutMenu, checkable=True)
+        refreshLineAction.setChecked(showRefreshLine)
+        togglers.append(makeToggler("ShowRefreshLine", not refreshLineAction.isChecked()))
+        refreshLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(refreshLineAction)
+
+        undoLineAction = QtGui.QAction("Undo line", layoutMenu, checkable=True)
+        undoLineAction.setChecked(showUndoLine)
+        togglers.append(makeToggler("ShowUndoLine", not undoLineAction.isChecked()))
+        undoLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(undoLineAction)
+
+        findLineAction = QtGui.QAction("Find line", layoutMenu, checkable=True)
+        findLineAction.setChecked(showFindLine)
+        togglers.append(makeToggler("ShowFindLine", not findLineAction.isChecked()))
+        findLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(findLineAction)
+
+        replaceLineAction = QtGui.QAction("Replace line", layoutMenu, checkable=True)
+        replaceLineAction.setChecked(showReplaceLine)
+        togglers.append(makeToggler("ShowReplaceLine", not replaceLineAction.isChecked()))
+        replaceLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(replaceLineAction)
+
+        indentLineAction = QtGui.QAction("Indent line", layoutMenu, checkable=True)
+        indentLineAction.setChecked(showIndentLine)
+        togglers.append(makeToggler("ShowIndentLine", not indentLineAction.isChecked()))
+        indentLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(indentLineAction)
+
+        snapsLineAction = QtGui.QAction("Snaps line", layoutMenu, checkable=True)
+        snapsLineAction.setChecked(showSnapsLine)
+        togglers.append(makeToggler("ShowSnapsLine", not snapsLineAction.isChecked()))
+        snapsLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(snapsLineAction)
+
+        consoleLineAction = QtGui.QAction("Console line", layoutMenu, checkable=True)
+        consoleLineAction.setChecked(showConsoleLine)
+        togglers.append(makeToggler("ShowConsoleLine", not consoleLineAction.isChecked()))
+        consoleLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(consoleLineAction)
+
+
+        mainMenu.addMenu(settingsMenu)
+
+
+        mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
 
     def onSnapMenuBtnClicked(self, arg1):
         qp = QtCore.QPoint()
