@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.31 (2022.03.24)
+* add find selection results to goto menu
 ### 1.30 (2022.03.24)
 * trim some labels -- rely on icon and tooltips
 * after To console command check if text changed for creating undo
