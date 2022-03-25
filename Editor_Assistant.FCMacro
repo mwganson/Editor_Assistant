@@ -901,7 +901,7 @@ del(__editors__, __parents__, __grandparents__)
         ds.setWindowIcon(QIconFromXPMString(__icon__))
         from PySide2 import QtWebEngineWidgets as Web
         ds.webView = Web.QWebEngineView()
-        ds.webView.setHtml(ds.diff)
+        #ds.webView.setHtml(ds.diff)
         saveBtn = QtGui.QPushButton("Save to html...")
         saveBtn.clicked.connect(ds.saveDiffToHtml)
         sliderLayout=QtGui.QHBoxLayout()
@@ -1462,28 +1462,34 @@ class DiffSaver (QtGui.QDialog):
         self.snapText = snapText
         self.label1 = label1
         self.label2 = label2
+        self.diff = ""
         self.makeDiff()
         self.blockSignals = False
-        self.diff = ""
 
-    def onContextCheckBoxStateChanged(self, arg1):
-        self.makeDiff()
 
-    def onNumlinesSpinBoxValueChanged(self, val):
-        self.makeDiff()
-
-    def makeDiff(self,width=None):
+    def setMaxWidthString(self, width=None):
         if not self.webView:
             return
-        d = difflib.HtmlDiff(tabsize=4)
-        numlines2 = 5 if not self.numlinesSpinBox else self.numlinesSpinBox.value()
-        context2 = self.contextCheckBox.checkState() if self.contextCheckBox else True
-        self.diff = d.make_file(self.snapText, self.plainText, context=context2, numlines=numlines2)
         colWidth = width if width else self.width()/2-70
         MAXWIDTH=f"{colWidth}" #chr(123) = {, 125 = }
         width_string= f"<style>table td {chr(123)}overflow:auto;max-width:{MAXWIDTH}px;word-wrap:break-word;{chr(125)}</style></head>"
         new_diff = self.diff.replace("</head>",width_string)
         self.webView.setHtml(new_diff)
+
+    def onContextCheckBoxStateChanged(self, arg1):
+        self.makeDiff()
+        self.setMaxWidthString()
+
+    def onNumlinesSpinBoxValueChanged(self, val):
+        self.makeDiff()
+        self.setMaxWidthString()
+
+    def makeDiff(self):
+        """make the diff, expensive operation should only be done when necessary"""
+        d = difflib.HtmlDiff(tabsize=4)
+        numlines2 = 5 if not self.numlinesSpinBox else self.numlinesSpinBox.value()
+        context2 = self.contextCheckBox.checkState() if self.contextCheckBox else True
+        self.diff = d.make_file(self.snapText, self.plainText, context=context2, numlines=numlines2)
 
     def updateTitle(self):
         if self.widthSlider and self.slider:
@@ -1511,7 +1517,7 @@ class DiffSaver (QtGui.QDialog):
         self.form.toast(f"Diff saved to {fname}","Message")
 
     def setColWidth(self, value):
-        self.makeDiff(width=value)
+        self.setMaxWidthString(value)
         self.updateTitle()
 
     def onWidthSliderValueChanged(self, value):
