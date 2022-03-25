@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.33 (2022.03.25)
+* optimize diff performance
 ### 1.32 (2022.03.24)
 * show log of all toasts when clicking toast button instead of just the last toast
 * add restore last snap to restore any menu
