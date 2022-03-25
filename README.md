@@ -74,7 +74,12 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.30 (2022.03.24)
+* trim some labels -- rely on icon and tooltips
+* after To console command check if text changed for creating undo
+* on To console command open python console if not already open, set keyboard focus to it
 ### 1.29 (2022.03.24)
+* add dlg variable to To console command
 * add Loop checkbox
 * Ctrl+Find to search from beginning
 * Ctrl+Find previous to search from end
