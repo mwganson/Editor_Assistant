@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.35b"
+__version__ = "1.36"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -102,7 +102,8 @@ class TaskEditorAssistant:
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
-
+        self.mdi = mw.findChild(QtGui.QMdiArea)
+        self.mdi.subWindowActivated.connect(self.onSubWindowActivated)
         #self.layout = VBox = main layout (rest are all HBox)
         #topLabelLayout = toast label
         #editorLayout = editor list widget
@@ -361,21 +362,47 @@ Type 'help(editor)' in the console for help.\n\
         self.grandparents = [p.parent() for p in self.parents]
         self.titles = [g.windowTitle() for g in self.grandparents]
 
-    def setCurrentEditor(self, name=""):
+    def setCurrentEditor(self, name="", focus=True):
+        if not shiboken.isValid(self.editorList):
+            return
         if name:
+            if not name in self.editorDict:
+                self.getEditors()
             self.currentEditor = self.editorDict[name]
             if name in self.titles:
+                self.blockSignals=True
                 self.editorList.setCurrentRow(self.titles.index(name))
+                self.blockSignals=False
         else:
             if self.editorList.currentItem():
                 name = self.editorList.currentItem().text()
                 self.currentEditor = self.editorDict[name]
         if shiboken and shiboken.isValid(self.currentEditor) and self.currentEditor and not self.currentEditor.hasFocus():
-            if self.form.parent():
+            if focus and self.form.parent():
                 self.form.parent().hide()
                 self.currentEditor.setFocus()
                 self.form.parent().show()
         #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
+    def onSubWindowActivated(self, arg1):
+        sub = self.mdi.activeSubWindow()
+        ed = sub.findChild(QtGui.QPlainTextEdit) if sub else None
+        if ed:
+            p = ed.parent()
+            gp = p.parent()
+            name = gp.windowTitle()
+            if not name in self.editorDict:
+                QtCore.QTimer().singleShot(50, self.refresh)
+
+    def refresh(self):
+        self.onRefreshBtnClicked(True)
+        #self.getEditors()
+        #cur = self.mdi.currentSubWindow()
+        #ed = cur.findChild(QtGui.QPlainTextEdit) if cur else None
+        #if ed:
+        #    p = ed.parent()
+        #    gp = p.parent()
+        #    curName = gp.windowTitle()
+        #    self.setCurrentEditor(curName)
 
     def checkForTabs(self):
         txt = self.getText()
@@ -526,6 +553,8 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         self.onConsoleBtnClicked(True)
 
     def toast(self,msg,msgType='Error',length=5000,log=True):
+        if not shiboken.isValid(self.msgBtn):
+            return
         self.timers.append(msg)
         self.msgBtn.setText(msg)
         if log:
@@ -1509,6 +1538,8 @@ del(__editors__, __parents__, __grandparents__)
     def getFindResults(self, useSelection=False):
         lines = self.getTrimmedLines()
         findResults = []
+        if not shiboken.isValid(self.currentEditor):
+            return
         selTxt = self.currentEditor.textCursor().selectedText() if self.currentEditor else ""
         find = self.findEdit.text() if not useSelection else selTxt
         description_range = 35
@@ -1565,6 +1596,8 @@ del(__editors__, __parents__, __grandparents__)
     def populateList(self):
         self.blockSignals = True
         current = None
+        if not shiboken.isValid(self.editorList):
+            return
         if self.editorList.count() != 0:
             current = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         self.editorList.clear()
