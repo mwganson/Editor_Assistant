@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.36"
+__version__ = "1.37"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -760,6 +760,7 @@ del(__editors__, __parents__, __grandparents__)
 
         def makeToggler(name,value): return lambda: self.setBool(name,value)
 
+#begin settings menu
         showEditorList = self.pg.GetBool("ShowEditorList", True)
         showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
         showUndoLine = self.pg.GetBool("ShowUndoLine", True)
@@ -776,6 +777,7 @@ del(__editors__, __parents__, __grandparents__)
 
         togglers = []
 
+#settings -> layout
         editorListAction = QtGui.QAction("Editor list", layoutMenu, checkable=True)
         editorListAction.setChecked(showEditorList)
         togglers.append(makeToggler("ShowEditorList",not editorListAction.isChecked()))
@@ -823,13 +825,40 @@ del(__editors__, __parents__, __grandparents__)
         togglers.append(makeToggler("ShowConsoleLine", not consoleLineAction.isChecked()))
         consoleLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(consoleLineAction)
+#end settings->layout
 
         mainMenu.addMenu(settingsMenu)
+#end of settings
+#begin view mode
+        viewModeMenu = QtGui.QMenu("View mode")
+        mainMenu.addMenu(viewModeMenu)
+
+        tabbedModeAction = QtGui.QAction("Tabbed")
+        tabbedModeAction.triggered.connect(self.setTabbedView)
+        viewModeMenu.addAction(tabbedModeAction)
+
+        tiledModeAction = QtGui.QAction("Tiled")
+        tiledModeAction.triggered.connect(lambda: self.mdi.tileSubWindows())
+        viewModeMenu.addAction(tiledModeAction)
+
+        cascadeModeAction = QtGui.QAction("Cascade")
+        cascadeModeAction.triggered.connect(lambda: self.mdi.cascadeSubWindows())
+        viewModeMenu.addAction(cascadeModeAction)
+#end view mode
+
+
+
         if self.isTabbed:
             closeAction = QtGui.QAction("Close")
             closeAction.triggered.connect(lambda: self.form.close())
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
+
+    def setTabbedView(self):
+        self.mdi.setViewMode(QtGui.QMdiArea.ViewMode.TabbedView)
+        windowList = self.mdi.subWindowList()
+        for wl in windowList:
+            wl.showMaximized()
 
     def onSnapMenuBtnClicked(self, arg1):
         qp = QtCore.QPoint()
