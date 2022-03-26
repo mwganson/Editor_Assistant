@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.37"
+__version__ = "1.38"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -136,6 +136,7 @@ class TaskEditorAssistant:
         self.editorList = QtGui.QListWidget()
         self.editorList.setMinimumHeight(85)
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
+        self.editorList.doubleClicked.connect(self.onRefreshBtnClicked)
         self.editorList.setToolTip("Open editors, press Refresh to update")
         editorLayout.addWidget(self.editorList)
         if not showEditorList:
@@ -153,7 +154,7 @@ class TaskEditorAssistant:
         self.gotoLineEdit = QtGui.QLineEdit()
         self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
-        self.gotoLineEdit.setPlaceholderText("Goto Line number")
+        self.gotoLineEdit.setPlaceholderText("Goto Line numbers")
         self.gotoMenuBtn = QtGui.QPushButton()
         self.gotoMenuBtn.setToolTip(f"\
 Goto menu\n\
@@ -552,11 +553,12 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
     def onConsoleEditReturnPressed(self):
         self.onConsoleBtnClicked(True)
 
-    def toast(self,msg,msgType='Error',length=5000,log=True):
+    def toast(self,msg,msgType='Error',length=5000,log=True,priority="high"):
         if not shiboken.isValid(self.msgBtn):
             return
         self.timers.append(msg)
-        self.msgBtn.setText(msg)
+        if priority == "high" or not self.msgBtn.text():
+            self.msgBtn.setText(msg)
         if log:
             self.toastsLog.append(tuple([msg, msgType]))
         if msgType == 'Error':
@@ -1102,6 +1104,7 @@ del(__editors__, __parents__, __grandparents__)
         ds.setWindowFlag(QtCore.Qt.WindowMinimizeButtonHint, True)
         ds.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
         ds.resizeEvent = ds.onResize
+        self.mdi.addSubWindow(ds)
         layout = QtGui.QVBoxLayout()
         ds.setLayout(layout)
         ds.setWindowIcon(QIconFromXPMString(__icon__))
@@ -1390,7 +1393,7 @@ del(__editors__, __parents__, __grandparents__)
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
-        #self.print(f"(btnRefresh): self.editors: {self.editors}")
+        self.toast(f"Refreshed","Information",1000,priority="low")
         self.editorDict = {}
         for zz in zip(self.editors, self.parents, self.grandparents):
             self.editorDict [zz[2].windowTitle()] = zz[0]
@@ -1703,7 +1706,7 @@ class DiffSaver (QtGui.QDialog):
 
     def updateTitle(self):
         if self.widthSlider and self.slider:
-            self.setWindowTitle(f"Editor assistant v{__version__}   [zoom:{self.slider.value()}%; Col width: {self.widthSlider.value()}px]")
+            self.setWindowTitle(f"Ea v{__version__} Diff Saver zoom:{self.slider.value()}%; Col width: {self.widthSlider.value()}px")
 
     def onResize(self, event):
         self.blockSignals = True
