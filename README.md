@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.39b (2022.03.26)
+* remove a debug message
 ### 1.39 (2022.03.26)
 * Automatically take a snapshot of each file when it is first opened.
 * add goto menu to main menu
