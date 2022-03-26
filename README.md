@@ -74,7 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
-
+### 1.38 (2022.03.26)
+* move diffs to mdi area for a more seamless integration
+* add low priority toast option -- such toasts do not overwrite existing toasts
 ### 1.37 (2022.03.26)
 * add view mode to main menu<br/>
   supported modes: tabbed, tiled, cascade<br/>
