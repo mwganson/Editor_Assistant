@@ -3,9 +3,8 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.34"
+__version__ = "1.35"
 UNDO_QUEUE_MAX_SIZE = 100
-SHOW_AS_TASK_DIALOG = False
 BOOKMARK_MARKER = "##:"
 
 from PySide import QtGui,QtCore
@@ -79,6 +78,7 @@ class TaskEditorAssistant:
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
         self.pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
         #GetInt(), SetInt(), GetFloat(), SetFloat(), GetBool(), SetBool(), GetASCII(), SetASCII()
+        self.isTabbed=False
         self.found = False #find result
         self.gotoLineDict = {} #to save goto line edit value for each editor
         self.editorDict = {}
@@ -380,7 +380,7 @@ Type 'help(editor)' in the console for help.\n\
     def checkForTabs(self):
         txt = self.getText()
         if txt.count("\t") > 0:
-            self.toast(f"{self.editorList.currentItem().text()}: contains tabs.","warning")
+            self.toast(f"{self.editorList.currentItem().text()}: contains tabs.","Warning")
 
     def onEditorListCurrentItemChanged(self, current, previous):
         if self.blockSignals:
@@ -388,7 +388,7 @@ Type 'help(editor)' in the console for help.\n\
         self.onRefreshBtnClicked(True)
         self.currentEditor.setFocus()
         if not self.currentEditor.hasFocus():
-            self.toast(f"cannot set focus on {self.editorList.currentItem().text()}","warning")
+            self.toast(f"cannot set focus on {self.editorList.currentItem().text()}","Warning")
         self.checkForTabs()
         self.onFindEditTextChanged(None)
         self.updateUndoBtn()
@@ -554,9 +554,10 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.timers.pop()
         elif len(self.timers) > 1:
             self.timers.pop()
-        self.mainMenuBtn.show()
-        self.form.resize(self.form.parent().layout().closestAcceptableSize(self.form.parent(), QtCore.QSize(0,0)))
-        self.form.resize(self.form.layout().closestAcceptableSize(self.form, QtCore.QSize(0,0)))
+        #self.mainMenuBtn.show()
+        #self.form.resize(self.form.parent().layout().closestAcceptableSize(self.form.parent(), QtCore.QSize(0,0)))
+        #self.form.resize(self.form.layout().closestAcceptableSize(self.form, QtCore.QSize(0,0)))
+
     def onConsoleBtnClicked(self, arg1):
         consoleCmd = self.consoleEdit.text()
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
@@ -624,7 +625,7 @@ del(__editors__, __parents__, __grandparents__)
         self.find(name, txt)
         if not self.found:
             if self.loopCheckBox.checkState():
-                self.toast(f"{txt} not found in {name} --Looping back to start","warning")
+                self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
 
     def updateSnapBtns(self):
@@ -661,12 +662,12 @@ del(__editors__, __parents__, __grandparents__)
         self.toast(f"{thisSnap['reason']} taken of {curName}","Message")
         if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
             self.snaps.pop(0)
-            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","warning")
+            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","Warning")
         self.updateSnapBtns()
 
     def getSnaps(self):
         self.onRefreshBtnClicked(True)
-        curName = self.editorList.currentItem().text()
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         return snaps
 
@@ -720,11 +721,9 @@ del(__editors__, __parents__, __grandparents__)
         for widget in showDict[groupName]:
             widget.setVisible(show)
 
-
     def setBool(self, name, value):
         self.pg.SetBool(name,value)
         self.showWidgets(name,value)
-
 
     def onMainMenuBtnClicked(self, arg1):
         """general purpose menu for things not related to going to a line
@@ -796,10 +795,11 @@ del(__editors__, __parents__, __grandparents__)
         consoleLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(consoleLineAction)
 
-
         mainMenu.addMenu(settingsMenu)
-
-
+        if self.isTabbed:
+            closeAction = QtGui.QAction("Close")
+            closeAction.triggered.connect(lambda: self.form.close())
+            mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
 
     def onSnapMenuBtnClicked(self, arg1):
@@ -1227,7 +1227,7 @@ del(__editors__, __parents__, __grandparents__)
         self.find(name, txt, True)
         if not self.found:
             if self.loopCheckBox.checkState():
-                self.toast(f"{txt} not found in {name} --Looping back to end","warning")
+                self.toast(f"{txt} not found in {name} --Looping back to end","Warning")
                 self.gotoLine(-1, silent=True, eol=True)
             else:
                 self.toast(f"{txt} not found backwards in {name}","Message")
@@ -1235,7 +1235,7 @@ del(__editors__, __parents__, __grandparents__)
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
         if len(self.undoQueue) > UNDO_QUEUE_MAX_SIZE:
-            self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\ndiscarding {self.undoQueue[0]['reason']}","warning")
+            self.toast(f"undo queue reached max size {UNDO_QUEUE_MAX_SIZE}\ndiscarding {self.undoQueue[0]['reason']}","Warning")
             self.undoQueue.pop(0)
         self.updateUndoBtn()
         self.currentEditor.document().setModified(True)
@@ -1442,7 +1442,7 @@ del(__editors__, __parents__, __grandparents__)
             findResultsMenu.setEnabled(False)
         else:
             if self.matchWholeCheckBox.checkState():
-                self.toast("Whole words checkbox ignored in Find results menu","warning")
+                self.toast("Whole words checkbox ignored in Find results menu","Warning")
 
         findSelResults = sorted(self.getFindResults(useSelection=True))
         findSelResultsMenu = QtGui.QMenu("Find selection results")
@@ -1457,7 +1457,7 @@ del(__editors__, __parents__, __grandparents__)
             findSelResultsMenu.setEnabled(False)
         else:
             if self.matchWholeCheckBox.checkState():
-                self.toast("Whole words checkbox ignored in Find selection results menu","warning")
+                self.toast("Whole words checkbox ignored in Find selection results menu","Warning")
 
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
@@ -1509,7 +1509,7 @@ del(__editors__, __parents__, __grandparents__)
     def getFindResults(self, useSelection=False):
         lines = self.getTrimmedLines()
         findResults = []
-        selTxt = self.currentEditor.textCursor().selectedText()
+        selTxt = self.currentEditor.textCursor().selectedText() if self.currentEditor else ""
         find = self.findEdit.text() if not useSelection else selTxt
         description_range = 35
         if not find:
@@ -1695,16 +1695,28 @@ def QIconFromStandard(name):
 
 def showEditorAssistantAsDockWidget():
     dockWidget = Dockable(mw)
-    dockWidget.show()
-
-
+    #dockWidget.show()
+    mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dockWidget)
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
-    if not FreeCADGui.Control.activeDialog():
-        #dlg = TaskEditorAssistant()
-        dw = Dockable(mw)
-        FreeCADGui.Control.showDialog(dw.dlg)
+    #dlg = TaskEditorAssistant()
+    #dw = Dockable(mw)
+    dlg = TaskEditorAssistant()
+    comboView = mw.findChild(QtGui.QDockWidget,"Combo View")
+    tabWidget = None
+    if comboView:
+        tabWidget = comboView.findChild(QtGui.QTabWidget)
+    if tabWidget:
+        tabWidget.addTab(dlg.form,f"Editor assistantv v{__version__}")
+        dlg.isTabbed = True
+        tabWidget.setCurrentWidget(dlg.form)
+        if not comboView.isVisible():
+            FreeCAD.Console.PrintWarning("Editor assistant: Making Combo View visible\n")
+            FreeCAD.Console.PrintMessage("Tip: press Alt while executing to open as dockable widget\n")
+            comboView.setVisible(True)
+    elif not FreeCADGui.Control.activeDialog():
+        FreeCADGui.Control.showDialog(dlg.form)
     else:
         FreeCAD.Console.PrintError("Another task dialog is active.  Showing as dockable widget instead.\n")
         showEditorAssistantAsDockWidget()
@@ -2655,8 +2667,8 @@ static char *_647901969918[] = {
 };
 """
 modifiers = QtGui.QApplication.keyboardModifiers()
-if modifiers == QtCore.Qt.AltModifier or SHOW_AS_TASK_DIALOG:
-    showEditorAssistantDialog()
-else:
+if modifiers == QtCore.Qt.AltModifier:
     showEditorAssistantAsDockWidget()
+else:
+    showEditorAssistantDialog()
 
