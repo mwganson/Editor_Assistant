@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.36 (2022.03.25)
+* refresh editor list when a new text file is opened
 ### 1.35b (2022.03.25)
 * fix typo in window title
 ### 1.35 (2022.03.25)
