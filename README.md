@@ -74,6 +74,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.35 (2022.03.25)
+* change default from floating dockable widget to embedded as a 3rd tab in combo view.
+* fix bug where warning toasts were shown as normal messages
+* add Close to main menu
 ### 1.34 (2022.03.25)
 * add main menu button
 * add settings -> layout menu to enable/disable individual lines of widgets
