@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.38"
+__version__ = "1.39"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -362,6 +362,18 @@ Type 'help(editor)' in the console for help.\n\
         self.parents = [ed.parent() for ed in self.editors]
         self.grandparents = [p.parent() for p in self.parents]
         self.titles = [g.windowTitle() for g in self.grandparents]
+        if hasattr(self, "editorList") and shiboken.isValid(self.editorList):
+            curNames = [self.editorList.item(ii).text() for ii in range(0, self.editorList.count())]
+            for ii,title in enumerate(self.titles):
+                if not title in curNames:
+                    cursor = self.editors[ii].textCursor()
+                    self.takeSnap(title, cursor, "Auto snapshot",self.editors[ii].toPlainText())
+        else:
+            for ii,title in enumerate(self.titles):
+                cursor = self.editors[ii].textCursor()
+                self.takeSnap(title, cursor, "Auto snapshot",self.editors[ii].toPlainText())
+
+
 
     def setCurrentEditor(self, name="", focus=True):
         if not shiboken.isValid(self.editorList):
@@ -385,6 +397,9 @@ Type 'help(editor)' in the console for help.\n\
                 self.form.parent().show()
         #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
     def onSubWindowActivated(self, arg1):
+        if not shiboken.isValid(self.editorList):
+            FreeCAD.Console.PrintMessage("still alive...\n")
+            return
         sub = self.mdi.activeSubWindow()
         ed = sub.findChild(QtGui.QPlainTextEdit) if sub else None
         if ed:
@@ -554,7 +569,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         self.onConsoleBtnClicked(True)
 
     def toast(self,msg,msgType='Error',length=5000,log=True,priority="high"):
-        if not shiboken.isValid(self.msgBtn):
+        if not hasattr(self, "msgBtn") or not shiboken.isValid(self.msgBtn):
             return
         self.timers.append(msg)
         if priority == "high" or not self.msgBtn.text():
@@ -659,8 +674,11 @@ del(__editors__, __parents__, __grandparents__)
                 self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
 
-    def updateSnapBtns(self):
-        self.onRefreshBtnClicked(True)
+    def updateSnapBtns(self,refresh=True):
+        if refresh:
+            self.onRefreshBtnClicked(True)
+        if not hasattr(self, "editorList"):
+            return
         curName = self.editorList.currentItem().text() if self.editorList.count() else None
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
         if not snaps:
@@ -674,6 +692,29 @@ del(__editors__, __parents__, __grandparents__)
             self.popSnapBtn.setToolTip(f"Pop/restore and discard {snaps[0]['reason']}")
             self.discardSnapBtn.setEnabled(True)
 
+    def takeSnap(self, curName, curCursor=None, reason="", plainText=""):
+        """takeSnap(curName, curCursor=None, reason="")
+           if not curCursor it is taken from current editor
+           if not reason it is Snap #NNN"""
+        curText = self.getText(curName) if not plainText else plainText
+        curCursor = self.currentEditor.textCursor() if not curCursor else curCursor
+        tc = self.getTC(curCursor)
+        count = 1
+        for snap in self.snaps:
+            if snap["name"] == curName:
+                count += 1
+        if reason:
+            thisReason = reason
+        else:
+            thisReason = f"Snap #{count}"
+        thisSnap = {"name":curName, "old_text":curText, "reason":thisReason, "tc":tc}
+        self.snaps.append(thisSnap)
+        self.toast(f"{thisSnap['reason']} taken of {curName}","Message")
+        if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
+            self.snaps.pop(0)
+            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","Warning")
+        self.updateSnapBtns(refresh=False)
+
     def onTakeSnapBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         self.updateSnapBtns()
@@ -681,20 +722,7 @@ del(__editors__, __parents__, __grandparents__)
         if not curName:
             self.toast("No current editor","Error")
             return
-        curText = self.getText(curName)
-        curCursor = self.currentEditor.textCursor()
-        tc = self.getTC(curCursor)
-        count = 1
-        for snap in self.snaps:
-            if snap["name"] == curName:
-                count += 1
-        thisSnap = {"name":curName, "old_text":curText, "reason":f"Snap #{count}", "tc":tc}
-        self.snaps.append(thisSnap)
-        self.toast(f"{thisSnap['reason']} taken of {curName}","Message")
-        if len(self.snaps) > UNDO_QUEUE_MAX_SIZE:
-            self.snaps.pop(0)
-            self.toast("Snaps count exceeds {UNDO_QUEUE_MAX_SIZE}, discarding oldest snap","Warning")
-        self.updateSnapBtns()
+        self.takeSnap(curName)
 
     def getSnaps(self):
         self.onRefreshBtnClicked(True)
@@ -846,15 +874,24 @@ del(__editors__, __parents__, __grandparents__)
         cascadeModeAction = QtGui.QAction("Cascade")
         cascadeModeAction.triggered.connect(lambda: self.mdi.cascadeSubWindows())
         viewModeMenu.addAction(cascadeModeAction)
-#end view mode
 
+#start goto menu
+        gotoMenu = self.makeGotoMenu()
+        mainMenu.addMenu(gotoMenu)
+#start snaps menu
+        snapsMenu = self.makeSnapsMenu()
+        mainMenu.addMenu(snapsMenu)
 
-
+#close menu
         if self.isTabbed:
             closeAction = QtGui.QAction("Close")
-            closeAction.triggered.connect(lambda: self.form.close())
+            closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
+
+    def close(self):
+        self.mdi.subWindowActivated.disconnect(self.onSubWindowActivated)
+        self.form.close()
 
     def setTabbedView(self):
         self.mdi.setViewMode(QtGui.QMdiArea.ViewMode.TabbedView)
@@ -866,13 +903,18 @@ del(__editors__, __parents__, __grandparents__)
         qp = QtCore.QPoint()
         self.snapMenuBtnContextMenu(qp)
 
-    def snapMenuBtnContextMenu(self, point):
-        snapContextMenu = QtGui.QMenu(mw)
+    def makeSnapsMenu(self):
+        snapsMenu = QtGui.QMenu("Snaps")
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
             self.toast("No current editor","Error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
+
+        takeSnapshotAction = QtGui.QAction("Take snapshot", mw)
+        takeSnapshotAction.triggered.connect(lambda: self.onTakeSnapBtnClicked(True))
+        snapsMenu.addAction(takeSnapshotAction)
+        takeSnapshotAction.setEnabled(curName != "")
 
         restoreMenu = QtGui.QMenu("Restore last snap")
         restoreToCurrentEditorAction = QtGui.QAction("Restore to current editor", mw)
@@ -889,7 +931,7 @@ del(__editors__, __parents__, __grandparents__)
         restoreToTextDocumentAction.triggered.connect(self.doRestoreToTextDocument)
         restoreToTextDocumentAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToTextDocumentAction)
-        snapContextMenu.addMenu(restoreMenu)
+        snapsMenu.addMenu(restoreMenu)
         if not len(self.getSnaps()):
             restoreMenu.setEnabled(False)
 
@@ -903,7 +945,7 @@ del(__editors__, __parents__, __grandparents__)
             restoreAnyActions.append(QtGui.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
             restoreAnyActions[-1].triggered.connect(restoreAnyLambdas[ii])
             restoreAnysMenu.addAction(restoreAnyActions[-1])
-        snapContextMenu.addMenu(restoreAnysMenu)
+        snapsMenu.addMenu(restoreAnysMenu)
         if not restoreAnys:
             restoreAnysMenu.setEnabled(False)
 
@@ -917,7 +959,7 @@ del(__editors__, __parents__, __grandparents__)
         saveAllSnapshotAsAction.triggered.connect(self.saveSnapsToJSON)
         saveAllSnapshotAsAction.setEnabled(len(snaps) > 0)
         saveMenu.addAction(saveAllSnapshotAsAction)
-        snapContextMenu.addMenu(saveMenu)
+        snapsMenu.addMenu(saveMenu)
         if not len(self.getSnaps()):
             saveMenu.setEnabled(False)
 
@@ -926,7 +968,7 @@ del(__editors__, __parents__, __grandparents__)
         loadSnapshotAction.triggered.connect(self.loadSnapsFromJSON)
         loadMenu.addAction(loadSnapshotAction)
 
-        snapContextMenu.addMenu(loadMenu)
+        snapsMenu.addMenu(loadMenu)
         discardMenu = QtGui.QMenu("Discard")
 
         def makeDiscardSnapLambda(x): return lambda: self.discardSnap(x)
@@ -953,7 +995,7 @@ del(__editors__, __parents__, __grandparents__)
         if not discardSnaps:
             discardMenu.setEnabled(False)
 
-        snapContextMenu.addMenu(discardMenu)
+        snapsMenu.addMenu(discardMenu)
 
         def makeDiffLambda(x,y,xlab="",ylab=""): return lambda: self.showDiff(x,y,xlab,ylab)
 
@@ -983,7 +1025,7 @@ del(__editors__, __parents__, __grandparents__)
         if not clipText:
             diffSnapActions[-1].setEnabled(False)
 
-        snapContextMenu.addMenu(diffSnapsMenu)
+        snapsMenu.addMenu(diffSnapsMenu)
         if not diffSnapActions:
             diffSnapsMenu.setEnabled(False)
 
@@ -997,11 +1039,16 @@ del(__editors__, __parents__, __grandparents__)
             editReasonActions.append(QtGui.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
             editReasonActions[-1].triggered.connect(editReasonLambdas[ii])
             editReasonsMenu.addAction(editReasonActions[-1])
-        snapContextMenu.addMenu(editReasonsMenu)
+        snapsMenu.addMenu(editReasonsMenu)
         if not editReasons:
             editReasonsMenu.setEnabled(False)
+        return snapsMenu
 
-        snapContextMenu.exec_(self.snapMenuBtn.mapToGlobal(point))
+
+    def snapMenuBtnContextMenu(self, point):
+        snapsMenu = self.makeSnapsMenu()
+
+        snapsMenu.exec_(self.snapMenuBtn.mapToGlobal(point))
 
     def editReason(self, name, reason, idx):
         snap = self.snaps[idx]
@@ -1393,7 +1440,7 @@ del(__editors__, __parents__, __grandparents__)
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
-        self.toast(f"Refreshed","Information",1000,priority="low")
+        self.toast(f"Refreshed","Information",1000,priority="low",log=False)
         self.editorDict = {}
         for zz in zip(self.editors, self.parents, self.grandparents):
             self.editorDict [zz[2].windowTitle()] = zz[0]
@@ -1439,9 +1486,8 @@ del(__editors__, __parents__, __grandparents__)
             return
         self.gotoLineDict[name] = arg1
 
-    def onGotoMenuBtnClicked(self, arg1):
-
-        gotoMenu = QtGui.QMenu(mw)
+    def makeGotoMenu(self):
+        gotoMenu = QtGui.QMenu("Goto")
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
@@ -1519,7 +1565,12 @@ del(__editors__, __parents__, __grandparents__)
         else:
             if self.matchWholeCheckBox.checkState():
                 self.toast("Whole words checkbox ignored in Find selection results menu","Warning")
+        return gotoMenu
 
+
+    def onGotoMenuBtnClicked(self, arg1):
+
+        gotoMenu = self.makeGotoMenu()
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
 
