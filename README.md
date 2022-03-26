@@ -74,6 +74,12 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.39 (2022.03.26)
+* Automatically take a snapshot of each file when it is first opened.
+* add goto menu to main menu
+* add snaps menu to main menu
+* internally rename snaps menu from context menu to normal menu since it's no longer a context menu
+* disconnect mdi area subWindowActivated signal on closing
 ### 1.38 (2022.03.26)
 * move diffs to mdi area for a more seamless integration
 * add low priority toast option -- such toasts do not overwrite existing toasts
