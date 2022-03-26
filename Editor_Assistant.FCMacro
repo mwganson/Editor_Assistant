@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.39"
+__version__ = "1.39b"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -398,7 +398,6 @@ Type 'help(editor)' in the console for help.\n\
         #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
     def onSubWindowActivated(self, arg1):
         if not shiboken.isValid(self.editorList):
-            FreeCAD.Console.PrintMessage("still alive...\n")
             return
         sub = self.mdi.activeSubWindow()
         ed = sub.findChild(QtGui.QPlainTextEdit) if sub else None
