@@ -74,6 +74,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+
+### 1.37 (2022.03.26)
+* add view mode to main menu<br/>
+  supported modes: tabbed, tiled, cascade<br/>
 ### 1.36 (2022.03.25)
 * refresh editor list when a new text file is opened
 ### 1.35b (2022.03.25)
