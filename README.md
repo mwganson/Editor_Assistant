@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.35b (2022.03.25)
+* fix typo in window title
 ### 1.35 (2022.03.25)
 * change default from floating dockable widget to embedded as a 3rd tab in combo view.
 * fix bug where warning toasts were shown as normal messages
