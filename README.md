@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.40 (2022.03.26)
+* put line numbers first for find results in goto menu
+* put some context characters ahead of find results in goto menu
 ### 1.39b (2022.03.26)
 * remove a debug message
 ### 1.39 (2022.03.26)
