@@ -3,14 +3,44 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.40b"
+__version__ = "1.41"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
 from PySide import QtGui,QtCore
 import difflib
 import json
-from PySide2 import QtWebEngineWidgets as Web
+## used for help -> reference menus
+import PySide2
+from PySide2 import QtNetwork, QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
+                    QtSql, QtSvg, QtTest, QtWidgets, QtXml, QtXmlPatterns
+import Draft
+import DraftUtils
+import Fem
+import FemGui
+import Image
+import ImageGui
+import Measure
+import Mesh
+import MeshGui
+import MeshPart
+import MeshPartGui
+import PartDesign
+import PartDesignGui
+import PartGui
+import Path
+import PathGui
+import PathSimulator
+import Points
+import PointsGui
+import Sketcher
+import SketcherGui
+import Spreadsheet
+import SpreadsheetGui
+import TechDraw
+import TechDrawGui
+import Web
+import WebGui
 
 try:
     import shiboken2 as shiboken
@@ -880,6 +910,127 @@ del(__editors__, __parents__, __grandparents__)
 #start snaps menu
         snapsMenu = self.makeSnapsMenu()
         mainMenu.addMenu(snapsMenu)
+#start help menu
+        helpMenu = QtGui.QMenu("Help")
+        mainMenu.addMenu(helpMenu)
+
+#start help -> reference menu
+        helpReferenceMenu = QtGui.QMenu("Reference")
+        helpMenu.addMenu(helpReferenceMenu)
+
+#start help -> reference -> 
+
+        moduleMenu = QtGui.QMenu("FreeCAD Modules")
+        helpReferenceMenu.addMenu(moduleMenu)
+        def makeModule(x): return lambda : self.makeReferenceMenu(x)
+
+        packagesDict = {
+        "Draft":Draft,
+        "DraftUtils":DraftUtils,
+        "Fem": Fem,
+        "FemGui": FemGui,
+        "Image": Image,
+        "ImageGui": ImageGui,
+        "Measure": Measure,
+        "Mesh": Mesh,
+        "MeshGui": MeshGui,
+        "MeshPart": MeshPart,
+        "MeshPartGui":MeshPartGui,
+        "PartDesign": PartDesign,
+        "PartDesignGui":PartDesignGui,
+        "Part":Part,
+        "PartGui":PartGui,
+        "Path":Path,
+        "PathGui":PathGui,
+        "PathSimulator":PathSimulator,
+        "Points":Points,
+        "PointsGui":PointsGui,
+        "Sketcher":Sketcher,
+        "SketcherGui":SketcherGui,
+        "Spreadsheet":Spreadsheet,
+        "SpreadsheetGui":SpreadsheetGui,
+        "TechDraw":TechDraw,
+        "TechDrawGui":TechDrawGui,
+        "Web":Web,
+        "WebGui":WebGui
+        }
+        moduleActions = []
+        modules = []
+        for k,v in packagesDict.items():
+            moduleActions.append(QtGui.QAction(k))
+            modules.append(makeModule(v))
+            moduleActions[-1].triggered.connect(modules[-1])
+            moduleMenu.addAction(moduleActions[-1])
+
+        FreeCADAction = QtGui.QAction("FreeCAD/App")
+        FreeCADAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCAD))
+        helpReferenceMenu.addAction(FreeCADAction)
+
+        FreeCADGuiAction = QtGui.QAction("FreeCADGui/Gui")
+        FreeCADGuiAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCADGui))
+        helpReferenceMenu.addAction(FreeCADGuiAction)
+
+
+        qtMenu = QtGui.QMenu("Qt/PySide")
+        helpReferenceMenu.addMenu(qtMenu)
+
+        QtCoreAction = QtGui.QAction("QtCore")
+        QtCoreAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore))
+        qtMenu.addAction(QtCoreAction)
+
+        QtCore_QtAction = QtGui.QAction("QtCore.Qt")
+        QtCore_QtAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore.Qt))
+        qtMenu.addAction(QtCore_QtAction)
+
+        QtGuiAction = QtGui.QAction("QtGui")
+        QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
+        qtMenu.addAction(QtGuiAction)
+
+        QtNetworkAction = QtGui.QAction("QtNetwork")
+        QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
+        qtMenu.addAction(QtNetworkAction)
+
+        QtHelpAction = QtGui.QAction("QtHelp")
+        QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
+        qtMenu.addAction(QtHelpAction)
+
+        QtMultimediaAction = QtGui.QAction("QtMultimedia")
+        QtMultimediaAction.triggered.connect(lambda :self.makeReferenceMenu(QtMultimedia))
+        qtMenu.addAction(QtMultimediaAction)
+
+        QtOpenGLAction = QtGui.QAction("QtOpenGL")
+        QtOpenGLAction.triggered.connect(lambda :self.makeReferenceMenu(QtOpenGL))
+        qtMenu.addAction(QtOpenGLAction)
+
+        QtPrintSupportAction = QtGui.QAction("QtPrintSupport")
+        QtPrintSupportAction.triggered.connect(lambda :self.makeReferenceMenu(QtPrintSupport))
+        qtMenu.addAction(QtPrintSupportAction)
+
+        QtSqlAction = QtGui.QAction("QtSql")
+        QtSqlAction.triggered.connect(lambda :self.makeReferenceMenu(QtSql))
+        qtMenu.addAction(QtSqlAction)
+
+        QtSvgAction = QtGui.QAction("QtSvg")
+        QtSvgAction.triggered.connect(lambda :self.makeReferenceMenu(QtSvg))
+        qtMenu.addAction(QtSvgAction)
+
+        QtTestAction = QtGui.QAction("QtTest")
+        QtTestAction.triggered.connect(lambda :self.makeReferenceMenu(QtTest))
+        qtMenu.addAction(QtTestAction)
+
+        QtWidgetsAction = QtGui.QAction("QtWidgets")
+        QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
+        qtMenu.addAction(QtWidgetsAction)
+
+        QtXmlAction = QtGui.QAction("QtXml")
+        QtXmlAction.triggered.connect(lambda :self.makeReferenceMenu(QtXml))
+        qtMenu.addAction(QtXmlAction)
+
+        QtXmlPatternsAction = QtGui.QAction("QtXmlPatterns")
+        QtXmlPatternsAction.triggered.connect(lambda :self.makeReferenceMenu(QtXmlPatterns))
+        qtMenu.addAction(QtXmlPatternsAction)
+
+
 
 #close menu
         if self.isTabbed:
@@ -887,6 +1038,67 @@ del(__editors__, __parents__, __grandparents__)
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
+
+
+    def makeReferenceMenu(self, mod):
+        def makeReference(name): return lambda: self.showHelp(name)
+
+        refMenu = QtGui.QMenu(mod.__name__)
+        subMenus = []
+
+        attributeStrings = [att for att in dir(mod) if not "__" in att]
+
+        attrActions = []
+        attrActions.append(QtGui.QAction(f"{mod.__name__}"))
+        attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}"))
+        refMenu.addAction(attrActions[-1])
+        if not attributeStrings:
+            self.showHelp(mod)
+        ii = 0
+        for attr in attributeStrings:
+            if ii % 50 == 0:
+                subMenus.append(QtGui.QMenu(f"Start from -- {mod.__name__}.{attr}"))
+                ii += 1
+            if not hasattr(mod, "__name__"):
+                continue
+            attrActions.append(QtGui.QAction(f"{mod.__name__}.{attr}"))
+            attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}.{attr}"))
+            subMenus[-1].addAction(attrActions[-1])
+            ii += 1
+
+        for sub in subMenus:
+            refMenu.addMenu(sub)
+        if exec:
+            refMenu.exec_(QtCore.QPoint())
+        else:
+            return refMenu
+
+    def showHelp(self, name):
+        if isinstance(name, str) and name[:3] == "Qt.":
+            name = "PySide2.QtCore." + name
+        from contextlib import redirect_stdout
+        import io
+        f = io.StringIO()
+        with redirect_stdout(f):
+            print(f"help({name}):")
+            help(f"{name}")
+        #self.print(f.getvalue())
+        self.makeWindow(name, f.getvalue())
+
+    def makeWindow(self, name, txt):
+        """make a window to show some text"""
+        dlg = QtGui.QDialog(mw)
+        edit = QtGui.QPlainTextEdit()
+        edit.setPlainText(txt)
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget(edit)
+        dlg.setLayout(layout)
+        dlg.resize(800,600)
+        dlg.setWindowTitle(f"help on {name}")
+        dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        self.mdi.addSubWindow(dlg)
+        dlg.show()
+
 
     def close(self):
         self.mdi.subWindowActivated.disconnect(self.onSubWindowActivated)
@@ -1621,7 +1833,7 @@ del(__editors__, __parents__, __grandparents__)
         lines = self.getTrimmedLines()
         findResults = []
         if not shiboken.isValid(self.currentEditor):
-            return
+            return []
         selTxt = self.currentEditor.textCursor().selectedText() if self.currentEditor else ""
         find = self.findEdit.text() if not useSelection else selTxt
         description_range = 35
