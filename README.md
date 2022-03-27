@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.41 (2022.03.27)
+* add help menu
 ### 1.40b (2022.03.26)
 * bugfix --error when creating new empty document
 ### 1.40 (2022.03.26)
