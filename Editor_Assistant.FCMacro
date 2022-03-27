@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.39b"
+__version__ = "1.40"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1514,9 +1514,9 @@ del(__editors__, __parents__, __grandparents__)
         classDefLineLambdas = [makeLambda(cl[2]) for cl in classDefLines]
         for ii,classDefLine in enumerate(classDefLines):
             if "class" in classDefLine[1]:
-                classDefLineActions.append(QtGui.QAction(f"{classDefLine[1]} ({classDefLine[2]})", mw))
+                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..{classDefLine[1]}", mw))
             else: #def line
-                classDefLineActions.append(QtGui.QAction(f"({classDefLine[0]}) {classDefLine[1]} ({classDefLine[2]})", mw))
+                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..({classDefLine[0]}) {classDefLine[1]}", mw))
             classDefLineActions[-1].triggered.connect(classDefLineLambdas[ii])
             classDefLinesMenu.addAction(classDefLineActions[-1])
         gotoMenu.addMenu(classDefLinesMenu)
@@ -1538,9 +1538,9 @@ del(__editors__, __parents__, __grandparents__)
         findResults = sorted(self.getFindResults())
         findResultsMenu = QtGui.QMenu("Find results")
         findResultActions = []
-        findResultLambdas = [makeLambda(fr[1]) for fr in findResults]
+        findResultLambdas = [makeLambda(fr[0]) for fr in findResults]
         for ii,fr in enumerate(findResults):
-            findResultActions.append(QtGui.QAction(f"{fr[0]} ({fr[1]})", mw))
+            findResultActions.append(QtGui.QAction(f"{fr[0]}..{fr[1]}{fr[2]}{fr[3]}..", mw))
             findResultActions[-1].triggered.connect(findResultLambdas[ii])
             findResultsMenu.addAction(findResultActions[-1])
         gotoMenu.addMenu(findResultsMenu)
@@ -1553,9 +1553,9 @@ del(__editors__, __parents__, __grandparents__)
         findSelResults = sorted(self.getFindResults(useSelection=True))
         findSelResultsMenu = QtGui.QMenu("Find selection results")
         findSelResultActions = []
-        findSelResultLambdas = [makeLambda(fsr[1]) for fsr in findSelResults]
+        findSelResultLambdas = [makeLambda(fsr[0]) for fsr in findSelResults]
         for ii,fsr in enumerate(findSelResults):
-            findSelResultActions.append(QtGui.QAction(f"{fsr[0]} ({fsr[1]})", mw))
+            findSelResultActions.append(QtGui.QAction(f"{fsr[0]}..{fsr[1]}{fsr[2]}{fsr[3]}..", mw))
             findSelResultActions[-1].triggered.connect(findSelResultLambdas[ii])
             findSelResultsMenu.addAction(findSelResultActions[-1])
         gotoMenu.addMenu(findSelResultsMenu)
@@ -1625,6 +1625,7 @@ del(__editors__, __parents__, __grandparents__)
         selTxt = self.currentEditor.textCursor().selectedText() if self.currentEditor else ""
         find = self.findEdit.text() if not useSelection else selTxt
         description_range = 35
+        preContext = 10
         if not find:
             return []
         matchCase = self.matchCaseCheckBox.checkState()
@@ -1633,11 +1634,14 @@ del(__editors__, __parents__, __grandparents__)
         for ii,line in enumerate(lines):
             if find in line or bool(not matchCase and find in line.lower()):
                 idx = line.find(find) if matchCase else line.lower().find(find)
-                if len(line) - description_range > idx:
+                preDesc = line[:idx]# what comes before the find text
+                desc = line[idx:]
+                if len(preDesc) > preContext:
+                    preDesc = preDesc[-preContext:]
+                if len(desc) > description_range:
+                    desc = desc[:description_range]
                     desc = line[idx:idx+description_range]
-                else:
-                    desc = line[idx:]
-                findResults.append(tuple([desc, ii+1]))
+                findResults.append(tuple([ii+1, preDesc, find, desc[len(find):]]))
         return findResults
 
     def getBookmarks(self):
@@ -1656,11 +1660,14 @@ del(__editors__, __parents__, __grandparents__)
         lines = self.getTrimmedLines()
         classDefLines = []
         curClass = ""
+        prevClass = ""
         for ii,line in enumerate(lines):
             if "class " in line and ":" in line:
+                prevClass = curClass
                 idx = line.find("class ")
+                pretext = line[:idx].replace(' ','').replace('#','')
                 idx2 = line.find(":", idx)
-                curClass = line[idx + len("class "):idx2]
+                curClass = line[idx + len("class "):idx2] if not pretext else prevClass
                 if "(" in curClass and ")" in curClass:
                     idx3 = curClass.find("(")
                     idx4 = curClass.find(")",idx3)
