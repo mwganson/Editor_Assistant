@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.45 (2022.03.28)
+* add search() function to To console: line edit (opens new browser tab to github repo search results page)
 ### 1.44 (2022.03.28)
 * add menu() alias for dlg.makeReferenceMenu() in To console:
 * better support module names as strings in help() and menu()
