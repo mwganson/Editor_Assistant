@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.42 (2022.03.28)
+* allow for multiple line statements in To console line edit
+* allow for help("help string") in To console line edit
 ### 1.41 (2022.03.27)
 * add help menu
 ### 1.40b (2022.03.26)
