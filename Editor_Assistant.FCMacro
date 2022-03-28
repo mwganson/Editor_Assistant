@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.41"
+__version__ = "1.43"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -403,8 +403,6 @@ Type 'help(editor)' in the console for help.\n\
                 cursor = self.editors[ii].textCursor()
                 self.takeSnap(title, cursor, "Auto snapshot",self.editors[ii].toPlainText())
 
-
-
     def setCurrentEditor(self, name="", focus=True):
         if not shiboken.isValid(self.editorList):
             return
@@ -634,14 +632,17 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         #self.form.resize(self.form.layout().closestAcceptableSize(self.form, QtCore.QSize(0,0)))
 
     def onConsoleBtnClicked(self, arg1):
+        self.onRefreshBtnClicked(True)
         consoleCmd = self.consoleEdit.text()
+        consoleCmd = consoleCmd.replace("help(", "dlg.showHelp(")
+        consoleCmd = consoleCmd.replace("\\n",chr(10))
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         if not name:
             self.toast("No editor selected")
-            return
-        old_text = self.getText(name)
-        old_cursor = self.editorDict[name].textCursor()
-        cmd = """
+        if name:
+            old_text = self.getText(name)
+            old_cursor = self.editorDict[name].textCursor()
+            cmd = """
 from PySide import QtGui
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
@@ -651,10 +652,20 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 del(__editors__, __parents__, __grandparents__)
 """
+        else: #not name
+            if consoleCmd.startswith("editor"):
+                self.toast("No open editor","Error")
+                return
+            cmd = """
+from PySide import QtGui
+dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
+"""+ consoleCmd + """
+"""
         self.doCommand(cmd)
-        if not old_text == self.getText():
-            self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
-        self.toast("editor now available as variable in python console","Message")
+        if name:
+            if not old_text == self.getText():
+                self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
+            self.toast("editor now available as variable in python console","Message")
         pyconsole = mw.findChild(QtGui.QPlainTextEdit,"Python console")
         pyconsole.setFocus()
         self.form.parent().hide()
