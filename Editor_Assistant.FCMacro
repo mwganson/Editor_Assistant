@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.44"
+__version__ = "1.45"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -584,6 +584,13 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
         self.doCommand(cmd)
 
+    def search(self,txt):
+        """do a search for txt on github FreeCAD repo"""
+        import webbrowser
+        qText = txt.replace(" ","+")
+        queryUrl = f"https://github.com/FreeCAD/FreeCAD/search?q={qText}"
+        webbrowser.open_new_tab(queryUrl)
+
     def onMsgBtnClicked(self, arg1):
         self.toast("Toast log sent to report view","Information",log=False)
         self.print("Toasts log:\n")
@@ -636,6 +643,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         consoleCmd = self.consoleEdit.text()
         consoleCmd = consoleCmd.replace("help(", "dlg.showHelp(")
         consoleCmd = consoleCmd.replace("menu(","dlg.makeReferenceMenu(")
+        consoleCmd = consoleCmd.replace("search(", "dlg.search(")
         consoleCmd = consoleCmd.replace("\\n",chr(10))
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         if not name:
