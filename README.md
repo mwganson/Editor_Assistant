@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.46 (2022.03.28)
+* add search() to help menu: 3 ways to search 1) from find edit text, 2) from selected text, 3) ask for text in a new dialog
 ### 1.45 (2022.03.28)
 * add search() function to To console: line edit (opens new browser tab to github repo search results page)
 ### 1.44 (2022.03.28)
