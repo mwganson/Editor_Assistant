@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.45"
+__version__ = "1.46"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1050,7 +1050,20 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         QtXmlPatternsAction.triggered.connect(lambda :self.makeReferenceMenu(QtXmlPatterns))
         qtMenu.addAction(QtXmlPatternsAction)
 
+        searchMenu = QtGui.QMenu("Search source code")
+        searchAction = QtGui.QAction("Use find edit text")
+        searchAction.triggered.connect(self.makeSearchFromFindEdit)
+        searchMenu.addAction(searchAction)
 
+        searchSelAction = QtGui.QAction("Use selected text")
+        searchSelAction.triggered.connect(self.makeSearchFromSelection)
+        searchMenu.addAction(searchSelAction)
+
+        searchAskAction = QtGui.QAction("Ask for query")
+        searchAskAction.triggered.connect(self.makeSearchFromImmediate)
+        searchMenu.addAction(searchAskAction)
+
+        helpMenu.addMenu(searchMenu)
 
 #close menu
         if self.isTabbed:
@@ -1059,6 +1072,29 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
 
+    def makeSearchFromFindEdit(self):
+        findTxt = self.findEdit.text()
+        if not findTxt:
+            self.toast("Nothing in Find edit","Error")
+            return
+        self.search(findTxt)
+
+    def makeSearchFromSelection(self):
+        self.onRefreshBtnClicked(True)
+        if not self.currentEditor:
+            self.toast("No current editor","Error")
+            return
+        tc = self.currentEditor.textCursor()
+        findTxt = tc.selectedText()
+        if not findTxt:
+            self.toast("Nothing in selection","Error")
+            return
+        self.search(findTxt)
+
+    def makeSearchFromImmediate(self):
+        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search source","Enter search query:")
+        if ok:
+            self.search(findTxt)
 
     def makeReferenceMenu(self, mod):
         def makeReference(name): return lambda: self.showHelp(name)
