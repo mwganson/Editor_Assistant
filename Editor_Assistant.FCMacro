@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.46"
+__version__ = "1.47"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -584,6 +584,12 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
         self.doCommand(cmd)
 
+    def qSearch(self,txt):
+        qText = txt.replace(" ","+")
+        queryUrl = f"https://doc-snapshots.qt.io/qtforpython/search.html?q={qText}"
+        import webbrowser
+        webbrowser.open_new_tab(queryUrl)
+
     def search(self,txt):
         """do a search for txt on github FreeCAD repo"""
         import webbrowser
@@ -644,6 +650,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         consoleCmd = consoleCmd.replace("help(", "dlg.showHelp(")
         consoleCmd = consoleCmd.replace("menu(","dlg.makeReferenceMenu(")
         consoleCmd = consoleCmd.replace("search(", "dlg.search(")
+        consoleCmd = consoleCmd.replace("qSearch(", "dlg.qSearch(")
         consoleCmd = consoleCmd.replace("\\n",chr(10))
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         if not name:
@@ -1065,6 +1072,21 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
         helpMenu.addMenu(searchMenu)
 
+        qSearchMenu = QtGui.QMenu("Search Qt")
+        qSearchAction = QtGui.QAction("Use find edit text")
+        qSearchAction.triggered.connect(self.makeqSearchFromFindEdit)
+        qSearchMenu.addAction(qSearchAction)
+
+        qSearchSelAction = QtGui.QAction("Use selected text")
+        qSearchSelAction.triggered.connect(self.makeqSearchFromSelection)
+        qSearchMenu.addAction(qSearchSelAction)
+
+        qSearchAskAction = QtGui.QAction("Ask for query")
+        qSearchAskAction.triggered.connect(self.makeqSearchFromImmediate)
+        qSearchMenu.addAction(qSearchAskAction)
+
+        helpMenu.addMenu(qSearchMenu)
+
 #close menu
         if self.isTabbed:
             closeAction = QtGui.QAction("Close")
@@ -1095,6 +1117,30 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         findTxt, ok = QtGui.QInputDialog.getText(mw, "Search source","Enter search query:")
         if ok:
             self.search(findTxt)
+
+    def makeqSearchFromFindEdit(self):
+        findTxt = self.findEdit.text()
+        if not findTxt:
+            self.toast("Nothing in Find edit","Error")
+            return
+        self.qSearch(findTxt)
+
+    def makeqSearchFromSelection(self):
+        self.onRefreshBtnClicked(True)
+        if not self.currentEditor:
+            self.toast("No current editor","Error")
+            return
+        tc = self.currentEditor.textCursor()
+        findTxt = tc.selectedText()
+        if not findTxt:
+            self.toast("Nothing in selection","Error")
+            return
+        self.qSearch(findTxt)
+
+    def makeqSearchFromImmediate(self):
+        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search Qt","Enter qSearch query:")
+        if ok:
+            self.qSearch(findTxt)
 
     def makeReferenceMenu(self, mod):
         def makeReference(name): return lambda: self.showHelp(name)
