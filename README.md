@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.44 (2022.03.28)
+* add menu() alias for dlg.makeReferenceMenu() in To console:
+* better support module names as strings in help() and menu()
 ### 1.42 (2022.03.28)
 * allow for multiple line statements in To console line edit
 * allow for help("help string") in To console line edit
