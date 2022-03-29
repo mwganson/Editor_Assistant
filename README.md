@@ -74,6 +74,10 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.48 (2022.03.28)
+* Add .FCMacro, .py, .txt to snapshot save as file type
+### 1.47 (2022.03.28)
+* add qSearch() to search qt for python online documentation
 ### 1.46 (2022.03.28)
 * add search() to help menu: 3 ways to search 1) from find edit text, 2) from selected text, 3) ask for text in a new dialog
 ### 1.45 (2022.03.28)
