@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.49"
+__version__ = "1.50"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -116,13 +116,7 @@ class TaskEditorAssistant:
         self.parents = []
         self.grandparents = []
         self.titles = []
-        templateDict = {
-"button":{"label":"input", "name":"input","output":"name = QtGui.QPushButton('label')"},
-"import QtGui, QtCore":{"output":"from PySide import QtGui, QtCore"}
-
-} if not self.getTemplateString() else self.getTemplateString()
-        self.setTemplateString(templateDict)
-        self.templateString = self.getTemplateString()
+        self.templateDictString = self.getTemplateString()
         self.undoQueue = [] #dictionary list {reason, old_text, name, tc}
         self.redoQueue = [] #tc holds a tuple (start, end) of selected text position
         self.snaps = [] #dictionary list {reason, old_text, name, tc}
@@ -1114,7 +1108,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
 
     def setupInsertFromTemplate(self):
-        templateDict = json.loads(self.templateDictString, strict=False)
+        templateDict = self.getTemplateString()
         items=[]
         for k,v in templateDict.items():
             items.append(k)
@@ -1125,7 +1119,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if ok:
             self.insertFromTemplate(item)
 
-    def testTemplateItem(self, key, testText):
+    def testTemplateItem(self, key, testText, execute=False):
 
         self.print(f"testing {key} from template editor","Message")
 
@@ -1157,7 +1151,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                     self.toast("Replace edit is empty","Warning")
         for replacement in replacements:
             rawOutString = rawOutString.replace(replacement[0],rawDict[replacement[0]])
-        return rawOutString
+        if not execute:
+            return rawOutString
+        old_cursor = self.getTC(self.currentEditor.textCursor())
+        self.setModified(self.editorList.currentItem().text(), \
+            self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
+        self.currentEditor.insertPlainText(rawOutString)
 
     def insertFromTemplate(self, key):
         self.onRefreshBtnClicked(True)
@@ -1200,14 +1199,42 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.currentEditor.insertPlainText(rawOutString)
 
     def getTemplateString(self):
-        """updates self.templateDictString from user parameters, returns dict"""
-        self.templateDictString = self.pg.GetString("TemplateDictString","{}")
-        templateDict = json.loads(self.templateDictString, strict=False)
+        """updates self.templateDictString from templates file, returns dict"""
+        import os
+        real_path = os.path.realpath(__file__)
+        dir_path = os.path.dirname(real_path)
+        template_file = real_path.replace(".FCMacro","_Templates.txt")
+        bHasFile = os.path.exists(template_file)
+        if not bHasFile:
+            dictString = self.pg.GetString("TemplateDictString","{}")
+            if dictString == "{}": #no parameter
+                templateDict = {
+"button":{"label":"input", "name":"input","output":"name = QtGui.QPushButton('label')"},
+"import QtGui, QtCore":{"output":"from PySide import QtGui, QtCore"}
+}
+            else:
+                templateDict = json.loads(dictString) #preserve existing templates from parameters
+            self.pg.RemString("TemplateDictString")
+            self.setTemplateString(templateDict) #make the file with default samples
+        else: #file already exists
+            with open(template_file, 'r') as infile:
+                self.templateDictString = infile.read()
+            #self.templateDictString = self.pg.GetString("TemplateDictString","{}")
+            templateDict = json.loads(self.templateDictString, strict=False)
         return templateDict
 
     def setTemplateString(self, new_dict):
-        dumped = json.dumps(new_dict)
-        self.pg.SetString("TemplateDictString", dumped)
+        """saves to text file in json format"""
+        formatted = json.dumps(new_dict,indent=0,separators=(','+chr(10),':'+chr(10)))
+        formatted = formatted.replace('\\n',chr(10))
+
+        import os
+        real_path = os.path.realpath(__file__)
+        dir_path = os.path.dirname(real_path)
+        template_file = real_path.replace(".FCMacro","_Templates.txt")
+        with open(template_file, 'w') as outfile:
+            outfile.write(formatted)
+        #self.pg.SetString("TemplateDictString", dumped)
 
     def editTemplates(self):
         dlg = TemplateEditor(form=self)
@@ -2194,6 +2221,20 @@ class TemplateEditor(QtGui.QDialog):
         self.testBtn.clicked.connect(self.onTestBtnClicked)
         bottomButtonBox.addWidget(self.testBtn)
 
+        self.executeBtn = QtGui.QPushButton("Execute")
+        self.executeBtn.clicked.connect(self.onExecuteBtnClicked)
+        bottomButtonBox.addWidget(self.executeBtn)
+
+        self.executeToClipboardBtn = QtGui.QPushButton("Execute to clipboard")
+        self.executeToClipboardBtn.setToolTip("Execute current template, but send text to clipboard")
+        self.executeToClipboardBtn.clicked.connect(self.onExecuteToClipboardBtnClicked)
+        bottomButtonBox.addWidget(self.executeToClipboardBtn)
+
+        self.applyBtn = QtGui.QPushButton("Apply")
+        self.applyBtn.setToolTip("Apply changes, saves to templates file")
+        self.applyBtn.clicked.connect(self.onApplyBtnClicked)
+        bottomButtonBox.addWidget(self.applyBtn)
+
         self.helpBtn = QtGui.QPushButton("Help")
         self.helpBtn.clicked.connect(self.onHelpBtnClicked)
         bottomButtonBox.addWidget(self.helpBtn)
@@ -2202,6 +2243,7 @@ class TemplateEditor(QtGui.QDialog):
         self.dlgButtonBox.setCenterButtons(True)
         self.dlgButtonBox.accepted.connect(self.accept)
         self.dlgButtonBox.rejected.connect(self.reject)
+
 
         self.layout.addLayout(topLine)
         self.layout.addLayout(editLine)
@@ -2220,6 +2262,19 @@ class TemplateEditor(QtGui.QDialog):
         if self.templateList.count():
             self.templateList.setCurrentRow(0)
 
+    def onExecuteToClipboardBtnClicked(self, arg1):
+        """test current template"""
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        if not curName:
+            return
+        txt = self.edit.toPlainText()
+        if not txt:
+            return
+        clipTxt = self.form.testTemplateItem(curName, txt)
+        QtGui.QClipboard().setText(clipTxt)
+        self.form.toast(f"{curName} to clipboard","Message")
+
+
     def onTestBtnClicked(self,arg1):
         """test current template"""
         curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
@@ -2228,9 +2283,18 @@ class TemplateEditor(QtGui.QDialog):
         txt = self.edit.toPlainText()
         if not txt:
             return
-        testTxt = self.form.testTemplateItem(curName, txt)
+        testTxt = "<pre>" + self.form.testTemplateItem(curName, txt) + "</pre>"
         QtGui.QMessageBox.information(self, f"{curName}", testTxt)
 
+    def onExecuteBtnClicked(self, arg1):
+        """execute current template"""
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        if not curName:
+            return
+        txt = self.edit.toPlainText()
+        if not txt:
+            return
+        self.form.testTemplateItem(curName, txt, execute=True)
 
     def onPlusBtnClicked(self, arg1):
         """add a new template item"""
@@ -2252,22 +2316,25 @@ class TemplateEditor(QtGui.QDialog):
         self.blockSignals = False
 
     def onHelpBtnClicked(self, arg1):
-        helpText = """
-Templates are a way to insert text into the current editor at the current cursor position. 
-The templates are stored in memory as a python dictionary of dictionaries.  In the simplest 
-case the text is copied directly into the editor, but some text in the template may also be 
-dynamically replaced during insertion.
+        helpText = """<pre>
+Templates are a way to insert text into the current editor
+at the current cursor position.  The templates are stored
+in memory as a python dictionary of dictionaries.  In the
+simplest case the text is copied directly into the editor,
+but some text in the template may also be dynamically
+replaced during insertion.
 
-The template item dictionary must contain a key named "output".  Other keys are optional.  If 
-"output" contains text matching the name of one of the other keys, then that text gets replaced 
-depending on the key's value:
+The template item dictionary must contain a key named
+"output".  Other keys are optional.  If "output" contains
+text matching the name of one of the other keys, then that
+text gets replaced, depending on the key's value:
 
 'input' -- replacement text is entered in a QInputDialog
-'clipboard' -- replacement text is taken from the system clipboard
-'find' -- replacement text is taken from the Find QLineEdit in the dialog
-'replace' -- replacement text is taken from the Replace QLineEdit in the dialog
+'clipboard' -- replacement text is from the system clipboard
+'find' -- replacement text is from the Find QLineEdit
+'replace' -- replacement text is from the Replace QLineEdit
 Any other value means use that value as the replacement text.
-
+</pre>
 """
         QtGui.QMessageBox.information(self, "Help", helpText)
 
@@ -2291,7 +2358,6 @@ Any other value means use that value as the replacement text.
     def updateParameters(self):
         """update parameter string"""
         self.form.setTemplateString(self.templateDict)
-        self.form.templateDict = self.templateDict
 
     def updateDict(self, name, templateItemText):
         templateItem = json.loads(templateItemText,strict=False)
@@ -2312,19 +2378,17 @@ Any other value means use that value as the replacement text.
         self.edit.setPlainText(txt)
 
     def formatTemplate(self,template):
-        """template is a single template item from the template dictionary
-           each template is a dictionary containing one or more keys
-           only required key is "output" -- the text to be inserted
-           optionally replacement keys of arbitrary names and values
-           may be included.  Each replacement key should be text in "output",
-           each replacement value, the text to replace the key in "output" with.
-        """
+        """formats a single dictionary template, returns formatted string"""
         formatted = json.dumps(template,indent=0,separators=(','+chr(10),':'+chr(10)))
         formatted = formatted.replace('\\n',chr(10))
         #formatted = formatted.replace("{","{\n")
         #formatted = formatted.replace("}","\n}")
         #formatted = formatted.replace("\",","\",\n")
         return formatted
+
+    def onApplyBtnClicked(self, arg1):
+        self.updateDict(self.templateList.currentItem().text(),self.edit.toPlainText())
+        self.updateParameters()
 
     def accept(self):
         self.updateDict(self.templateList.currentItem().text(),self.edit.toPlainText())
