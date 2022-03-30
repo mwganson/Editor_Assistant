@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.50"
+__version__ = "1.51"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1117,19 +1117,21 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             return
         item,ok = QtGui.QInputDialog.getItem(mw, "Select template","Select which template to insert", sorted(items))
         if ok:
-            self.insertFromTemplate(item)
+            self.testTemplateItem(key=item, execute=True)
 
-    def testTemplateItem(self, key, testText, execute=False):
-
-        self.print(f"testing {key} from template editor","Message")
-
+    def testTemplateItem(self, key, testText="", execute=False):
+        """test template from editor, but also can execute"""
         def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
-        rawDict = json.loads(testText, strict=False)
+        if not testText:
+            templateDict = self.getTemplateString()
+            rawDict = templateDict[key]
+        else:
+            rawDict = json.loads(testText, strict=False)
         if not "output" in rawDict:
             self.toast("Test failed: no key named 'output'","Error")
             return ""
         rawOutString = rawDict["output"]
-        replacements = [(k,v) for k,v in rawDict.items() if k != "output"]
+        replacements = [(k,v) for k,v in rawDict.items() if k != "output" and k!= "goto"]
         for replacement in replacements:
             if replacement[1] == 'input':
                 retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
@@ -1156,46 +1158,17 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         old_cursor = self.getTC(self.currentEditor.textCursor())
         self.setModified(self.editorList.currentItem().text(), \
             self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
-        self.currentEditor.insertPlainText(rawOutString)
-
-    def insertFromTemplate(self, key):
-        self.onRefreshBtnClicked(True)
-        if not self.currentEditor:
-            self.toast("No current editor","Error")
-            return ""
-        self.print(f"inserting {key} from templates","Message")
-
-        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
-
-        templateDict = self.getTemplateString()
-
-        rawDict = templateDict[key]
-        rawOutString = rawDict["output"]
-        replacements = [(k,v) for k,v in rawDict.items() if k != "output"]
-        for replacement in replacements:
-            if replacement[1] == 'input':
-                retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
-                rawDict[replacement[0]] = retval if ok else None
-            elif replacement[1] == 'clipboard':
-                clipTxt = QtGui.QClipboard().text()
-                rawDict[replacement[0]] = clipTxt
-                if not clipTxt:
-                    self.toast("Clipboard is empty","Warning")
-            elif replacement[1] == 'find':
-                findTxt = self.findEdit.text()
-                rawDict[replacement[0]] = findTxt
-                if not findTxt:
-                    self.toast("Find edit is empty","Warning")
-            elif replacement[1] == 'replace':
-                replaceTxt = self.replaceEdit.text()
-                rawDict[replacement[0]] = replaceTxt
-                if not replaceTxt:
-                    self.toast("Replace edit is empty","Warning")
-        for replacement in replacements:
-            rawOutString = rawOutString.replace(replacement[0],rawDict[replacement[0]])
-        old_cursor = self.getTC(self.currentEditor.textCursor())
-        self.setModified(self.editorList.currentItem().text(), \
-            self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
+        if  "goto" in rawDict:
+            if rawDict["goto"] == "home":
+                self.gotoLine(1)
+            elif rawDict["goto"] == "end":
+                self.gotoLine(-1, eol=True)
+            elif rawDict["goto"] == "input":
+                line,ok = inp("Line number","Input line number for goto\nCancel for current cursor position: ")()
+                if ok and line != "":
+                    self.gotoLine(self.parseLine(line))
+            else:
+                self.gotoLine(self.parseLine(rawDict["goto"]))
         self.currentEditor.insertPlainText(rawOutString)
 
     def getTemplateString(self):
