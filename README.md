@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.51b (2022.03.30)
+* add "current" as optional value for "goto"
+* update help documentation in template editor
 ### 1.51 (2022.03.30)
 * add "goto" key token to templates
 ### 1.50 (2022.03.30)
