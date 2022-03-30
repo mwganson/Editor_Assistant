@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.48"
+__version__ = "1.49"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -116,6 +116,13 @@ class TaskEditorAssistant:
         self.parents = []
         self.grandparents = []
         self.titles = []
+        templateDict = {
+"button":{"label":"input", "name":"input","output":"name = QtGui.QPushButton('label')"},
+"import QtGui, QtCore":{"output":"from PySide import QtGui, QtCore"}
+
+} if not self.getTemplateString() else self.getTemplateString()
+        self.setTemplateString(templateDict)
+        self.templateString = self.getTemplateString()
         self.undoQueue = [] #dictionary list {reason, old_text, name, tc}
         self.redoQueue = [] #tc holds a tuple (start, end) of selected text position
         self.snaps = [] #dictionary list {reason, old_text, name, tc}
@@ -937,6 +944,18 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 #start snaps menu
         snapsMenu = self.makeSnapsMenu()
         mainMenu.addMenu(snapsMenu)
+#start templates menu
+        templatesMenu = QtGui.QMenu("Templates")
+        insertFromTemplateAction = QtGui.QAction("Insert from template")
+        insertFromTemplateAction.triggered.connect(self.setupInsertFromTemplate)
+        templatesMenu.addAction(insertFromTemplateAction)
+
+        editTemplateAction = QtGui.QAction("Edit templates")
+        editTemplateAction.triggered.connect(self.editTemplates)
+        templatesMenu.addAction(editTemplateAction)
+
+        mainMenu.addMenu(templatesMenu)
+
 #start help menu
         helpMenu = QtGui.QMenu("Help")
         mainMenu.addMenu(helpMenu)
@@ -1093,6 +1112,106 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
+
+    def setupInsertFromTemplate(self):
+        templateDict = json.loads(self.templateDictString, strict=False)
+        items=[]
+        for k,v in templateDict.items():
+            items.append(k)
+        if not items:
+            self.toast("No keys in template","Error")
+            return
+        item,ok = QtGui.QInputDialog.getItem(mw, "Select template","Select which template to insert", sorted(items))
+        if ok:
+            self.insertFromTemplate(item)
+
+    def testTemplateItem(self, key, testText):
+
+        self.print(f"testing {key} from template editor","Message")
+
+        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
+        rawDict = json.loads(testText, strict=False)
+        if not "output" in rawDict:
+            self.toast("Test failed: no key named 'output'","Error")
+            return ""
+        rawOutString = rawDict["output"]
+        replacements = [(k,v) for k,v in rawDict.items() if k != "output"]
+        for replacement in replacements:
+            if replacement[1] == 'input':
+                retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
+                rawDict[replacement[0]] = retval if ok else None
+            elif replacement[1] == 'clipboard':
+                clipTxt = QtGui.QClipboard().text()
+                rawDict[replacement[0]] = clipTxt
+                if not clipTxt:
+                    self.toast("Clipboard is empty","Warning")
+            elif replacement[1] == 'find':
+                findTxt = self.findEdit.text()
+                rawDict[replacement[0]] = findTxt
+                if not findTxt:
+                    self.toast("Find edit is empty","Warning")
+            elif replacement[1] == 'replace':
+                replaceTxt = self.replaceEdit.text()
+                rawDict[replacement[0]] = replaceTxt
+                if not replaceTxt:
+                    self.toast("Replace edit is empty","Warning")
+        for replacement in replacements:
+            rawOutString = rawOutString.replace(replacement[0],rawDict[replacement[0]])
+        return rawOutString
+
+    def insertFromTemplate(self, key):
+        self.onRefreshBtnClicked(True)
+        if not self.currentEditor:
+            self.toast("No current editor","Error")
+            return ""
+        self.print(f"inserting {key} from templates","Message")
+
+        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
+
+        templateDict = self.getTemplateString()
+
+        rawDict = templateDict[key]
+        rawOutString = rawDict["output"]
+        replacements = [(k,v) for k,v in rawDict.items() if k != "output"]
+        for replacement in replacements:
+            if replacement[1] == 'input':
+                retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
+                rawDict[replacement[0]] = retval if ok else None
+            elif replacement[1] == 'clipboard':
+                clipTxt = QtGui.QClipboard().text()
+                rawDict[replacement[0]] = clipTxt
+                if not clipTxt:
+                    self.toast("Clipboard is empty","Warning")
+            elif replacement[1] == 'find':
+                findTxt = self.findEdit.text()
+                rawDict[replacement[0]] = findTxt
+                if not findTxt:
+                    self.toast("Find edit is empty","Warning")
+            elif replacement[1] == 'replace':
+                replaceTxt = self.replaceEdit.text()
+                rawDict[replacement[0]] = replaceTxt
+                if not replaceTxt:
+                    self.toast("Replace edit is empty","Warning")
+        for replacement in replacements:
+            rawOutString = rawOutString.replace(replacement[0],rawDict[replacement[0]])
+        old_cursor = self.getTC(self.currentEditor.textCursor())
+        self.setModified(self.editorList.currentItem().text(), \
+            self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
+        self.currentEditor.insertPlainText(rawOutString)
+
+    def getTemplateString(self):
+        """updates self.templateDictString from user parameters, returns dict"""
+        self.templateDictString = self.pg.GetString("TemplateDictString","{}")
+        templateDict = json.loads(self.templateDictString, strict=False)
+        return templateDict
+
+    def setTemplateString(self, new_dict):
+        dumped = json.dumps(new_dict)
+        self.pg.SetString("TemplateDictString", dumped)
+
+    def editTemplates(self):
+        dlg = TemplateEditor(form=self)
+        dlg.exec_()
 
     def makeSearchFromFindEdit(self):
         findTxt = self.findEdit.text()
@@ -2034,6 +2153,186 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         FreeCADGui.Control.closeDialog()
         if FreeCADGui.activeDocument():
             FreeCADGui.activeDocument().resetEdit()
+
+class TemplateEditor(QtGui.QDialog):
+    def __init__(self, parent=mw, form=None):
+        super(TemplateEditor, self).__init__(parent, QtCore.Qt.Tool)
+        self.form=form
+        self.blockSignals = False
+        self.setWindowTitle(f"Template editor v{__version__}")
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        self.layout = QtGui.QVBoxLayout()
+        self.setLayout(self.layout)
+        self.templateList = QtGui.QListWidget()
+        self.templateList.currentItemChanged.connect(self.onTemplateListCurrentItemChanged)
+        self.templateDict = {}
+        topLine = QtGui.QHBoxLayout()
+        topLine.addWidget(self.templateList)
+        buttonBox = QtGui.QVBoxLayout()
+        buttonBox.setAlignment(QtCore.Qt.AlignTop)
+        topLine.addLayout(buttonBox)
+        self.plusBtn = QtGui.QPushButton("+")
+        buttonBox.addWidget(self.plusBtn)
+        self.plusBtn.clicked.connect(self.onPlusBtnClicked)
+
+        self.minusBtn = QtGui.QPushButton("-")
+        buttonBox.addWidget(self.minusBtn)
+        self.minusBtn.clicked.connect(self.onMinusBtnClicked)
+
+        self.renameBtn = QtGui.QPushButton("Rename")
+        buttonBox.addWidget(self.renameBtn)
+        self.renameBtn.clicked.connect(self.onRenameBtnClicked)
+
+        editLine = QtGui.QHBoxLayout()
+        self.edit = QtGui.QPlainTextEdit()
+        editLine.addWidget(self.edit)
+        bottomButtonBox = QtGui.QVBoxLayout()
+        bottomButtonBox.setAlignment(QtCore.Qt.AlignTop)
+        editLine.addLayout(bottomButtonBox)
+
+        self.testBtn = QtGui.QPushButton("Test")
+        self.testBtn.clicked.connect(self.onTestBtnClicked)
+        bottomButtonBox.addWidget(self.testBtn)
+
+        self.helpBtn = QtGui.QPushButton("Help")
+        self.helpBtn.clicked.connect(self.onHelpBtnClicked)
+        bottomButtonBox.addWidget(self.helpBtn)
+
+        self.dlgButtonBox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.dlgButtonBox.setCenterButtons(True)
+        self.dlgButtonBox.accepted.connect(self.accept)
+        self.dlgButtonBox.rejected.connect(self.reject)
+
+        self.layout.addLayout(topLine)
+        self.layout.addLayout(editLine)
+        self.layout.addWidget(self.dlgButtonBox)
+        self.resize(800,600)
+        self.updateList()
+
+    def updateList(self, fetch=True):
+        self.templateList.clear()
+        if fetch:
+            self.templateDict = self.form.getTemplateString()
+        self.blockSignals = True
+        for k,v in self.templateDict.items():
+            self.templateList.addItem(k)
+        self.blockSignals = False
+        if self.templateList.count():
+            self.templateList.setCurrentRow(0)
+
+    def onTestBtnClicked(self,arg1):
+        """test current template"""
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        if not curName:
+            return
+        txt = self.edit.toPlainText()
+        if not txt:
+            return
+        testTxt = self.form.testTemplateItem(curName, txt)
+        QtGui.QMessageBox.information(self, f"{curName}", testTxt)
+
+
+    def onPlusBtnClicked(self, arg1):
+        """add a new template item"""
+        newTemplateName,ok = QtGui.QInputDialog.getText(self, "Add template","Enter name for new template:")
+        if ok:
+            if newTemplateName in self.templateDict:
+                self.form.print(f"{newTemplateName} already exists","Error")
+                return
+            self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label')"}
+            self.updateList(fetch=False)
+
+    def onMinusBtnClicked(self, arg1):
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        if not curName:
+            return
+        self.templateDict.pop(curName)
+        self.blockSignals = True
+        self.updateList(fetch=False)
+        self.blockSignals = False
+
+    def onHelpBtnClicked(self, arg1):
+        helpText = """
+Templates are a way to insert text into the current editor at the current cursor position. 
+The templates are stored in memory as a python dictionary of dictionaries.  In the simplest 
+case the text is copied directly into the editor, but some text in the template may also be 
+dynamically replaced during insertion.
+
+The template item dictionary must contain a key named "output".  Other keys are optional.  If 
+"output" contains text matching the name of one of the other keys, then that text gets replaced 
+depending on the key's value:
+
+'input' -- replacement text is entered in a QInputDialog
+'clipboard' -- replacement text is taken from the system clipboard
+'find' -- replacement text is taken from the Find QLineEdit in the dialog
+'replace' -- replacement text is taken from the Replace QLineEdit in the dialog
+Any other value means use that value as the replacement text.
+
+"""
+        QtGui.QMessageBox.information(self, "Help", helpText)
+
+    def onRenameBtnClicked(self, arg1):
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        if not curName:
+            return
+        newName,ok = QtGui.QInputDialog.getText(self, "Editor assisant", f"Enter new name for {curName}")
+        if ok:
+            if newName in self.templateDict:
+                self.form.toast(f"{newName} already in dictionary","Error")
+                return
+            self.templateDict[newName] = {}
+            for k,v in self.templateDict[curName].items():
+                self.templateDict[newName][k] = v 
+            self.templateDict.pop(curName)
+            self.blockSignals = True
+            self.updateList(fetch=False)
+            self.blockSignals = False
+
+    def updateParameters(self):
+        """update parameter string"""
+        self.form.setTemplateString(self.templateDict)
+        self.form.templateDict = self.templateDict
+
+    def updateDict(self, name, templateItemText):
+        templateItem = json.loads(templateItemText,strict=False)
+        self.templateDict[name] = templateItem
+
+    def onTemplateListCurrentItemChanged(self, current, previous):
+        if not self.templateList.count():
+            return
+        if self.blockSignals:
+            return
+        if previous:
+            self.updateDict(previous.text(), self.edit.toPlainText())
+        if current:
+            self.updateEdit(current.text())
+
+    def updateEdit(self, name):
+        txt = self.formatTemplate(self.templateDict[name])
+        self.edit.setPlainText(txt)
+
+    def formatTemplate(self,template):
+        """template is a single template item from the template dictionary
+           each template is a dictionary containing one or more keys
+           only required key is "output" -- the text to be inserted
+           optionally replacement keys of arbitrary names and values
+           may be included.  Each replacement key should be text in "output",
+           each replacement value, the text to replace the key in "output" with.
+        """
+        formatted = json.dumps(template,indent=0,separators=(','+chr(10),':'+chr(10)))
+        formatted = formatted.replace('\\n',chr(10))
+        #formatted = formatted.replace("{","{\n")
+        #formatted = formatted.replace("}","\n}")
+        #formatted = formatted.replace("\",","\",\n")
+        return formatted
+
+    def accept(self):
+        self.updateDict(self.templateList.currentItem().text(),self.edit.toPlainText())
+        self.updateParameters()
+        super().accept()
+
+    def reject(self):
+        super().reject()
 
 class DiffSaver (QtGui.QDialog):
     def __init__(self, parent=mw, form=None, plainText=None, snapText=None, label1=None, label2=None):
