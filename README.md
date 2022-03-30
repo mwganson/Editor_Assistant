@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.51 (2022.03.30)
+* add "goto" key token to templates
 ### 1.50 (2022.03.30)
 * instead of saving templates in user parameters, create a new file called:
 "Editor_Assistant_Templates.txt" in same folder as macro
