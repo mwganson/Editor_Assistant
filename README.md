@@ -74,6 +74,9 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.52 (2022.03.30)
+* Home/End buttons, default = not shown, enable in main menu -> settings -> layout -> GotoLine
+* Add Home/End menu items to Goto menu
 ### 1.51c (2022.03.30)
 * allow "\n" to be used in input dialogs when using templates
 ### 1.51b (2022.03.30)
