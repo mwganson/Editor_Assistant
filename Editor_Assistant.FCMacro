@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.51"
+__version__ = "1.51b"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1161,6 +1161,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if  "goto" in rawDict:
             if rawDict["goto"] == "home":
                 self.gotoLine(1)
+            elif rawDict["goto"] == '' or rawDict["goto"] == "current":
+                pass
             elif rawDict["goto"] == "end":
                 self.gotoLine(-1, eol=True)
             elif rawDict["goto"] == "input":
@@ -1168,7 +1170,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 if ok and line != "":
                     self.gotoLine(self.parseLine(line))
             else:
-                self.gotoLine(self.parseLine(rawDict["goto"]))
+                lineNumber = self.parseLine(rawDict["goto"])
+                if lineNumber != 0:
+                    self.gotoLine(lineNumber)
         self.currentEditor.insertPlainText(rawOutString)
 
     def getTemplateString(self):
@@ -2298,15 +2302,24 @@ but some text in the template may also be dynamically
 replaced during insertion.
 
 The template item dictionary must contain a key named
-"output".  Other keys are optional.  If "output" contains
-text matching the name of one of the other keys, then that
-text gets replaced, depending on the key's value:
+"output".  "goto" key, if exists, positions the cursor
+before the text is inserted.  Other keys are optional.
+If "output" contains text matching the name of one of
+the other keys, then that text gets replaced, depending
+on the key's value:
 
 'input' -- replacement text is entered in a QInputDialog
 'clipboard' -- replacement text is from the system clipboard
 'find' -- replacement text is from the Find QLineEdit
 'replace' -- replacement text is from the Replace QLineEdit
 Any other value means use that value as the replacement text.
+
+The "goto" key can have these values:
+'input' -- user enters line in a QInputDialog
+'home' -- position cursor at start of line 1
+'end' -- position cursor at bottom of document, end of last line
+'current' -- ignore and use current cursor position
+
 </pre>
 """
         QtGui.QMessageBox.information(self, "Help", helpText)
