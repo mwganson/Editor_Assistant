@@ -74,6 +74,14 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.50 (2022.03.30)
+* instead of saving templates in user parameters, create a new file called:
+"Editor_Assistant_Templates.txt" in same folder as macro
+* add execute to clipboard button in template editor
+* add execute button in editor
+* preformat help text
+* preformat test text
+* add apply button in editor
 ### 1.49 (2022.03.29)
 * add template function
 ### 1.48 (2022.03.28)
