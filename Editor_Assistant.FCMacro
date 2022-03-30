@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.51c"
+__version__ = "1.52"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -202,6 +202,19 @@ Find results = results of searches for text in Find line edit\n\
             self.refreshBtn.setVisible(showRefreshLine)
             self.gotoMenuBtn.setVisible(showRefreshLine)
             self.gotoLineEdit.setVisible(showRefreshLine)
+
+        gotoLayout = QtGui.QHBoxLayout()
+        showGotoLine = self.pg.GetBool("ShowGotoLine",False)
+        self.gotoHomeBtn = QtGui.QPushButton("Home")
+        self.gotoHomeBtn.clicked.connect(self.onGotoHomeBtnClicked)
+        gotoLayout.addWidget(self.gotoHomeBtn)
+        self.gotoEndBtn = QtGui.QPushButton("End")
+        self.gotoEndBtn.clicked.connect(self.onGotoEndBtnClicked)
+        gotoLayout.addWidget(self.gotoEndBtn)
+        self.layout.addLayout(gotoLayout)
+        if not showGotoLine:
+            self.gotoHomeBtn.setVisible(showGotoLine)
+            self.gotoEndBtn.setVisible(showGotoLine)
 
         showUndoLine = self.pg.GetBool("ShowUndoLine",True)
         undoLayout = QtGui.QHBoxLayout()
@@ -826,6 +839,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         showDict = {
             "ShowEditorList": [self.editorList],
             "ShowRefreshLine": [self.refreshBtn, self.gotoMenuBtn, self.gotoLineEdit],
+            "ShowGotoLine": [self.gotoEndBtn, self.gotoHomeBtn],
             "ShowUndoLine": [self.undoBtn, self.undoClearBtn, self.redoBtn],
             "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn],
             "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn],
@@ -850,6 +864,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 #begin settings menu
         showEditorList = self.pg.GetBool("ShowEditorList", True)
         showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
+        showGotoLine = self.pg.GetBool("ShowGotoLine", False)
         showUndoLine = self.pg.GetBool("ShowUndoLine", True)
         showFindLine = self.pg.GetBool("ShowFindLine", True)
         showReplaceLine = self.pg.GetBool("ShowReplaceLine", True)
@@ -876,6 +891,13 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         togglers.append(makeToggler("ShowRefreshLine", not refreshLineAction.isChecked()))
         refreshLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(refreshLineAction)
+
+        gotoLineAction = QtGui.QAction("Goto line",layoutMenu, checkable=True)
+        gotoLineAction.setChecked(showGotoLine)
+        togglers.append(makeToggler("ShowGotoLine", not gotoLineAction.isChecked()))
+        gotoLineAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(gotoLineAction)
+
 
         undoLineAction = QtGui.QAction("Undo line", layoutMenu, checkable=True)
         undoLineAction.setChecked(showUndoLine)
@@ -1886,6 +1908,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.populateList()
         self.setCurrentEditor()
 
+    def onGotoHomeBtnClicked(self, arg1):
+        self.gotoLine(1)
+
+    def onGotoEndBtnClicked(self, arg1):
+        self.gotoLine(-1, eol=True)
+
     def gotoLineActionTriggered(self):
         line = self.getFirstLine()
         self.gotoLine(line)
@@ -2003,6 +2031,18 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         else:
             if self.matchWholeCheckBox.checkState():
                 self.toast("Whole words checkbox ignored in Find selection results menu","Warning")
+
+        gotoHomeAction = QtGui.QAction("Home", mw)
+        gotoHomeAction.triggered.connect(lambda: self.onGotoHomeBtnClicked(True))
+        gotoHomeAction.setEnabled(curName != "")
+        gotoMenu.addAction(gotoHomeAction)
+
+        gotoEndAction = QtGui.QAction("End", mw)
+        gotoEndAction.triggered.connect(lambda: self.onGotoEndBtnClicked(True))
+        gotoEndAction.setEnabled(curName != "")
+        gotoMenu.addAction(gotoEndAction)
+
+
         return gotoMenu
 
 
