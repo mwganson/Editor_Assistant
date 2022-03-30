@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.51c (2022.03.30)
+* allow "\n" to be used in input dialogs when using templates
 ### 1.51b (2022.03.30)
 * add "current" as optional value for "goto"
 * update help documentation in template editor
