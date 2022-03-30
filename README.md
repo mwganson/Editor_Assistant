@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.49 (2022.03.29)
+* add template function
 ### 1.48 (2022.03.28)
 * Add .FCMacro, .py, .txt to snapshot save as file type
 ### 1.47 (2022.03.28)
