@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.51b"
+__version__ = "1.51c"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1135,7 +1135,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         for replacement in replacements:
             if replacement[1] == 'input':
                 retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
-                rawDict[replacement[0]] = retval if ok else None
+                rawDict[replacement[0]] = retval.replace("\\n",chr(10)) if ok else None
             elif replacement[1] == 'clipboard':
                 clipTxt = QtGui.QClipboard().text()
                 rawDict[replacement[0]] = clipTxt
@@ -2315,10 +2315,11 @@ on the key's value:
 Any other value means use that value as the replacement text.
 
 The "goto" key can have these values:
+
 'input' -- user enters line in a QInputDialog
 'home' -- position cursor at start of line 1
 'end' -- position cursor at bottom of document, end of last line
-'current' -- ignore and use current cursor position
+'current' or '' -- ignore and use current cursor position
 
 </pre>
 """
