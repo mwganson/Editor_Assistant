@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.56"
+__version__ = "1.57"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -974,9 +974,27 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         mainMenu.addMenu(snapsMenu)
 #start templates menu
         templatesMenu = QtGui.QMenu("Templates")
-        insertFromTemplateAction = QtGui.QAction("Insert from template")
+        insertFromTemplateAction = QtGui.QAction("Insert from dialog")
         insertFromTemplateAction.triggered.connect(self.setupInsertFromTemplate)
         templatesMenu.addAction(insertFromTemplateAction)
+
+        insertMenu = QtGui.QMenu("Insert")
+        templatesMenu.addMenu(insertMenu)
+        insertSubmenus = []
+
+        templateDict = self.getTemplateString()
+        def makeTemplateLambda(x): return lambda : self.testTemplateItem(key=x, execute=True)
+        templateActions = []
+        templateLambdas = [makeTemplateLambda(k) for k in sorted(templateDict.keys())]
+
+        for ii, k in enumerate(sorted(templateDict.keys())):
+            if ii % 25 == 0:
+                insertSubmenus.append(QtGui.QMenu(f"Start from -- {k}"))
+            templateActions.append(QtGui.QAction(k))
+            templateActions[-1].triggered.connect(templateLambdas[ii])
+            insertSubmenus[-1].addAction(templateActions[-1])
+        for sub in insertSubmenus:
+            insertMenu.addMenu(sub)
 
         editTemplateAction = QtGui.QAction("Edit templates")
         editTemplateAction.triggered.connect(self.editTemplates)
@@ -1155,7 +1173,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
     def testTemplateItem(self, key, testText="", execute=False):
         """test template from editor, but also can execute"""
-        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
+        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getMultiLineText(Gui.getMainWindow(), title, label)
+        def inp1(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
         if not testText:
             templateDict = self.getTemplateString()
             rawDict = templateDict[key]
@@ -1169,7 +1188,10 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         for replacement in replacements:
             if replacement[1] == 'input':
                 retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
-                rawDict[replacement[0]] = retval.replace("\\n",chr(10)) if ok else None
+                rawDict[replacement[0]] = retval if ok else None
+            if replacement[1] == 'input1':
+                retval,ok = inp1Line(f"Input for {key}",f"Enter a value for {replacement[0]}")()
+                rawDict[replacement[0]] = retval if ok else None
             elif replacement[1] == 'clipboard':
                 clipTxt = QtGui.QClipboard().text()
                 rawDict[replacement[0]] = clipTxt
@@ -1189,25 +1211,29 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             rawOutString = rawOutString.replace(replacement[0],rawDict[replacement[0]])
         if not execute:
             return rawOutString
-        old_cursor = self.getTC(self.currentEditor.textCursor())
-        self.setModified(self.editorList.currentItem().text(), \
-            self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
-        if  "goto" in rawDict:
-            if rawDict["goto"] == "home":
-                self.gotoLine(1)
-            elif rawDict["goto"] == '' or rawDict["goto"] == "current":
-                pass
-            elif rawDict["goto"] == "end":
-                self.gotoLine(-1, eol=True)
-            elif rawDict["goto"] == "input":
-                line,ok = inp("Line number","Input line number for goto\nCancel for current cursor position: ")()
-                if ok and line != "":
-                    self.gotoLine(self.parseLine(line))
-            else:
-                lineNumber = self.parseLine(rawDict["goto"])
-                if lineNumber != 0:
-                    self.gotoLine(lineNumber)
-        self.currentEditor.insertPlainText(rawOutString)
+        if self.currentEditor:
+            old_cursor = self.getTC(self.currentEditor.textCursor())
+            self.setModified(self.editorList.currentItem().text(), \
+                self.currentEditor.toPlainText(), f"Insert template: {key}", old_cursor)
+            if  "goto" in rawDict:
+                if rawDict["goto"] == "home":
+                    self.gotoLine(1)
+                elif rawDict["goto"] == '' or rawDict["goto"] == "current":
+                    pass
+                elif rawDict["goto"] == "end":
+                    self.gotoLine(-1, eol=True)
+                elif rawDict["goto"] == "input" or rawDict["goto"] == "input1":
+                    line,ok = inp1("Line number","Input line number for goto\nCancel for current cursor position: ")()
+                    if ok and line != "":
+                        self.gotoLine(self.parseLine(line))
+                else:
+                    lineNumber = self.parseLine(rawDict["goto"])
+                    if lineNumber != 0:
+                        self.gotoLine(lineNumber)
+            self.currentEditor.insertPlainText(rawOutString)
+        else:
+            self.toast("No editor to insert template into","Error")
+
 
     def getTemplateString(self):
         """updates self.templateDictString from templates file, returns dict"""
@@ -2402,7 +2428,8 @@ If "output" contains text matching the name of one of
 the other keys, then that text gets replaced, depending
 on the key's value:
 
-'input' -- replacement text is entered in a QInputDialog
+'input' -- replacement text from multiple line QInputDialog
+'input1' -- like input, but use single line dialog
 'clipboard' -- replacement text is from the system clipboard
 'find' -- replacement text is from the Find QLineEdit
 'replace' -- replacement text is from the Replace QLineEdit
@@ -2410,7 +2437,7 @@ Any other value means use that value as the replacement text.
 
 The "goto" key can have these values:
 
-'input' -- user enters line in a QInputDialog
+'input' (or 'input1') -- line is from single line QInputDialog
 'home' -- position cursor at start of line 1
 'end' -- position cursor at bottom of document, end of last line
 'current' or '' -- ignore and use current cursor position
@@ -3550,9 +3577,13 @@ static char *_647901969918[] = {
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 };
 """
-modifiers = QtGui.QApplication.keyboardModifiers()
-if modifiers == QtCore.Qt.AltModifier:
-    showEditorAssistantAsDockWidget()
+children = mw.findChildren(QtGui.QWidget,"Editor assistant")
+if not children:
+    modifiers = QtGui.QApplication.keyboardModifiers()
+    if modifiers == QtCore.Qt.AltModifier:
+        showEditorAssistantAsDockWidget()
+    else:
+        showEditorAssistantDialog()
 else:
-    showEditorAssistantDialog()
+    FreeCAD.Console.PrintError("Editor assistant already running\n")
 
