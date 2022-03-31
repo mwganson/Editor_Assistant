@@ -99,11 +99,17 @@ Use "\n" for multiple line commands.
 
 Once a command has been entered you can then access "editor" and "dlg" via the python console.
 
-<More to come...>
+More to come...
 
 
 
 ## Changelog
+### 1.57 (2022.03.31)
+* do not convert \n to chr(10) when executing templates
+* 'input' now uses multi line text input dialog
+* 'input1' new token uses single line text input
+* build dynamic menus for template insertion
+* check if macro already running and exit if so rather than have multiple instances
 ### 1.55 (2002.03.30)
 Template editor dialog improvements
 * on deleting select the next item
