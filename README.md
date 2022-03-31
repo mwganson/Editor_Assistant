@@ -2,7 +2,7 @@
 FreeCAD macro adds functionality to FreeCAD's built-in python editor
 
 ## Installation
-Install via the Addon manager (soon).
+Install via the Addon manager (soon).  Until then copy the .FCMacro file to your Macro folder.  The macro will create a new file called Editor_Assistant_Templates.txt in the same folder.  This file holds the templates.  It will need to be removed manually when you uninstall the macro.
 
 ## Toolbar icon
 Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a href="Editor_Assistant_Icon.svg"> Link</a><br/>
@@ -11,66 +11,79 @@ Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a hr
 <img src="Editor_Assistant_scr1.png" alt="screenshot">
 
 ## Usage
-As of v1.19 the macro now opens as a dockable widget rather than as a task panel dialog.  If you prefer having the task panel dialog, hold Alt key down while executing the macro.  This will enable the macro to remain open while other task panels are being used.  IMO, the best place to put it is to drag/drop on top of the combo view, which sets it as a tabbed view sibling with the combo view.
+By defaul the macro opens in a 3rd take in the combo view.  You will have Model, Task, and Editor assistant tabs.  If you prefer having a floating dockable, hold Alt key down while executing the macro.  
 
-The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  At the top of the dialog is the editor list, showing the documents currently open.  (This will need to be refreshed if you open/close a document, using the "Refresh editor list" button.)
-### Editor List
+The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  Basically, any view in the MDI area that has a QPlainTextEdit as a child shows up in the macro's editor list at the top of the dialog.  The edior list will need to be refreshed from time to time when you open/close a document, using the "Refresh"  button.
+
+The widgets in the dialog are presented in a series of horizontal lines (using QHBoxLayouts).  Here I will discuss briefly each line and the widgets contained on each.
+
+## Top line
+The Top Line has the Main menu button and the Toast button.
+### Main menu button
+This button is at the top left of the dialog and has the main editor assistant icon.  Click the button to bring up the main menu.  The main menu will be discussed in more detail below.
+### Toast button
+At the top of the dialog, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see a log of previous messages in the Report view.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
+## Editor line
+### Editor list
 This is the QListWidget at the top of the dialog.  It will list the names of the documents currently registered with the dialog.  Select an item in the list to make make that item the current editor.  This also sets the focus on that editor.  All the actions in the dialog will work on that current editor even if you select a different editor in FreeCAD's MDI widget.  It is recommended to select the editor here so the dialog is in sync with the correct editor.
-### Toast
-At the top of the page, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see again the most recent message.  Only the most recent message is stored for viewing again.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
+## Refresh line
 ### Refresh button
-This button is labeled "Refresh editors".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  (Updates also happen when other functions are used.)
+This button is labeled "Refresh".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  Updates also happen when other functions are used and when documents are opened, but not when closed.
 ### Goto menu button
-Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.
-#### Go to line
-These depend on whether you have entered a list of line numbers in the Goto line edit.  Each number in the list gets a menu item.  Click the menu item to go to that line in the current editor.
-#### Class/Def lines
-In this menu you can go to any line in the source that begins with class or def.  An attempt is made to arrange it so all of the class functions are together, but it's a very simple algorithm.  Each time a line is found with "class" in it the curClass variable is updated. This variable is shown with each "def" line encountered up until the next "class" is found.  It is not guaranteed that all the defs will actually belong to that class.
-#### Bookmarks
-You can enter a comment in the source code to create a bookmark for that line.  Then you can go to that bookmark from the Goto menu.  The marker is 2 pound symbols in a row followed by a colon, then a description.  Example:
-
-<pre>##: menu text goes here</pre>
-
-You must include a description of at least one character or else the bookmark will not show up in the menu.  The comment does not have to be at the beginning of the line.
-
-#### Find results
-If there is text in the Find edit, then on every line where this text appears there will be a menu item in the find results menu, allowing to go to that line.  This function respects the Match case checkbox, but not the Whole words checkbox.
-
-### Goto line edit
-Enter a line number and press enter to go that line in the current editor.  Watch the toast area for any messages.  You may enter multiple numbers separated by commas.  Then when you press enter you get a menu item for each of the line numbers.  This is also accessible from the Goto menu button.  Each open editor gets its own list of line numbers, so when you switch editors this line edit gets cleared and when you switch back to this editor, the contents are put back in it from before.
-
-### Find Edit
-This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
-### Replace Edit
-This is a QLineEdit containing replacement text (replacing the text in the Find Edit) when the Replace or Replace All buttons are used.
-### Match case
-This is a QCheckBox.  If checked searches are case-sensitive.  (Replace All is always case-sensitive.)
-### Whole words
-This is a QCheckBox.  If checked, then searches are for the entire word.  For example, "en" will not find "end" as a match if Match word is checked.
-### Find next
-Click this button to find the next instance of the text in the Find Edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.
-### Find previous
-Like Find next except it searches backward.
-### Replace
-Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  There is no Undo for this at this time.  Close without saving and reopen your document if you make a mistake.  Use with caution!
-### Replace all
-Replace all occurrences of the text in the Find Edit with the text in the Replace Edit.  If Replace Edit is empty, then the occurrences are simply deleted.  This now (as of v1.11) respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  There is no Undo for this.  Use with caution!
-### Snapshot
-Takes a snapshot of the current editor, including it's full text and position of cursor if there is text selected.  This button also has a context menu with additional features.  Snapshots are kept in a stack, only the head (most recent) can be accessed with the Restore option.  When a snapshot is restored it is popped from the queue, making the next snapshot available.
-### Restore
-Restores a snapshot to the current editor if there is a snapshot in memory for the current editor, replacing existing text with that from the snapshot.  This also pops the snapshot from memory.
+This button is next to the refresh button and currently has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.
+#### Go to line numbers
+This is a QLineEdit that can hold either a single number (the line number you wish to go to) or a list of numbers that will appear in a selection menu when press return/enter while the widget has keyboard focus.  The goto line option(s) appear as menu items in the Goto menu.
+## Undo line
 ### Undo button
-Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typin that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).
+Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typing that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).
 
 Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
+### Purge undo/redo queues
+Clicking this button purges the undo/redo queues.  This cannot be undone.
 ### Redo button
-When an operation is undone, the undone is popped and sent to the redo queue.  
+When an operation is undone, the undone is popped and sent to the redo queue.
+## Find line
+### Find edit
+This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
+The text in the Find edit can also be used to fill in replacement text when using templates, discussed in more detail below.
+### Find next
+Click this button to find the next instance of the text in the Find edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.  Ctrl+Click to search from the beginning of the document.  Alt+Click to find from selection.  This uses the text currently selected in the current editor as if it were in the Find edit widget.
+### Find previous
+Like Find next except it searches backward.  Ctrl+Click to begin the search from the end of the document.  Alt+Click to find from selection.  This uses the text currently selected in the current editor as if it were in the Find edit widget.
+## Replace line
+### Replace edit
+This is a QLineEdit containing replacement text (replacing the text in the Find Edit) when the Replace or Replace All buttons are used.  The text in the Replace edit can also be used as replacement text when using templates, discussed in more detail below.
+### Replace
+Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  You can use Undo to undo this operation.
+### Replace all
+Replace all occurrences of the text in the Find edit with the text in the Replace edit in the entire document.  Or Ctrl+Click to only replace the occurrences in the currently selected text.  If Replace edit is empty, then the occurrences are simply deleted.  This respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  This can be undone using the Undo button.
+## Match line
+### Unindent
+Moves the selected text in the current editor to the left by 4 spaces if there are 4 spaces in front of every selected line.  If not every selected line has 4 leading spaces the operation will not be done.
 ### Indent
 Moves the selected text in the current editor to the right by 4 spaces.
-### Unindent
-Moves the selected text in the current editor to the left by 4 spaces if there are 4 spaces in front of every selected line.  If not every line has 4 leading spaces the operation will not be done.
+### Match case
+This is a QCheckBox.  If checked searches are case-sensitive.  Replace and Replace all both respect this checkbox state.
+### Whole words
+This is a QCheckBox.  If checked, then searches are for the entire word.  For example, "en" will not find "end" as a match if Whole words is checked.
+### Loop
+This is a QCheckBox.  If checked, then when there is a search that finds no result the cursor is set back to the top of the document.  Or if it is a backwards search then the cursor goes back to the end of the document.
+## Snaps line
+### Take snapshot
+Takes a snapshot of the current editor, including it's full text and position of cursor if there is text selected.  Snapshots can be very useful as temporary, in-memory backups of the file currently open.  They can be used to restore the content back to the previous state, including the cursor position.  They can be used to create diffs to show the changes that have been made since the snapshot was taken.  (When a file is first opened an automatic snapshot is taken.)
+There is a special menu devoted to snapshots and diffs, the Snaps menu, discussed in more detail below.
+Snapshots can be taken, popped, restored, discarded, saved, loaded, edited, and diffed.  Popping a snapshot means to restore it to the current editor and then discard it.  Restoring is like popping except for 2 differences: the snapshot is not discarded, and snapshots may be restored in any order (not only the most recent).  Discarding is like popping except without restoring.  You may save the snapshot as a file with the .py or .FCMacro extension, or any other extension you prefer.  You can also save all the snapshots into a single file, stored in JSON format.  Snapshots may be loaded from the JSON file.  Editing a snapshot involved editing the "reason", which is a very brief description of the snapshot.  Diffing creates an html file showing the differences between the 2 compared things, typically the current editor with one of its snapshots.
+### Discard latest snapshot
+Discards most recent snapshot (without restoring it).  Use pop to restore and discard or restore from the menu if you don't want to discard.
+### Snaps menu
+This opens the Snaps menu, discussed in more detail below.
+### Pop snap
+This pops the latest snapshot in the queue, restoring it to the current document (overwriting its contents) and then discarding the snapshot.
+## Console line
 ### To console
-Enter a python command here and press enter.  The variable "editor" refers to the current editor.  Once this is done you can use "editor" as a variable in the python console to directly access the QPlainTextEdit of the current editor.  Refer to PySide documentation for attributes available.  You can also enter "help(editor)" in the console (without the quotes) to see a brief summary of available attributes.
+This line edit can be very useful for directly controlling the current QPlainTextEdit widget, referenced as variable "editor" from this widget.  For example, enter editor.selectAll() to select all the text in the current document.  Refer to Qt documentation for functions available to QPlainTextEdit widgets.
+Another variable available is "dlg", which refers to the Editor assistant dialog itself.  This is mainly something I wanted as a debugging aid while writing this macro, but can have its uses.
+
 
 
 ## Changelog
