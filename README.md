@@ -192,8 +192,23 @@ Just like Find results except it uses the text currently selected in the current
 #### Home and End buttons
 Go to the top / bottom of the current document.
 ### Snaps menu
-
-
+Snapshots provide a sort of simplified version control system.  When you take a snapshot of a file you get not only the full current text, but also the cursor position, including any selected text, if any.  When the snapshot is restored, then also the cursor position is restored along with the text.  Snapshots can also be diffed against the current editor.  (Note: diffs are only for viewing, not intended to use as patches.)
+#### Take snapshot
+Take a snapshot of the current editor.  The snapshot is stored in memory only, not to persistent storage.
+#### Restore last snap
+Restore the last snap taken of the current editor.  (There might be some more recently taken of other editors, but this only accesses those taken of the current editor/document.)  Options here are to restore to the current editor (overwriting any existing contents), to the clipboard, or to a new Text document object.
+#### Restore any
+This restores to the current editor any of the snapshots in memory regardless of which editor was current when the snapshot was taken.  It also allows access to snapshots other than the most recently taken one.
+#### Save
+You can save the the most recent snapshot taken of the current document as a single file with .py, .FCMacro, or any other extension you wish to use.  Or you can also save all the snapshots into a text file in JSON format.  Snapshots are stored in memory, not to persistent storage.  This Save option provides a way for this, so the snapshots can be used over multiple sessions.
+#### Load
+Load the previously saved JSON format file of snapshots.
+#### Discard
+Discarding a snapshot is to destroy it without restoring.  This differs from popping in that the snapshot is restored before discarding.
+#### Diff current editor
+Diff a snapshot against the current editor.  An auto snapshot is taken automatically when a file is first opened.  If you make changes to the file, you can use the Diff feature to inspect your changes.  It looks very much like the output you see with git diff.  I find this quite convenient when putting together the Changelogs for my various projects.  The diff may by saved to html and opened in a browser.  The Diff Saver class has a few options, including context and column widths, that are not transferred to the saved html file.
+#### Edit reason
+A "reason" is a short documentation for a snapshot.  By editing the reason you are editing this documentation.
 
 
 ## Changelog
