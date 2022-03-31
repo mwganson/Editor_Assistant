@@ -74,6 +74,8 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.53 (2022.03.30)
+* Ctrl+Replace all button = replace only in selection (not in whole document)
 ### 1.52 (2022.03.30)
 * Home/End buttons, default = not shown, enable in main menu -> settings -> layout -> GotoLine
 * Add Home/End menu items to Goto menu
