@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.52"
+__version__ = "1.53"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -277,7 +277,7 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
         self.replaceBtn.setIcon(QIconFromXPMString(replace_icon))
         self.replaceAllBtn = QtGui.QPushButton()
-        self.replaceAllBtn.setToolTip("Replace all")
+        self.replaceAllBtn.setToolTip("Replace all\nCtrl+Click = Replace only in selection")
         self.replaceAllBtn.setIcon(QIconFromXPMString(replace_all_icon))
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
@@ -523,7 +523,14 @@ Type 'help(editor)' in the console for help.\n\
         if not txt:
             self.toast("nothing to replace","Error")
             return
-        fullText = self.getText(name)
+        inSelectionOnly = False
+        modifiers = QtGui.QGuiApplication.keyboardModifiers()
+        if modifiers & QtCore.Qt.ControlModifier:
+            inSelectionOnly = True
+        if not inSelectionOnly:
+            fullText = self.getText(name)
+        else:
+            fullText = self.currentEditor.textCursor().selectedText()
         if self.matchCaseCheckBox.checkState():
             txt = self.filterBackSlashes(txt)
             newText = fullText.replace(txt, newTxt)
@@ -550,7 +557,11 @@ Type 'help(editor)' in the console for help.\n\
             count = len(indices)
         self.toast(f"{count} instances of {txt} replaced in {name}","Message")
         if not count == 0:
-            self.setText(name, newText, f"replace {txt}")
+            if not inSelectionOnly:
+                self.setText(name, newText, f"replace {txt}")
+            else:
+                self.setModified(name,self.currentEditor.toPlainText(), "Replace in selection",self.getTC(self.currentEditor.textCursor()))
+                self.currentEditor.textCursor().insertText(newText)
 
 
     def onMatchWholeCheckBoxStateChanged(self, arg1):
