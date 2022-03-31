@@ -74,6 +74,14 @@ Enter a python command here and press enter.  The variable "editor" refers to th
 
 
 ## Changelog
+### 1.55 (2002.03.30)
+Template editor dialog improvements
+* on deleting select the next item
+* on renaming, offer current name as default
+* on renaming, select same item
+* on new item, don't allow empty name
+* move apply button to standard dialog button box
+* change label of execute to clipboard so all buttons line up vertically
 ### 1.54 (2022.03.30)
 * make template editor dialog non-modal
 ### 1.53 (2022.03.30)
