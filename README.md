@@ -110,6 +110,10 @@ More to come...
 * 'input1' new token uses single line text input
 * build dynamic menus for template insertion
 * check if macro already running and exit if so rather than have multiple instances
+### 1.56 (2022.03.31)
+* minor changes to template editor
+* + button duplicates current template
+* create new default template if last one is deleted
 ### 1.55 (2002.03.30)
 Template editor dialog improvements
 * on deleting select the next item
