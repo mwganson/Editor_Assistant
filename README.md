@@ -45,6 +45,7 @@ When an operation is undone, the undone is popped and sent to the redo queue.
 ## Find line
 ### Find edit
 This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
+
 The text in the Find edit can also be used to fill in replacement text when using templates, discussed in more detail below.
 ### Find next
 Click this button to find the next instance of the text in the Find edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.  Ctrl+Click to search from the beginning of the document.  Alt+Click to find from selection.  This uses the text currently selected in the current editor as if it were in the Find edit widget.
@@ -72,6 +73,7 @@ This is a QCheckBox.  If checked, then when there is a search that finds no resu
 ### Take snapshot
 Takes a snapshot of the current editor, including it's full text and position of cursor if there is text selected.  Snapshots can be very useful as temporary, in-memory backups of the file currently open.  They can be used to restore the content back to the previous state, including the cursor position.  They can be used to create diffs to show the changes that have been made since the snapshot was taken.  (When a file is first opened an automatic snapshot is taken.)
 There is a special menu devoted to snapshots and diffs, the Snaps menu, discussed in more detail below.
+
 Snapshots can be taken, popped, restored, discarded, saved, loaded, edited, and diffed.  Popping a snapshot means to restore it to the current editor and then discard it.  Restoring is like popping except for 2 differences: the snapshot is not discarded, and snapshots may be restored in any order (not only the most recent).  Discarding is like popping except without restoring.  You may save the snapshot as a file with the .py or .FCMacro extension, or any other extension you prefer.  You can also save all the snapshots into a single file, stored in JSON format.  Snapshots may be loaded from the JSON file.  Editing a snapshot involved editing the "reason", which is a very brief description of the snapshot.  Diffing creates an html file showing the differences between the 2 compared things, typically the current editor with one of its snapshots.
 ### Discard latest snapshot
 Discards most recent snapshot (without restoring it).  Use pop to restore and discard or restore from the menu if you don't want to discard.
@@ -82,7 +84,22 @@ This pops the latest snapshot in the queue, restoring it to the current document
 ## Console line
 ### To console
 This line edit can be very useful for directly controlling the current QPlainTextEdit widget, referenced as variable "editor" from this widget.  For example, enter editor.selectAll() to select all the text in the current document.  Refer to Qt documentation for functions available to QPlainTextEdit widgets.
+
 Another variable available is "dlg", which refers to the Editor assistant dialog itself.  This is mainly something I wanted as a debugging aid while writing this macro, but can have its uses.
+
+Enter search("search string") to search FreeCAD source code on github in a new browser tab.
+
+Enter qSearch("search string") to search qt for python documentation in a new browser tab.
+
+Enter help("search string") for help on python.  For example, help("numpy") will bring up help documentation in a new text document on that package.  Another example, help("Part.makeShell") for help on the Part.makeShell() function.
+
+Enter menu(Part.Circle)  (Notice no quotation marks.) to get an interactive menu related to all things Part.Circle.  Enter menu(Sketcher.Sketch) for an interactive menu on Sketcher.Sketch.
+
+Use "\n" for multiple line commands.
+
+Once a command has been entered you can then access "editor" and "dlg" via the python console.
+
+<More to come...>
 
 
 
