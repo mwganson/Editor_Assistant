@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.53"
+__version__ = "1.54"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -139,6 +139,7 @@ class TaskEditorAssistant:
         #topLabelLayout = toast label
         #editorLayout = editor list widget
         #refreshLayout = refresh button + goto menu button + goto line edit
+        #gotoLayout = goto home button + goto end button (hidden by default)
         #undoLayout =  undo + pop undos + redo
         #findEditLayout = Find edit + search + search previous
         #replaceEditLayout = Replace edit + replace + replace all
@@ -1248,7 +1249,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
     def editTemplates(self):
         dlg = TemplateEditor(form=self)
-        dlg.exec_()
+        #dlg.exec_()
+        dlg.show()
 
     def makeSearchFromFindEdit(self):
         findTxt = self.findEdit.text()
@@ -2209,7 +2211,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if FreeCADGui.activeDocument():
             FreeCADGui.activeDocument().resetEdit()
 
-class TemplateEditor(QtGui.QDialog):
+class TemplateEditor(QtGui.QWidget):
     def __init__(self, parent=mw, form=None):
         super(TemplateEditor, self).__init__(parent, QtCore.Qt.Tool)
         self.form=form
@@ -2431,10 +2433,12 @@ The "goto" key can have these values:
     def accept(self):
         self.updateDict(self.templateList.currentItem().text(),self.edit.toPlainText())
         self.updateParameters()
-        super().accept()
+        self.close()
+        #super().accept()
 
     def reject(self):
-        super().reject()
+        self.close()
+        #super().reject()
 
 class DiffSaver (QtGui.QDialog):
     def __init__(self, parent=mw, form=None, plainText=None, snapText=None, label1=None, label2=None):
