@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.55"
+__version__ = "1.56"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -2344,14 +2344,27 @@ class TemplateEditor(QtGui.QWidget):
             return
         self.form.testTemplateItem(curName, txt, execute=True)
 
+    def shallowCopy(self, fromDict):
+        toDict = {}
+        for k,v in fromDict.items():
+            toDict[k] = v
+        return toDict
+
     def onPlusBtnClicked(self, arg1):
         """add a new template item"""
+        curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
+        curDict = {}
+        if curName:
+            curDict = self.shallowCopy(self.templateDict[curName])
         newTemplateName,ok = QtGui.QInputDialog.getText(self, "Add template","Enter name for new template:")
         if ok and newTemplateName:
             if newTemplateName in self.templateDict:
                 self.form.print(f"{newTemplateName} already exists","Error")
                 return
-            self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label')"}
+            if not curName:
+                self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label')"}
+            else:
+                self.templateDict[newTemplateName] = curDict
             self.updateList(fetch=False)
             self.setCurrentByName(newTemplateName)
 
@@ -2365,6 +2378,13 @@ class TemplateEditor(QtGui.QWidget):
         self.updateList(fetch=False)
         self.blockSignals = False
         self.setCurrentByRow(curRow)
+        if self.templateList.count() == 0:
+            self.blockSignals = True
+            self.templateList.addItem("template")
+            self.edit.setPlainText("{}")
+            self.templateDict = {"template":{"label":"input","name":"input","output":"name = QtGui.QPushButton('label')"}}
+            self.blockSignals = False
+            self.setCurrentByRow(0)
 
     def onHelpBtnClicked(self, arg1):
         helpText = """<pre>
