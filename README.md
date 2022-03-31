@@ -168,6 +168,30 @@ This works like the Test button except the output gets copied to the system clip
 Brings up a small information dialog showing some basic information about using templates.
 ###### Ok, Apply, Cancel buttons
 These work as you would expect in standard dialogs.  Ok will apply the changes you have made to the templates file and close the dialog.  Apply does the same as Ok, but without closing the dialog.  Cancel closes the dialog without applying any changes (but doesn't undo any previously applied changes).
+#### Help menu
+The Help menu provides dynamic menus for help on various topics inside the Reference submenu.  There you have quick access to the various FreeCAD modules, such as Part, Draft, etc., to FreeCAD/App and FreeCADGui/Gui modules.  You have also have access to the various Qt/PySide modules.  When you click on the topic of interest the results of an interactive help() inquiry are placed into a new editor window.  This is a very powerful reference tool.  Experiment with it to get a better feel for how it works.
+
+In addition to the reference submenu you can also search FreeCAD source code and Qt for python online documentation.
+
+Note: the menu creation can also be done via the To console: line edit.  Type in menu("Part.Circle") to see an example.  Similarly, search("search string") searches FreeCAD source on github and qSearch("search string") searches Qt for Python documentation.
+
+Close -- closes the dialog and exits the macro.
+
+### Goto menu
+The goto menu is where you can go to various places in the open document.  It can be a real time-saver for larger documents.
+#### Line numbers
+Here you will find dynamic menus created for each line (if any) listed in the Goto line numbers edit.  If only one line is entered, then you get the one line as a menu option.  If multiple lines are entered (comma-separated) you get a menu for each line number.  (Pressing enter in the Goto line numbers edit also brings up this dynamic menu generation.)
+#### Class / def lines
+This is a way to quickly jump to a particular function definition or class definition in your file.  It is sorted by class name, then function name, so all the functions in a class are grouped together.  This is a huge time-saver.  Get familiar with it.  Note: this is done with very simple methodology.  It does not always work perfectly.
+#### Bookmarks
+A bookmark can be created for each line of interest.  Creation is done by adding a comment to the line in the form of ##: comment, 2 pound symbols (#) and a colon (:) followed by a label/comment, which can be anything.  Without a comment/label the bookmark will be ignored.
+#### Find results
+If the Find edit contains text that can be found in the document, then for each line the text is found on there is a dynamic menu item.  There will be a few characters before and after the Find text added for context.
+#### Find selection results
+Just like Find results except it uses the text currently selected in the current document as the find text instead of taking it from the Find edit.  Just select some text in the document, then click this menu to find all its locations and jump to them.
+#### Home and End buttons
+Go to the top / bottom of the current document.
+### Snaps menu
 
 
 
