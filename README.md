@@ -99,7 +99,76 @@ Use "\n" for multiple line commands.
 
 Once a command has been entered you can then access "editor" and "dlg" via the python console.
 
-More to come...
+## Menus
+There are 3 menus: the main menu, the goto menu, and the snaps menu.  The goto and snaps menus are also accessible from the main menu.
+### Main menu
+The main menu is accessed by clicking the Main menu button at the top left of the dialog.
+#### Settings menu
+Here you can change some settings.  Currently, only layout is available, but more settings will be coming to this menu in the future.  Within layout you can individually enable/disable various lines of widgets.  This is so you can make the dialog smaller if you need to and if you don't need access to those widgets you are hiding.
+#### View mode
+This includes Tabbed, Tiled, and Cascade.  It affects the way MDI windows are displayed in the MDI area.  (When you restart FreeCAD it reverts back to default Tabbed mode.)  Tiled can be useful where you wish to compare 2 files side-by-side.  It also works with spreadsheets and 3d views.
+#### Goto menu
+Discussed in detail in its own section below.
+#### Snaps menu
+Discussed in detail in its own section below.
+#### Templates menu
+Templates are a way to insert text into the current document without needing to do so much typing.  They are also convenient because there is less need to refer to documentation for exact syntax, arguments available, etc.  In its simplest form a template merely inserts some text into the current cursor position.  A more advanced usage is to have replaceable text that is dynamically replaced during the insertion.
+
+Templates are a dictionary of dictionaries.  The entire template set is a dictionary with the template names serving as keys.  The value for each key is a dictionary.  
+
+This template item dictionary must have at least one key named "output".  The rest are all optional.  The value of this "output" key is the text to be inserted.
+
+An optional key is "goto", which contains the line to go to before inserting the text.  The value can be a line number, such as "42".  It can also be "home" (move to beginning of document), "end" (move to end of document), or "input" (get the line from the user during template execution).  If there is no "goto" key, or if its value is "current" or "", then the text is inserted at the current cursor position.
+<pre>
+"goto" values:
+
+"home" -- go to start of document
+"end" -- go to end of document
+"42" -- go to line 42 (or whatever)
+"input" -- get the line number in a popup QInputDialog during template execution
+"current" or "" -- use current cursor position
+</pre>
+
+We have "output" and "goto" as recognized tokens for key names that have special meanings.  All other keys are treated as the text to be replaced in the "output" value.  For example, if the key is "label", then the string label is replaced with the value of this key during template execution.  You can see this at work with the default "button" template item.  The 2 keys "label" and "name" are replaced in the "output" value.
+<pre>
+Replacement key values:
+
+"input" -- get input from user during template execution in a multiline text input dialog
+"input1" -- same as input, but use a single line input dialog
+"clipboard" -- use the text in the clipboard to replace this key in the "output" value text
+"find" -- use the text from the Find edit
+"replace" -- use the text from the Replace edit
+"anything else" -- use this directly as the replacement text
+</pre>
+Template items are converted many times between string and dictionary using json.dumps() and json.loads().  These functions require very specific syntax.  The templates are stored in a file called "Editor_Assistant_Templates.txt" and may be edited with any text editor if you prefer that method over using the Template editor dialog.  This file is created and placed into the Macro folder, as a sibling to the macro.  Its name is based on the macro name, so if you rename the macro it also uses a different name for its templates file.  This can be a way to maintain separate template files, if preferred.  The file is created and managed automatically, but it must be manually deleted if you decide to uninstall the macro.
+
+##### Insert from dialog
+This brings up a QInputDialog.getItem() dialog from which you can select the desired template to execute.
+##### Insert (submenu)
+This does the same thing as Insert from dialog except you are presented with the templates directly as menu / submenu items, the goal being to make it a bit more streamlined.  Once the template is selected the procedure is the same for both here and using Insert from dialog.  Just use the one you prefer.
+##### Edit templates
+This brings up the Template editor dialog.  In that dialog you can create new templates, delete templates, edit their content, execute them, test them, execute to clipboard, and get some additional help text.
+###### + button
+This creates a new template that is a copy of the currently selected template, to be used as a starting point.
+###### - button
+This deletes the currently selected template.  If you delete the last template, a new default is created.  This is so there is always at least one template.  Deleting cannot be undone.  (But if you press the cancel button your templates file has not yet been changed at this point.  It only changes on clicking Apply or Ok.)
+###### Rename button
+This allows to rename a template.  You cannot have 2 templates with the same name.
+###### templateList (QListWidget)
+This is the list of templates at the top of the dialog.  Select the template to work on and its text appears in the edit widget.  Changing templates causes the previous template's changes to be updated in editor memory, but not the templates file.  That file only gets updated when pressing Ok or Apply.  Press Cancel to close the dialog without changing the templates file (as long as you didn't already use Apply).
+###### edit (QPlainTextEdit)
+This widget is where you type in the template item definition.  Because it is a QPlainTextEdit the macro might from time to time mis-identify it as an open editor.  In such cases you will see FreeCAD 0.20 as the editor title.  You can ignore this for the time being, although some functions might work on it, such as find/replace, this is all quite by accident and not all dialog functions are guaranteed to work properly.
+###### Test button
+Use this button to test a template to see the output that it will produce when executed.  You will see the output presented in a QMessageBox.
+###### Execute button
+Use this to execute the selected template just as if it were applied from the Templates menu using Insert.  Use this if you have made a temporary change to the template item definition, but don't want to save it to the templates file.  Use execute, then Cancel when done.
+###### Execute to clipboard button
+This works like the Test button except the output gets copied to the system clipboard.  You can then paste it into your document.
+###### Help button
+Brings up a small information dialog showing some basic information about using templates.
+###### Ok, Apply, Cancel buttons
+These work as you would expect in standard dialogs.  Ok will apply the changes you have made to the templates file and close the dialog.  Apply does the same as Ok, but without closing the dialog.  Cancel closes the dialog without applying any changes (but doesn't undo any previously applied changes).
+
 
 
 
