@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.57b"
+__version__ = "1.58"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1506,17 +1506,17 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
-        for ii,edName in enumerate(self.editorDict.keys()):
+        for edName in self.editorDict.keys():
             if edName == curName:
                 continue
-            diffSnapActions.append(QtGui.QAction(f"Diff {edName}"))
+            diffSnapActions.append(QtGui.QAction(f"Diff {edName}", mw))
             diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), edName, curName))
-            diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii+len(diffSnaps)])
+            diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         clipText = QtGui.QClipboard().text()
 
-        diffSnapActions.append(QtGui.QAction(f"Diff clipboard text"))
+        diffSnapActions.append(QtGui.QAction(f"Diff clipboard text", mw))
         diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),"Clipboard text", curName))
         diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
         diffSnapsMenu.addAction(diffSnapActions[-1])
