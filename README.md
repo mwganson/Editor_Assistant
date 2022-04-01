@@ -225,6 +225,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.60 (2022.04.01)
+* Diff saver use table column headers instead of QLabels
 ### 1.59 (2022.03.31)
 * "output" key in template item can have token values:
 "input", "input1", "clipboard", "selection"
