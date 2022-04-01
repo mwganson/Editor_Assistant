@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.59"
+__version__ = "1.60"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1531,14 +1531,14 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if edName == curName:
                 continue
             diffSnapActions.append(QtGui.QAction(f"Diff {edName}", mw))
-            diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), edName, curName))
+            diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), curName, edName))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         clipText = QtGui.QClipboard().text()
 
         diffSnapActions.append(QtGui.QAction(f"Diff clipboard text", mw))
-        diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),"Clipboard text", curName))
+        diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),curName, "Clipboard text"))
         diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
         diffSnapsMenu.addAction(diffSnapActions[-1])
         if not clipText:
@@ -1660,13 +1660,13 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             plainLabel = name
             snapText = snaps[idx]['old_text'].splitlines()
             snapLabel = snaps[idx]['reason']
-        else: #presume to strings passed in to be diffed
+        else: #presume to be strings passed in to be diffed
             snapText = name.splitlines()
             plainText = idx.splitlines()
             plainLabel = firstLabel
             snapLabel = secondLabel
         d = difflib.HtmlDiff(tabsize=4)
-        ds = DiffSaver(form=self, snapText=snapText, plainText=plainText, label1=plainLabel, label2=snapLabel)
+        ds = DiffSaver(form=self, snapText=snapText, plainText=plainText, label2=plainLabel, label1=snapLabel)
         ds.setWindowFlag(QtCore.Qt.WindowMinimizeButtonHint, True)
         ds.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
         ds.resizeEvent = ds.onResize
@@ -1712,17 +1712,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         ds.widthSlider.setValue(500)
         sliderLayout.addWidget(ds.widthSlider)
         layout.addLayout(sliderLayout)
-        if ds.label1 and ds.label2:
-            labelLayout = QtGui.QHBoxLayout()
-            lab1 = QtGui.QLabel(ds.label1)
-            lab2 = QtGui.QLabel(ds.label2)
-            lab1.setMaximumHeight(20)
-            lab2.setMaximumHeight(20)
-            lab1.setAlignment(QtCore.Qt.AlignCenter)
-            lab2.setAlignment(QtCore.Qt.AlignCenter)
-            labelLayout.addWidget(lab1)
-            labelLayout.addWidget(lab2)
-            layout.addLayout(labelLayout)
         layout.addWidget(ds.webView)
 
         ds.show()
@@ -2443,8 +2432,7 @@ but some text may also be replaced during execution.
 
 The template item dictionary must contain a key named
 "output".  This key contains the text to be inserted.
-It can also hold some special values that will be
-interpreted accordingly:
+It can also hold some special values:
 
 "input" -- user types in value for output in dialog.
 "input1" -- like "input", but a single line edit.
@@ -2578,7 +2566,7 @@ class DiffSaver (QtGui.QDialog):
         d = difflib.HtmlDiff(tabsize=4)
         numlines2 = 5 if not self.numlinesSpinBox else self.numlinesSpinBox.value()
         context2 = self.contextCheckBox.checkState() if self.contextCheckBox else True
-        self.diff = d.make_file(self.snapText, self.plainText, context=context2, numlines=numlines2)
+        self.diff = d.make_file(fromlines = self.snapText, tolines = self.plainText, fromdesc = self.label1, todesc = self.label2, context=context2, numlines=numlines2)
 
     def updateTitle(self):
         if self.widthSlider and self.slider:
