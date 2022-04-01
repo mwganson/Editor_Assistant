@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.58"
+__version__ = "1.59"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1183,20 +1183,41 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if not "output" in rawDict:
             self.toast("Test failed: no key named 'output'","Error")
             return ""
-        rawOutString = rawDict["output"]
+        if rawDict["output"] == "input":
+            retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
+            rawOutString = retval if ok else None
+        elif rawDict["output"] == 'input1':
+            retval,ok = inp1Line(f"Input for {key}",f"Enter a value for {replacement[0]}")()
+            rawOutString = retval if ok else None
+        elif rawDict["output"] == "clipboard":
+            rawOutString = QtGui.QClipboard().text()
+        elif rawDict["output"] == "selection":
+            rawOutString = self.currentEditor.textCursor().selectedText()
+        else:
+            rawOutString = rawDict["output"]
+        if not rawOutString:
+            self.toast("Empty output value","Error")
+            return ""
         replacements = [(k,v) for k,v in rawDict.items() if k != "output" and k!= "goto"]
         for replacement in replacements:
             if replacement[1] == 'input':
                 retval,ok = inp(f"Input for {key}",f"Enter a value for {replacement[0]}")()
                 rawDict[replacement[0]] = retval if ok else None
-            if replacement[1] == 'input1':
+            elif replacement[1] == 'input1':
                 retval,ok = inp1Line(f"Input for {key}",f"Enter a value for {replacement[0]}")()
                 rawDict[replacement[0]] = retval if ok else None
+            elif replacement[1] == "selection":
+                rawDict[replacement[0]] = self.currentEditor.textCursor().selectedText()
             elif replacement[1] == 'clipboard':
                 clipTxt = QtGui.QClipboard().text()
                 rawDict[replacement[0]] = clipTxt
                 if not clipTxt:
                     self.toast("Clipboard is empty","Warning")
+            elif replacement[1] == 'selection':
+                selTxt = self.currentEditor.textCursor().selectedText()
+                rawDict[replacement[0]] = selTxt
+                if not selTxt:
+                    self.toast("Selection is empty","Warning")
             elif replacement[1] == 'find':
                 findTxt = self.findEdit.text()
                 rawDict[replacement[0]] = findTxt
@@ -2418,31 +2439,39 @@ Templates are a way to insert text into the current editor
 at the current cursor position.  The templates are stored
 in memory as a python dictionary of dictionaries.  In the
 simplest case the text is copied directly into the editor,
-but some text in the template may also be dynamically
-replaced during insertion.
+but some text may also be replaced during execution.
 
 The template item dictionary must contain a key named
-"output".  "goto" key, if exists, positions the cursor
-before the text is inserted.  Other keys are optional.
+"output".  This key contains the text to be inserted.
+It can also hold some special values that will be
+interpreted accordingly:
+
+"input" -- user types in value for output in dialog.
+"input1" -- like "input", but a single line edit.
+"clipboard" -- output text comes from clipboard.
+"selection" -- output text comes from current selection.
+Any other value means use that value as the output text.
+
 If "output" contains text matching the name of one of
 the other keys, then that text gets replaced, depending
 on the key's value:
 
 'input' -- replacement text from multiple line QInputDialog
 'input1' -- like input, but use single line dialog
+'selection' -- taken from selection in current editor
 'clipboard' -- replacement text is from the system clipboard
 'find' -- replacement text is from the Find QLineEdit
 'replace' -- replacement text is from the Replace QLineEdit
 Any other value means use that value as the replacement text.
 
-The "goto" key can have these values:
+The "goto" key, if it exists, positions the cursor before the 
+text is inserted.  The "goto" key can have these values:
 
 'input' (or 'input1') -- line is from single line QInputDialog
 'home' -- position cursor at start of line 1
-'end' -- position cursor at bottom of document, end of last line
+'end' -- position cursor at end of document
 'current' or '' -- ignore and use current cursor position
 '42' -- example, go to line 42 and insert output there
-
 </pre>
 """
         QtGui.QMessageBox.information(self, "Help", helpText)
