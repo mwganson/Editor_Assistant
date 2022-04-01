@@ -214,6 +214,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.59 (2022.03.31)
+* "output" key in template item can have token values:
+"input", "input1", "clipboard", "selection"
+* other keys can have token values:
+"input", "input1", "selection", "clipboard", "find" ,"replace"
 ### 1.58 (2022.03.31)
 * bug fix with snap diff menu generation
 ### 1.57 (2022.03.31)
