@@ -116,7 +116,17 @@ Templates are a way to insert text into the current document without needing to 
 
 Templates are a dictionary of dictionaries.  The entire template set is a dictionary with the template names serving as keys.  The value for each key is a dictionary.  
 
-This template item dictionary must have at least one key named "output".  The rest are all optional.  The value of this "output" key is the text to be inserted.
+This template item dictionary must have at least one key named "output".  The rest are all optional.  The value of this "output" key is the text to be inserted or one of these recognized tokens:
+
+<pre>
+"output" keywords:
+
+"input" -- output text is typed into a multiline QInputDialog during template execution
+"input1" -- same as input, but a single line edit dialog is used
+"selection" -- output text is the text that is currently selected in the current editor
+"clipboard" -- output text comes from the clipboard
+Any other value is the output text.
+</pre>
 
 An optional key is "goto", which contains the line to go to before inserting the text.  The value can be a line number, such as "42".  It can also be "home" (move to beginning of document), "end" (move to end of document), or "input" (get the line from the user during template execution).  If there is no "goto" key, or if its value is "current" or "", then the text is inserted at the current cursor position.
 <pre>
@@ -138,7 +148,8 @@ Replacement key values:
 "clipboard" -- use the text in the clipboard to replace this key in the "output" value text
 "find" -- use the text from the Find edit
 "replace" -- use the text from the Replace edit
-"anything else" -- use this directly as the replacement text
+"selection" -- use the text selected in the current editor
+Any other value is used directly as the replacement text
 </pre>
 Template items are converted many times between string and dictionary using json.dumps() and json.loads().  These functions require very specific syntax.  The templates are stored in a file called "Editor_Assistant_Templates.txt" and may be edited with any text editor if you prefer that method over using the Template editor dialog.  This file is created and placed into the Macro folder, as a sibling to the macro.  Its name is based on the macro name, so if you rename the macro it also uses a different name for its templates file.  This can be a way to maintain separate template files, if preferred.  The file is created and managed automatically, but it must be manually deleted if you decide to uninstall the macro.
 
