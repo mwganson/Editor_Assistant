@@ -207,11 +207,15 @@ Load the previously saved JSON format file of snapshots.
 Discarding a snapshot is to destroy it without restoring.  This differs from popping in that the snapshot is restored before discarding.
 #### Diff current editor
 Diff a snapshot against the current editor.  An auto snapshot is taken automatically when a file is first opened.  If you make changes to the file, you can use the Diff feature to inspect your changes.  It looks very much like the output you see with git diff.  I find this quite convenient when putting together the Changelogs for my various projects.  The diff may by saved to html and opened in a browser.  The Diff Saver class has a few options, including context and column widths, that are not transferred to the saved html file.
+
+In addition to diffing against snapshots of the current editor, you can also diff against text held in the clipboard and against other open editors.
 #### Edit reason
 A "reason" is a short documentation for a snapshot.  By editing the reason you are editing this documentation.
 
 
 ## Changelog
+### 1.58 (2022.03.31)
+* bug fix with snap diff menu generation
 ### 1.57 (2022.03.31)
 * do not convert \n to chr(10) when executing templates
 * 'input' now uses multi line text input dialog
