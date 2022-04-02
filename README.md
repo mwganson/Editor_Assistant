@@ -242,6 +242,9 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.65 (2022.04.02)
+* change highlighting from html to QtGui.QTextEdit.ExtraSelection class
+* remove unHighlight since no longer needed (text automatically unhighlights with a new selection)
 ### 1.64 (2022.04.02)
 * disable highlighting where text contains <, nbsp;, or font///style.
 ### 1.62b (2022.04.01)
