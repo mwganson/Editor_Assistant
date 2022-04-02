@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.66"
+__version__ = "1.67"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1009,21 +1009,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
         mainMenu.addMenu(settingsMenu)
 #end of settings
-#begin view mode
-        viewModeMenu = QtGui.QMenu("View mode")
-        mainMenu.addMenu(viewModeMenu)
-
-        tabbedModeAction = QtGui.QAction("Tabbed")
-        tabbedModeAction.triggered.connect(self.setTabbedView)
-        viewModeMenu.addAction(tabbedModeAction)
-
-        tiledModeAction = QtGui.QAction("Tiled")
-        tiledModeAction.triggered.connect(lambda: self.mdi.tileSubWindows())
-        viewModeMenu.addAction(tiledModeAction)
-
-        cascadeModeAction = QtGui.QAction("Cascade")
-        cascadeModeAction.triggered.connect(lambda: self.mdi.cascadeSubWindows())
-        viewModeMenu.addAction(cascadeModeAction)
 
 #start goto menu
         gotoMenu = self.makeGotoMenu()
@@ -1505,16 +1490,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.mdi.addSubWindow(dlg)
         dlg.show()
 
-
     def close(self):
         self.mdi.subWindowActivated.disconnect(self.onSubWindowActivated)
         self.form.close()
-
-    def setTabbedView(self):
-        self.mdi.setViewMode(QtGui.QMdiArea.ViewMode.TabbedView)
-        windowList = self.mdi.subWindowList()
-        for wl in windowList:
-            wl.showMaximized()
 
     def onSnapMenuBtnClicked(self, arg1):
         qp = QtCore.QPoint()
