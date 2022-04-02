@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.64"
+__version__ = "1.66"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -1235,6 +1235,24 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
 
+    #credit Amartel at stackoverflow for this bit of code
+    def getLineNumberAtCursor(self):
+        cursor = self.currentEditor.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.StartOfLine)
+        lines = 1
+        lines_text = cursor.block().text().splitlines()
+        lines_pos = 0
+        for line_text in lines_text:
+            lines_pos += len(line_text) + 1
+            if lines_pos > cursor.position() - cursor.block().position():
+                break
+            lines += 1
+        block = cursor.block().previous()
+        while block.isValid():
+            lines += block.lineCount()
+            block = block.previous()
+        return lines
+
     def setupInsertFromTemplate(self):
         templateDict = self.getTemplateString()
         items=[]
@@ -1323,6 +1341,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                     line,ok = inp1("Line number","Input line number for goto\nCancel for current cursor position: ")()
                     if ok and line != "":
                         self.gotoLine(self.parseLine(line))
+                elif rawDict["goto"].startswith("relative:"):
+                    relativeMove = rawDict["goto"][len("relative:"):]
+                    relativeLine = self.parseLine(relativeMove)
+                    curLine = self.getLineNumberAtCursor()
+                    self.gotoLine(curLine + relativeLine)
                 else:
                     lineNumber = self.parseLine(rawDict["goto"])
                     if lineNumber != 0:
@@ -2550,6 +2573,8 @@ text is inserted.  The "goto" key can have these values:
 'end' -- position cursor at end of document
 'current' or '' -- ignore and use current cursor position
 '42' -- example, go to line 42 and insert output there
+'relative:7' -- example, go 7 lines down from current
+'relative:-3' -- example, go 3 lines up from current
 </pre>
 """
         QtGui.QMessageBox.information(self, "Help", helpText)
