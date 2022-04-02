@@ -242,6 +242,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.64 (2022.04.02)
+* disable highlighting where text contains <, nbsp;, or font///style.
 ### 1.62b (2022.04.01)
 * highlighting
 ### 1.61 (2022.04.01)
