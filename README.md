@@ -128,7 +128,7 @@ This template item dictionary must have at least one key named "output".  The re
 Any other value is the output text.
 </pre>
 
-An optional key is "goto", which contains the line to go to before inserting the text.  The value can be a line number, such as "42".  It can also be "home" (move to beginning of document), "end" (move to end of document), or "input" (get the line from the user during template execution).  If there is no "goto" key, or if its value is "current" or "", then the text is inserted at the current cursor position.
+An optional key is "goto", which contains the line to go to before inserting the text.  The value can be a line number, such as "42".  It can also be "home" (move to beginning of document), "end" (move to end of document), or "input" (get the line from the user during template execution).  If there is no "goto" key, or if its value is "current" or "", then the text is inserted at the current cursor position.  Use "relative:NNN" for relative line changes.
 <pre>
 "goto" values:
 
@@ -137,6 +137,8 @@ An optional key is "goto", which contains the line to go to before inserting the
 "42" -- go to line 42 (or whatever)
 "input" -- get the line number in a popup QInputDialog during template execution
 "current" or "" -- use current cursor position
+"relative:3" -- go 3 lines down from current cursor position
+"relative:-7" -- go 7 lines up from current cursor position
 </pre>
 
 We have "output" and "goto" as recognized tokens for key names that have special meanings.  All other keys are treated as the text to be replaced in the "output" value.  For example, if the key is "label", then the string label is replaced with the value of this key during template execution.  You can see this at work with the default "button" template item.  The 2 keys "label" and "name" are replaced in the "output" value.
@@ -239,6 +241,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.66 (2022.04.02)
+* add support for 'relative:' token for 'goto' keys in templates
 ### 1.65 (2022.04.02)
 * change highlighting from html to QtGui.QTextEdit.ExtraSelection class
 * remove unHighlight since no longer needed (text automatically unhighlights with a new selection)
