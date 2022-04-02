@@ -225,6 +225,10 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.62b (2022.04.01)
+* highlighting
+### 1.61 (2022.04.01)
+* use submenus for class/def lines, find results, and find from selection results in goto menu
 ### 1.60 (2022.04.01)
 * Diff saver use table column headers instead of QLabels
 ### 1.59 (2022.03.31)
