@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.67"
+__version__ = "1.68"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -460,11 +460,18 @@ Type 'help(editor)' in the console for help.\n\
         self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
 
         indices = []
-        count = plainText.count(txt)
-        idx = plainText.find(txt)
-        while idx != -1:
-            indices.append(tuple([idx, idx+len(txt)]))
-            idx = plainText.find(txt, idx+len(txt))
+        if self.matchCaseCheckBox.checkState():
+            count = plainText.count(txt)
+            idx = plainText.find(txt)
+            while idx != -1:
+                indices.append(tuple([idx, idx+len(txt)]))
+                idx = plainText.find(txt, idx+len(txt))
+        else: #case-insensitive
+            count = plainText.lower().count(txt.lower())
+            idx = plainText.lower().find(txt.lower())
+            while idx != -1:
+                indices.append(tuple([idx, idx+len(txt)]))
+                idx = plainText.lower().find(txt.lower(), idx+len(txt))
         extraSelections = []
         for ind in indices:
             extraSelection = QtGui.QTextEdit.ExtraSelection()
