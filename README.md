@@ -187,9 +187,9 @@ In addition to the reference submenu you can also search FreeCAD source code and
 Note: the menu creation can also be done via the To console: line edit.  Type in menu("Part.Circle") to see an example.  Similarly, search("search string") searches FreeCAD source on github and qSearch("search string") searches Qt for Python documentation.
 
 #### Highlight menu
-Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit and Replace edit context menus.  Use the unHighlight command when you are finished with highlight mode.
+Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit and Replace edit context menus.  Note: the text highlighting is automatically undone when the selection changes.
 
-Highlight mode does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.
+Highlight mode does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.  But the undo is still there in case you want to restore the cursor position.
 
 ##### From selection
 This uses the text currently selected in the current editor as the search text for the highlight process.  The selected text must exactly match (case-sensitive) regardless of the Match case checkbox checked or unchecked state.
@@ -198,9 +198,6 @@ Tip: Select some text in the editor.  Double click the Find edit to put the sele
 
 ##### From find
 This uses the text in the Find edit as the search text for the highlight process.
-
-##### Unhighlight
-This resets back to the unhighlighted state.  It does not reset the text back to what it was, so any changes you made in highlight mode will remain intact.  You can use Undo to both undo highlighting and reset the text back to the previous state.  Note: redo does not redo the highlight, but it does reset the text and the cursor position.
 
 #### Close
 Closes the dialog and exits the macro.  If for some reason due to a bug you cannot get the Main menu to function you can also close the macro from the To console: edit or from the python console with dlg.close().
