@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.62b"
+__version__ = "1.64"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -460,20 +460,23 @@ Type 'help(editor)' in the console for help.\n\
             self.toast("No current editor","Error")
             return
         plainText = self.currentEditor.toPlainText()
+        if "<" in plainText or "&nbsp;" in plainText or "font///style" in plainText:
+            self.toast("Highlight not available for text containing '<', 'font///style', or '&nbsp;'","Warning")
+            return
         cursor = self.currentEditor.textCursor()
         start,end = self.getTC(cursor)
         self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
 
-        count = plainText.count(txt.replace("\xa0"," "))
-        html = plainText.replace(" ","$SPACE$")
-        txt2 = txt.replace("\xa0","$SPACE$")
+        count = plainText.count(txt)
+        html = plainText
+        txt2 = txt
         html2 = html.split("\n")
         self.currentEditor.clear()
         try:
             for i in range(len(html2)):
-                html3 = html2[i].replace(txt2, f"<font$SPACETXT$style=\"background-color:{color}\">{txt2}</font>")
-                html3 = html3.replace("$SPACE$","&nbsp;")
-                html3 = html3.replace("$SPACETXT$"," ")
+                html3 = html2[i].replace(txt2, f"<font///style=\"background-color:{color}\">{txt2}</font>")
+                html3 = html3.replace(" ","&nbsp;")
+                html3 = html3.replace("font///style", "font style")
                 self.currentEditor.appendHtml(html3)
         except Exception: None
 
@@ -1347,7 +1350,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             self.currentEditor.insertPlainText(rawOutString)
         else:
             self.toast("No editor to insert template into","Error")
-
 
     def getTemplateString(self):
         """updates self.templateDictString from templates file, returns dict"""
