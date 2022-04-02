@@ -239,6 +239,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.68 (2022.04.02)
+* Make highlight function respect state of match case checkbox
 ### 1.67 (2022.04.02)
 * remove view modes since those can be found in FreeCAD Windows menu.
 ### 1.66 (2022.04.02)
