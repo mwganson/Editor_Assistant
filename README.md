@@ -105,8 +105,6 @@ There are 3 menus: the main menu, the goto menu, and the snaps menu.  The goto a
 The main menu is accessed by clicking the Main menu button at the top left of the dialog.
 #### Settings menu
 Here you can change some settings.  Currently, only layout is available, but more settings will be coming to this menu in the future.  Within layout you can individually enable/disable various lines of widgets.  This is so you can make the dialog smaller if you need to and if you don't need access to those widgets you are hiding.
-#### View mode
-This includes Tabbed, Tiled, and Cascade.  It affects the way MDI windows are displayed in the MDI area.  (When you restart FreeCAD it reverts back to default Tabbed mode.)  Tiled can be useful where you wish to compare 2 files side-by-side.  It also works with spreadsheets and 3d views.
 #### Goto menu
 Discussed in detail in its own section below.
 #### Snaps menu
