@@ -92,11 +92,6 @@ class FindEdit (QtGui.QLineEdit):
         actionHighlight.setEnabled(len(self.text()))
         menu.addAction(actionHighlight)
 
-        actionUnhighlight = QtGui.QAction("Unhighlight",self)
-        actionUnhighlight.triggered.connect(self.form.unHighlight)
-        actionUnhighlight.setEnabled(len(self.text()))
-        menu.addAction(actionUnhighlight)
-
     def highlight(self):
         self.form.highlight(self.text())
 
@@ -455,47 +450,32 @@ Type 'help(editor)' in the console for help.\n\
         self.highlight(txt)
 
     def highlight(self, txt, color="aqua"):
-        """does a search replace of txt with font style html, clears document, appends html"""
+        """highlight occurrences of txt with background color"""
         if not self.currentEditor:
             self.toast("No current editor","Error")
             return
         plainText = self.currentEditor.toPlainText()
-        if "<" in plainText or "&nbsp;" in plainText or "font///style" in plainText:
-            self.toast("Highlight not available for text containing '<', 'font///style', or '&nbsp;'","Warning")
-            return
         cursor = self.currentEditor.textCursor()
         start,end = self.getTC(cursor)
         self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
 
+        indices = []
         count = plainText.count(txt)
-        html = plainText
-        txt2 = txt
-        html2 = html.split("\n")
-        self.currentEditor.clear()
-        try:
-            for i in range(len(html2)):
-                html3 = html2[i].replace(txt2, f"<font///style=\"background-color:{color}\">{txt2}</font>")
-                html3 = html3.replace(" ","&nbsp;")
-                html3 = html3.replace("font///style", "font style")
-                self.currentEditor.appendHtml(html3)
-        except Exception: None
+        idx = plainText.find(txt)
+        while idx != -1:
+            indices.append(tuple([idx, idx+len(txt)]))
+            idx = plainText.find(txt, idx+len(txt))
+        extraSelections = []
+        for ind in indices:
+            extraSelection = QtGui.QTextEdit.ExtraSelection()
+            extraSelection.cursor = self.currentEditor.textCursor()
+            extraSelection.cursor.setPosition(ind[0])
+            extraSelection.cursor.setPosition(ind[1], QtGui.QTextCursor.KeepAnchor)
+            extraSelection.format.setBackground(QtGui.QColor(color))
+            extraSelections.append(extraSelection)
 
-        cursor.setPosition(start)
-        self.currentEditor.setCenterOnScroll(True)
-        self.currentEditor.setTextCursor(cursor)
+        self.currentEditor.setExtraSelections(extraSelections)
         self.toast(f"Highlighted {count} occurrences of {txt}","Message")
-
-    def unHighlight(self):
-        if not self.currentEditor:
-            self.toast("No current editor","Error")
-            return
-        cursor = self.currentEditor.textCursor()
-        start,end = self.getTC(cursor)
-        plainText = self.currentEditor.toPlainText()
-        self.currentEditor.setPlainText(plainText)
-        cursor.setPosition(start)
-        self.currentEditor.setCenterOnScroll(True)
-        #self.currentEditor.setTextCursor(cursor)
 
     def setCurrentEditor(self, name="", focus=True):
         if not shiboken.isValid(self.editorList):
@@ -1240,9 +1220,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
 
-        unHighlightAction = QtGui.QAction("Unhighlight")
-        unHighlightAction.triggered.connect(self.unHighlight)
-        highlightMenu.addAction(unHighlightAction)
+        #unHighlightAction = QtGui.QAction("Unhighlight")
+        #unHighlightAction.triggered.connect(self.unHighlight)
+        #highlightMenu.addAction(unHighlightAction)
 
 
 
