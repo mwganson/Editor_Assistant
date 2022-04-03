@@ -241,6 +241,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.73 (2022.04.03)
+* add UndoQueueMaxSize to parameters, default = 100
+* add BookmarkMarker to parameters, default = "##:"
+* add MaxIconizedButtonWidth to parameters, default: 32 px
+* add EditorListMinimumHeight to parameters, default: 32 px
 ### 1.72 (2022.04.03)
 * add new combo boxes to settings -> layout menu, make hidden by default to keep dialog small
 ### 1.71 (2022.04.03)
