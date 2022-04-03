@@ -3,7 +3,16 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.70"
+#
+#
+__title__   = "Editor_Assistant"
+__author__  = "TheMarkster"
+__url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
+__github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
+__wiki__    = ""
+__version__ = "1.69c"
+__date__    = "2022/04/03"
+#
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -13,14 +22,8 @@ import json
 import re
 ## used for help -> reference menus
 import PySide2
-from PySide2 import QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
+from PySide2 import QtNetwork, QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
                     QtSql, QtSvg, QtTest, QtWidgets, QtXml, QtXmlPatterns
-hasQtNetwork = False
-try:
-    from PySide2 import QtNetwork
-    hasQtNetwork = True
-except ImportError:
-    pass
 import Draft
 import DraftUtils
 import Fem
@@ -48,6 +51,11 @@ import TechDraw
 import TechDrawGui
 import Web
 import WebGui
+
+####new
+global duplicate_Find   ; duplicate_Find    = []
+global duplicate_Replace; duplicate_Replace = []
+####new
 
 try:
     import shiboken2 as shiboken
@@ -280,11 +288,31 @@ Find results = results of searches for text in Find line edit\n\
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
+
+####new
+        findEditLayout2 = QtGui.QHBoxLayout()
+        self.CBox_Find = QtWidgets.QComboBox()
+        #self.CBox_Find.setCurrentIndex(4)
+        self.CBox_Find.setMaxVisibleItems(16)
+        self.CBox_Find.setDuplicatesEnabled(False)    # not work ?
+        self.CBox_Find.setEditable(True)              # editable
+        QtCore.QObject.connect(self.CBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_Find)
+        findEditLayout2.addWidget(self.CBox_Find)
+####new
+
         if not showFindLine:
             self.findEdit.setVisible(showFindLine)
             self.findBtn.setVisible(showFindLine)
             self.findBackBtn.setVisible(showFindLine)
+####new
+            self.CBox_Find.setVisible(showFindLine)
+####new
+
         self.layout.addLayout(findEditLayout)
+
+####new
+        self.layout.addLayout(findEditLayout2)
+####new
 
         showReplaceLine = self.pg.GetBool("ShowReplaceLine",True)
         replaceEditLayout = QtGui.QHBoxLayout()
@@ -302,11 +330,31 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
+
+####new
+        replaceEditLayout2 = QtGui.QHBoxLayout()
+        self.CBox_replaceEdit = QtWidgets.QComboBox()
+        #self.CBox_replaceEdit.setCurrentIndex(4)
+        self.CBox_replaceEdit.setMaxVisibleItems(16)
+        self.CBox_replaceEdit.setDuplicatesEnabled(False)    # not work ?
+        self.CBox_replaceEdit.setEditable(True)              # editable
+        QtCore.QObject.connect(self.CBox_replaceEdit, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_replaceEdit)
+        replaceEditLayout2.addWidget(self.CBox_replaceEdit)
+####new
+
         if not showReplaceLine:
             self.replaceEdit.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
+####new
+            self.CBox_replaceEdit.setVisible(showReplaceLine)
+####new
+
         self.layout.addLayout(replaceEditLayout)
+
+####new
+        self.layout.addLayout(replaceEditLayout2)
+####new
 
         showIndentLine = self.pg.GetBool("ShowIndentLine", True)
         indentLayout = QtGui.QHBoxLayout()
@@ -792,6 +840,18 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
     def onFindEditReturnPressed(self):
         self.onFindBtnClicked(True)
 
+####new
+    def on_CBox_Find(self,text):
+        global duplicate_Find
+
+        if text not in duplicate_Find:
+            duplicate_Find.append(text)
+            duplicate_Find = sorted(list(set(duplicate_Find))) # sort
+            self.CBox_Find.addItem(text)
+        self.CBox_Find.setCurrentText(text)
+        self.findEdit.setText(text)
+####new
+
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
@@ -832,6 +892,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if self.loopCheckBox.checkState():
                 self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
+        self.on_CBox_Find(txt)
 
     def updateSnapBtns(self,refresh=True):
         if refresh:
@@ -1140,11 +1201,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
         qtMenu.addAction(QtGuiAction)
 
-        QtNetworkAction = QtGui.QAction("QtNetwork") if hasQtNetwork else QtGui.QAction("QtNetwork (not installed)")
+        QtNetworkAction = QtGui.QAction("QtNetwork")
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
-        if not hasQtNetwork:
-            qtNetWorkAction.setEnabled(False)
 
         QtHelpAction = QtGui.QAction("QtHelp")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
@@ -1944,6 +2003,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 self.gotoLine(-1, silent=True, eol=True)
             else:
                 self.toast(f"{txt} not found backwards in {name}","Message")
+        self.on_CBox_Find(txt)
 
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
@@ -2014,6 +2074,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         newTxt = self.replaceEdit.text()
+####new
+        self.on_CBox_replaceEdit(newTxt)
+####new
         self.replace(name, txt, newTxt)
 
     def onReplaceBtnClicked(self, arg1):
@@ -2034,11 +2097,26 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         txt1 = txt[:start]
         txt2 = txt[end:]
         newtxt = self.replaceEdit.text()
+####new
+        self.on_CBox_replaceEdit(newtxt)
+####new
         newText = txt1 + newtxt + txt2
         self.setText(name,newText,f"replace {txt[start:end]}")
         text_cursor.setPosition(end)
         self.currentEditor.setTextCursor(text_cursor)
         self.onFindBtnClicked(True)
+
+####new
+    def on_CBox_replaceEdit(self,text):
+        global duplicate_Replace
+
+        if text not in duplicate_Replace:
+            duplicate_Replace.append(text)
+            duplicate_Replace = sorted(list(set(duplicate_Replace))) # sort
+            self.CBox_replaceEdit.addItem(text)
+        self.CBox_replaceEdit.setCurrentText(text)
+        self.replaceEdit.setText(text)
+####new
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
