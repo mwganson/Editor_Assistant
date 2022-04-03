@@ -3,13 +3,14 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.68"
+__version__ = "1.69"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
 from PySide import QtGui,QtCore
 import difflib
 import json
+import re
 ## used for help -> reference menus
 import PySide2
 from PySide2 import QtNetwork, QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
@@ -90,10 +91,12 @@ class FindEdit (QtGui.QLineEdit):
         actionHighlight = QtGui.QAction("Highlight",self)
         actionHighlight.triggered.connect(self.highlight)
         actionHighlight.setEnabled(len(self.text()))
-        menu.addAction(actionHighlight)
+        if self == self.form.findEdit:
+            menu.addAction(actionHighlight)
 
     def highlight(self):
-        self.form.highlight(self.text())
+        if self == self.form.findEdit:
+            self.form.highlightFromFind()
 
     def clear(self):
         self.setText("")
@@ -119,6 +122,7 @@ class TaskEditorAssistant:
         #GetInt(), SetInt(), GetFloat(), SetFloat(), GetBool(), SetBool(), GetASCII(), SetASCII()
         self.isTabbed=False
         self.found = False #find result
+        self.lastHighlightMode = None #can be None, "find", or "selection"
         self.gotoLineDict = {} #to save goto line edit value for each editor
         self.editorDict = {}
         self.editors = []
@@ -315,6 +319,7 @@ Find results = results of searches for text in Find line edit\n\
         self.matchWholeCheckBox.setToolTip("Match whole words")
         self.matchWholeCheckBox.stateChanged.connect(self.onMatchWholeCheckBoxStateChanged)
         self.matchCaseCheckBox = QtGui.QCheckBox()
+        self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
         self.loopCheckBox = QtGui.QCheckBox("Loop")
@@ -436,6 +441,7 @@ Type 'help(editor)' in the console for help.\n\
         if not txt:
             self.toast("Nothing selected","Error")
             return
+        self.lastHighlightMode = "selection"
         self.highlight(txt)
 
     def highlightFromFind(self):
@@ -444,9 +450,7 @@ Type 'help(editor)' in the console for help.\n\
             self.toast("No editor","Error")
             return
         txt = self.findEdit.text()
-        if not txt:
-            self.toast("Nothing in find edit","Error")
-            return
+        self.lastHighlightMode = "find"
         self.highlight(txt)
 
     def highlight(self, txt, color="aqua"):
@@ -458,21 +462,9 @@ Type 'help(editor)' in the console for help.\n\
         cursor = self.currentEditor.textCursor()
         start,end = self.getTC(cursor)
         self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
-
-        indices = []
-        if self.matchCaseCheckBox.checkState():
-            count = plainText.count(txt)
-            idx = plainText.find(txt)
-            while idx != -1:
-                indices.append(tuple([idx, idx+len(txt)]))
-                idx = plainText.find(txt, idx+len(txt))
-        else: #case-insensitive
-            count = plainText.lower().count(txt.lower())
-            idx = plainText.lower().find(txt.lower())
-            while idx != -1:
-                indices.append(tuple([idx, idx+len(txt)]))
-                idx = plainText.lower().find(txt.lower(), idx+len(txt))
+        indices = self.reFindIndices(plainText, txt, 0)
         extraSelections = []
+        count = len(indices)
         for ind in indices:
             extraSelection = QtGui.QTextEdit.ExtraSelection()
             extraSelection.cursor = self.currentEditor.textCursor()
@@ -587,6 +579,8 @@ Type 'help(editor)' in the console for help.\n\
             return txt
 
     def replace(self, name, txt, newTxt):
+        """replace txt with newTxt in editor name"""
+        #only used by replace all
         if not txt:
             self.toast("nothing to replace","Error")
             return
@@ -598,30 +592,17 @@ Type 'help(editor)' in the console for help.\n\
             fullText = self.getText(name)
         else:
             fullText = self.currentEditor.textCursor().selectedText()
-        if self.matchCaseCheckBox.checkState():
-            txt = self.filterBackSlashes(txt)
-            newText = fullText.replace(txt, newTxt)
-            count = fullText.count(txt)
-        else:
-            fulltextlower = fullText.lower()
-            txtlower = self.filterBackSlashes(txt.lower())
-            indices = []#(from,to) tuples
-            idx = 0
-            while idx != -1:
-                idx = fulltextlower.find(txtlower,idx)
-                if idx==-1:
-                    break
-                indices.append(tuple([idx,idx+len(txtlower)]))
-                idx += len(txtlower)
-            chunks = []
-            last = -1
-            for i in reversed(indices):
-                chunks.insert(0, fullText[i[1]:last])
-                chunks.insert(0, newTxt)
-                last = i[0]
-            chunks.insert(0, fullText[:last])
-            newText = "".join(chunks)
-            count = len(indices)
+        txt = self.filterBackSlashes(txt)
+        indices = self.reFindIndices(fullText, txt, 0)
+        chunks = []
+        last = -1
+        for i in reversed(indices):
+            chunks.insert(0, fullText[i[1]:last])
+            chunks.insert(0, newTxt)
+            last = i[0]
+        chunks.insert(0, fullText[:last])
+        newText = "".join(chunks)
+        count = len(indices)
         self.toast(f"{count} instances of {txt} replaced in {name}","Message")
         if not count == 0:
             if not inSelectionOnly:
@@ -630,9 +611,29 @@ Type 'help(editor)' in the console for help.\n\
                 self.setModified(name,self.currentEditor.toPlainText(), "Replace in selection",self.getTC(self.currentEditor.textCursor()))
                 self.currentEditor.textCursor().insertText(newText)
 
+    def reFindIndices(self, plainText, txt, searchFrom = 0):
+        """replaces plainText.find(txt, searchFrom=0) with same find using re
+           respecting states of match case checkbox and whole words checkbox
+            returns list of tuples[(idx, idx2),(idx, idx2),...]"""
+        flags = 0 if self.matchCaseCheckBox.checkState() else re.IGNORECASE
+        compiled = re.compile("\\b"+txt+"\\b", flags=flags) if self.matchWholeCheckBox.checkState() else re.compile(txt, flags=flags)
+        iter = compiled.finditer(plainText, pos=searchFrom)
+        indices = []
+        for ii, match in enumerate(iter):
+            indices.append(match.span())
+        return indices
+
+    def onMatchCaseCheckBoxStateChanged(self, arg1):
+        if self.lastHighlightMode == "selection":
+            self.highlightFromSelection()
+        elif self.lastHighlightMode == "find":
+            self.highlightFromFind()
 
     def onMatchWholeCheckBoxStateChanged(self, arg1):
-        self.replaceAllBtn.setEnabled(not self.matchWholeCheckBox.checkState())
+        if self.lastHighlightMode == "selection":
+            self.highlightFromSelection()
+        elif self.lastHighlightMode == "find":
+            self.highlightFromFind()
 
     def find(self, name, txt, backward = False):
         self.setCurrentEditor()
@@ -797,6 +798,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         count = plainText.count(txt)
         if name and txt:
             self.toast(f"{txt} count in {name}: {count}","Message")
+        self.highlightFromFind()
 
     def onFindBtnClicked(self, arg1=True):
         self.onRefreshBtnClicked(True)
@@ -1993,9 +1995,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.currentEditor.setTextCursor(tc)
 
     def onReplaceAllBtnClicked(self, arg1):
-        if self.matchWholeCheckBox.checkState():
-            self.toast("Replace all does not work with Match word = checked","Error",10000)
-            return
         self.onRefreshBtnClicked(True)
         if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
