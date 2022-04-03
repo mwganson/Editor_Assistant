@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.71"
+__version__ = "1.69c"
 __date__    = "2022/04/03"
 #
 UNDO_QUEUE_MAX_SIZE = 100
@@ -22,14 +22,8 @@ import json
 import re
 ## used for help -> reference menus
 import PySide2
-from PySide2 import QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
+from PySide2 import QtNetwork, QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
                     QtSql, QtSvg, QtTest, QtWidgets, QtXml, QtXmlPatterns
-hasQtNetwork = False
-try:
-    from PySide2 import QtNetwork
-    hasQtNetwork = True
-except ImportError:
-    pass
 import Draft
 import DraftUtils
 import Fem
@@ -1207,11 +1201,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
         qtMenu.addAction(QtGuiAction)
 
-        QtNetworkAction = QtGui.QAction("QtNetwork") if hasQtNetwork else QtGui.QAction("QtNetwork (not installed)")
+        QtNetworkAction = QtGui.QAction("QtNetwork")
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
-        if not hasQtNetwork:
-            qtNetWorkAction.setEnabled(False)
 
         QtHelpAction = QtGui.QAction("QtHelp")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
