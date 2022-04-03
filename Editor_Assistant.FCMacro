@@ -3,7 +3,7 @@
 #as a new task panel dialog
 #https://forum.freecadweb.org/viewtopic.php?f=22&t=67242
 #2022, <TheMarkster> LGPL2.1 or later
-__version__ = "1.69b"
+__version__ = "1.69c"
 UNDO_QUEUE_MAX_SIZE = 100
 BOOKMARK_MARKER = "##:"
 
@@ -458,6 +458,8 @@ Type 'help(editor)' in the console for help.\n\
         if not self.currentEditor:
             self.toast("No current editor","Error")
             return
+        if not txt:
+            return
         plainText = self.currentEditor.toPlainText()
         cursor = self.currentEditor.textCursor()
         start,end = self.getTC(cursor)
@@ -617,9 +619,9 @@ Type 'help(editor)' in the console for help.\n\
             returns list of tuples[(idx, idx2),(idx, idx2),...]"""
         flags = 0 if self.matchCaseCheckBox.checkState() else re.IGNORECASE
         compiled = re.compile("\\b"+txt+"\\b", flags=flags) if self.matchWholeCheckBox.checkState() else re.compile(txt, flags=flags)
-        iter = compiled.finditer(plainText, pos=searchFrom)
+        reIter = compiled.finditer(plainText, pos=searchFrom)
         indices = []
-        for ii, match in enumerate(iter):
+        for ii, match in enumerate(reIter):
             indices.append(match.span())
         return indices
 
@@ -798,7 +800,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         count = plainText.count(txt)
         if name and txt:
             self.toast(f"{txt} count in {name}: {count}","Message")
-        self.highlightFromFind()
+        if self.lastHighlightMode == "find":
+            self.highlightFromFind()
 
     def onFindBtnClicked(self, arg1=True):
         self.onRefreshBtnClicked(True)
