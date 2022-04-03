@@ -239,6 +239,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.69b (2022.04.02)
+* make lastHighlightMode = "find" by default so user gets highlighting when first entering anything into find edit
 ### 1.69 (2022.04.02)
 * Support Match whole words with highlighting and replace all (already worked with replace next)
 * Redo highlighting when find edit text changes
