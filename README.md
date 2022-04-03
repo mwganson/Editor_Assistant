@@ -1,5 +1,5 @@
 # Editor_Assistant
-FreeCAD macro adds functionality to FreeCAD's built-in python editor
+FreeCAD macro adds additional functionality to FreeCAD's built-in python editor.  It is not a replacement for the editor, but rather a supplemental toolkit for the editor.  It gives you functions like find and replace, diffing, snapshots, templates, and convenient links to help and documentation.
 
 ## Installation
 Install via the Addon manager (soon).  Until then copy the .FCMacro file to your Macro folder.  The macro will create a new file called Editor_Assistant_Templates.txt in the same folder.  This file holds the templates.  It will need to be removed manually when you uninstall the macro.
@@ -11,31 +11,31 @@ Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a hr
 <img src="Editor_Assistant_scr1.png" alt="screenshot">
 
 ## Usage
-By defaul the macro opens in a 3rd take in the combo view.  You will have Model, Task, and Editor assistant tabs.  If you prefer having a floating dockable, hold Alt key down while executing the macro.  
+By default the macro opens in a 3rd tab in the combo view.  You will have Model, Task, and Editor assistant tabs.  If you prefer having a floating dockable, hold Alt key down while executing the macro.  
 
-The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  Basically, any view in the MDI area that has a QPlainTextEdit as a child shows up in the macro's editor list at the top of the dialog.  The edior list will need to be refreshed from time to time when you open/close a document, using the "Refresh"  button.
+The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  Basically, any view in the MDI area that has a QPlainTextEdit as a child shows up in the macro's editor list at the top of the dialog.  The editor list will need to be refreshed from time to time when you open/close a document, using the "Refresh" button.  Ensure you are viewing the current editor by selecting it in the editor list at the top of the macro.
 
 The widgets in the dialog are presented in a series of horizontal lines (using QHBoxLayouts).  Here I will discuss briefly each line and the widgets contained on each.
 
 ## Top line
 The Top Line has the Main menu button and the Toast button.
 ### Main menu button
-This button is at the top left of the dialog and has the main editor assistant icon.  Click the button to bring up the main menu.  The main menu will be discussed in more detail below.
+This button is at the top left of the dialog and has the main editor assistant icon.  Click the button to bring up the main menu, which contains the Close option to exit the macro.  (But it's not really necessary to close the macro, just switch to one of the other tabs.)  The main menu will be discussed in more detail below.
 ### Toast button
 At the top of the dialog, above the Editor List there is a button reserved for "toast" messages.  These are transient messages that disappear automatically after a few seconds.  They can be error messages or just information.  The button serves as the label for the messages.  Click the button to see a log of previous messages in the Report view.  The color of the message indicates the type of message.  Types are: message: black, information: blue, error: red, warning: yellow.  For some types the background color of the toast button is temporarily changed to provide better contrast.
 ## Editor line
 ### Editor list
-This is the QListWidget at the top of the dialog.  It will list the names of the documents currently registered with the dialog.  Select an item in the list to make make that item the current editor.  This also sets the focus on that editor.  All the actions in the dialog will work on that current editor even if you select a different editor in FreeCAD's MDI widget.  It is recommended to select the editor here so the dialog is in sync with the correct editor.
+This is the QListWidget at the top of the dialog.  It will list the names of the documents currently registered with the dialog.  Select an item in the list to make make that item the current editor.  This also sets the focus on that editor.  All the actions in the dialog will work on that current editor even if you select a different editor in FreeCAD's MDI widget.  It is recommended to select the editor here so the dialog is in sync with the correct editor.  From time to time the list might need to be synchronized with the open editors when a file has been opened/closed/created.  Press Refresh to do this.
 ## Refresh line
 ### Refresh button
 This button is labeled "Refresh".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  Updates also happen when other functions are used and when documents are opened, but not when closed.
 ### Goto menu button
-This button is next to the refresh button and currently has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.
+This button is next to the refresh button and currently has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.  It provides quick access to find results, bookmarks, line number presets, and more.
 #### Go to line numbers
-This is a QLineEdit that can hold either a single number (the line number you wish to go to) or a list of numbers that will appear in a selection menu when press return/enter while the widget has keyboard focus.  The goto line option(s) appear as menu items in the Goto menu.
+This is a QLineEdit that can hold either a single number (the line number you wish to go to) or a (comma separated) list of numbers that will appear in a selection menu when press return/enter while the widget has keyboard focus.  The goto line option(s) appear as menu items in the Goto menu.
 ## Undo line
 ### Undo button
-Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typing that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).
+Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typing that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).  The editor has its own Undo/Redo system that does not always coincide with the macro's Undo/Redo queue.  Use the macro's Undo to undo things done in teh macro, such as replacing text or something done in the To console: edit.
 
 Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
 ### Purge undo/redo queues
@@ -44,7 +44,7 @@ Clicking this button purges the undo/redo queues.  This cannot be undone.
 When an operation is undone, the undone is popped and sent to the redo queue.
 ## Find line
 ### Find edit
-This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  (The Match case checkbox figures into this analysis, but not the Whole words checkbox.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
+This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  If you are in "find" highlight mode you will also see matching text being highlighted in the current editor, if it is visible.  (The Match case checkbox and the Whole words checkbox both figure into this.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
 
 The text in the Find edit can also be used to fill in replacement text when using templates, discussed in more detail below.
 ### Find next
@@ -187,14 +187,16 @@ In addition to the reference submenu you can also search FreeCAD source code and
 Note: the menu creation can also be done via the To console: line edit.  Type in menu("Part.Circle") to see an example.  Similarly, search("search string") searches FreeCAD source on github and qSearch("search string") searches Qt for Python documentation.
 
 #### Highlight menu
-Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit and Replace edit context menus.  Note: the text highlighting is automatically undone when the selection changes.
+Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit context menu.  Note: the text highlighting is automatically undone when the selection changes.
 
-Highlight mode does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.  But the undo is still there in case you want to restore the cursor position.
+Highlighting does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.  But the undo is still there in case you want to restore the cursor position.
+
+There are 2 highlighting modes: "find" and "selection".  By default, the macro opens in "find" highlight mode.  If you select some text in the current editor, then invoke highlight from selection from the main menu, this puts you into "selection" mode.  When in "find" mode, every time you make a change to the text in the Find edit the highlighting gets updated.  When in "selection" mode this does not happen, not even when the selection changes.  (You can double click the Find edit to conveniently put the selected text into it.)
+
+When changing the state of the Match case and Match whole words checkboxes, the highlighting gets updated automatically.
 
 ##### From selection
-This uses the text currently selected in the current editor as the search text for the highlight process.  The selected text must exactly match (case-sensitive) regardless of the Match case checkbox checked or unchecked state.
-
-Tip: Select some text in the editor.  Double click the Find edit to put the selected text into it.  Right click, choose highlight from the context menu.
+This uses the text currently selected in the current editor as the search text for the highlight process.  This can be useful where you have some text in the Find edit that you don't want to change, but you want to highlight occurrences of some text in the current editor.  It is recommended to use the Find edit where possible because then when you update the text in the Find edit the highlight changes automatically.  This doesn't happen when changing the selected text while in "selection" highlight mode.
 
 ##### From find
 This uses the text in the Find edit as the search text for the highlight process.
