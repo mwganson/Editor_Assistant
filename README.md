@@ -165,6 +165,8 @@ This creates a new template that is a copy of the currently selected template, t
 This deletes the currently selected template.  If you delete the last template, a new default is created.  This is so there is always at least one template.  Deleting cannot be undone.  (But if you press the cancel button your templates file has not yet been changed at this point.  It only changes on clicking Apply or Ok.)
 ###### Rename button
 This allows to rename a template.  You cannot have 2 templates with the same name.
+###### Filter
+The very top of the dialog features a filter section.  If the checkbox is checked, then the text in the filter edit (if any) is used to filter which templates are showing in the template list.  There is also a match case checkbox for case-sensitive filtering.  When filtering, only those template times that have the filter text in their names will be shown.
 ###### templateList (QListWidget)
 This is the list of templates at the top of the dialog.  Select the template to work on and its text appears in the edit widget.  Changing templates causes the previous template's changes to be updated in editor memory, but not the templates file.  That file only gets updated when pressing Ok or Apply.  Press Cancel to close the dialog without changing the templates file (as long as you didn't already use Apply).
 ###### edit (QPlainTextEdit)
