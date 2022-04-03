@@ -239,6 +239,10 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.69 (2022.04.02)
+* Support Match whole words with highlighting and replace all (already worked with replace next)
+* Redo highlighting when find edit text changes
+* Redo highlighting when match case or whole words checkbox state changes
 ### 1.68 (2022.04.02)
 * Make highlight function respect state of match case checkbox
 ### 1.67 (2022.04.02)
