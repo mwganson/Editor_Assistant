@@ -241,6 +241,10 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.72 (2022.04.03)
+* add new combo boxes to settings -> layout menu, make hidden by default to keep dialog small
+### 1.71 (2022.04.03)
+* accept mario52 PR, put new combo boxes that remember recent Find and Replace texts
 ### 1.70 (2022.04.03)
 * Check if QtNetwork is available, if not disable in help -> reference -> qt -> menu
 ### 1.69c (2022.04.02)
