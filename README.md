@@ -241,6 +241,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.70 (2022.04.03)
+* Check if QtNetwork is available, if not disable in help -> reference -> qt -> menu
 ### 1.69c (2022.04.02)
 * bug fix: 'selection' mode was switching to 'find' mode without user invoking highlight by find
 * performance fix: return from highlight() if txt to be highlighted is empty string
