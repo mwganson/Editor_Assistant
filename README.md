@@ -239,6 +239,9 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.69c (2022.04.02)
+* bug fix: 'selection' mode was switching to 'find' mode without user invoking highlight by find
+* performance fix: return from highlight() if txt to be highlighted is empty string
 ### 1.69b (2022.04.02)
 * make lastHighlightMode = "find" by default so user gets highlighting when first entering anything into find edit
 ### 1.69 (2022.04.02)
