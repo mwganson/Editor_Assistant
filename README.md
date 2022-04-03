@@ -241,6 +241,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.74 (2022.04.03)
+* add to settings menu: Show all, Show defaults, Show minimal
 ### 1.73 (2022.04.03)
 * add UndoQueueMaxSize to parameters, default = 100
 * add BookmarkMarker to parameters, default = "##:"
