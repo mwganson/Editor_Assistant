@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.77"
+__version__ = "1.78"
 __date__    = "2022/04/03"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -723,7 +723,7 @@ Type 'help(editor)' in the console for help.\n\
            respecting states of match case checkbox and whole words checkbox
             returns list of tuples[(idx, idx2),(idx, idx2),...]"""
         flags = 0 if self.matchCaseCheckBox.checkState() else re.IGNORECASE
-        compiled = re.compile("\\b"+txt+"\\b", flags=flags) if self.matchWholeCheckBox.checkState() else re.compile(txt, flags=flags)
+        compiled = re.compile(r"\b" + re.escape(txt) + r"\b", flags=flags) if self.matchWholeCheckBox.checkState() else re.compile(re.escape(txt), flags=flags)
         reIter = compiled.finditer(plainText, pos=searchFrom)
         indices = []
         for ii, match in enumerate(reIter):
