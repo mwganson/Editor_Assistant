@@ -243,6 +243,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.78 (2022.04.04)
+* fix bug in highlighting where keys like "+" were being interpreted as re special characters
 ### 1.77 (2022.04.03)
 * bookmark icons
 ### 1.76 (2022.04.03)
