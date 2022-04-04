@@ -243,6 +243,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.77 (2022.04.03)
+* bookmark icons
 ### 1.76 (2022.04.03)
 * add bookmark features
 * add bookmark buttons to goto line
