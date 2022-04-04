@@ -10,11 +10,18 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.69c"
+__version__ = "1.77"
 __date__    = "2022/04/03"
 #
-UNDO_QUEUE_MAX_SIZE = 100
-BOOKMARK_MARKER = "##:"
+pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
+UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
+pg.SetInt("UndoQueueMaxSize",UNDO_QUEUE_MAX_SIZE)
+
+BOOKMARK_MARKER = pg.GetString("BookmarkMarker","#"+"#:") #+ is so we don't toggle this accidentally
+pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
+
+MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
+pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
 from PySide import QtGui,QtCore
 import difflib
@@ -22,8 +29,14 @@ import json
 import re
 ## used for help -> reference menus
 import PySide2
-from PySide2 import QtNetwork, QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
+from PySide2 import QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
                     QtSql, QtSvg, QtTest, QtWidgets, QtXml, QtXmlPatterns
+hasQtNetwork = False
+try:
+    from PySide2 import QtNetwork
+    hasQtNetwork = True
+except ImportError:
+    pass
 import Draft
 import DraftUtils
 import Fem
@@ -52,10 +65,8 @@ import TechDrawGui
 import Web
 import WebGui
 
-####new
 global duplicate_Find   ; duplicate_Find    = []
 global duplicate_Replace; duplicate_Replace = []
-####new
 
 try:
     import shiboken2 as shiboken
@@ -132,8 +143,7 @@ class CustomQWidget(QtGui.QWidget):
 class TaskEditorAssistant:
     def __init__(self):
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
-        self.pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
-        #GetInt(), SetInt(), GetFloat(), SetFloat(), GetBool(), SetBool(), GetASCII(), SetASCII()
+        #GetInt(), SetInt(), GetFloat(), SetFloat(), GetBool(), SetBool(), GetString(), SetString()
         self.isTabbed=False
         self.found = False #find result
         self.lastHighlightMode = "find" #can be None, "find", or "selection"
@@ -169,7 +179,9 @@ class TaskEditorAssistant:
         #gotoLayout = goto home button + goto end button (hidden by default)
         #undoLayout =  undo + pop undos + redo
         #findEditLayout = Find edit + search + search previous
+        #findEditLayout2 = CBox_Find
         #replaceEditLayout = Replace edit + replace + replace all
+        #replaceEditLayout2 = CBox_replaceEdit
         #indentLayout = unindent button + indent button + Match case checkbox + whole words checkbox
         #snapLayout = snap button + discard button + snap menu + pop button
         #consoleLayout = to console label + console line edit
@@ -179,7 +191,7 @@ class TaskEditorAssistant:
         topLabelLayout = QtGui.QHBoxLayout()
         self.mainMenuBtn = QtGui.QPushButton()
         self.mainMenuBtn.setIcon(QIconFromXPMString(__icon__))
-        self.mainMenuBtn.setMaximumWidth(32)
+        self.mainMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.mainMenuBtn.setToolTip("Main menu")
         self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
         topLabelLayout.addWidget(self.mainMenuBtn)
@@ -191,9 +203,11 @@ class TaskEditorAssistant:
         self.layout.addLayout(topLabelLayout)
 
         editorLayout = QtGui.QHBoxLayout()
-        showEditorList = self.pg.GetBool("ShowEditorList",True)
+        showEditorList = pg.GetBool("ShowEditorList",True)
         self.editorList = QtGui.QListWidget()
-        self.editorList.setMinimumHeight(85)
+        editorListMinimumHeight = pg.GetInt("EditorListMinimumHeight",32)
+        pg.SetInt("EditorListMinimumHeight", editorListMinimumHeight)
+        self.editorList.setMinimumHeight(editorListMinimumHeight)
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
         self.editorList.doubleClicked.connect(self.onRefreshBtnClicked)
         self.editorList.setToolTip("Open editors, press Refresh to update")
@@ -204,7 +218,7 @@ class TaskEditorAssistant:
         self.populateList()
 
         refreshLayout = QtGui.QHBoxLayout()
-        showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
+        showRefreshLine = pg.GetBool("ShowRefreshLine", True)
         self.refreshBtn = QtGui.QPushButton("Refresh")
         self.refreshBtn.setToolTip("Refresh list of editors in the list widget above")
         self.refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
@@ -223,6 +237,7 @@ Find results = results of searches for text in Find line edit\n\
 ")
         self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
         self.gotoMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
+        self.gotoMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
         self.layout.addLayout(refreshLayout)
@@ -232,19 +247,55 @@ Find results = results of searches for text in Find line edit\n\
             self.gotoLineEdit.setVisible(showRefreshLine)
 
         gotoLayout = QtGui.QHBoxLayout()
-        showGotoLine = self.pg.GetBool("ShowGotoLine",False)
-        self.gotoHomeBtn = QtGui.QPushButton("Home")
+        showGotoLine = pg.GetBool("ShowGotoLine", True)
+        self.gotoHomeBtn = QtGui.QPushButton()
+        self.gotoHomeBtn.setIcon(QIconFromXPMString(home_icon))
+        self.gotoHomeBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.gotoHomeBtn.setToolTip("Go to first line")
         self.gotoHomeBtn.clicked.connect(self.onGotoHomeBtnClicked)
         gotoLayout.addWidget(self.gotoHomeBtn)
-        self.gotoEndBtn = QtGui.QPushButton("End")
+        self.gotoEndBtn = QtGui.QPushButton()
+        self.gotoEndBtn.setIcon(QIconFromXPMString(end_icon))
+        self.gotoEndBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.gotoEndBtn.clicked.connect(self.onGotoEndBtnClicked)
         gotoLayout.addWidget(self.gotoEndBtn)
+
+        self.previousBookmarkBtn = QtGui.QPushButton("")
+        nextIcon = QIconFromXPMString(next_bookmark_icon)
+        prevIcon = QtGui.QPixmap(nextIcon.pixmap(64,64)).transformed(QtGui.QTransform().scale(-1,1), QtCore.Qt.SmoothTransformation)
+        self.previousBookmarkBtn.setIcon(prevIcon)
+        self.previousBookmarkBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        gotoLayout.addWidget(self.previousBookmarkBtn)
+        self.previousBookmarkBtn.setToolTip("Goto previous bookmark")
+        self.previousBookmarkBtn.clicked.connect(self.previousBookmark)
+
+        self.nextBookmarkBtn = QtGui.QPushButton()
+        self.nextBookmarkBtn.setIcon(QIconFromXPMString(next_bookmark_icon))
+        self.nextBookmarkBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        gotoLayout.addWidget(self.nextBookmarkBtn)
+        self.nextBookmarkBtn.setToolTip("Goto next bookmark")
+        self.nextBookmarkBtn.clicked.connect(self.nextBookmark)
+
+        self.toggleBookmarkBtn = QtGui.QPushButton("")
+        self.toggleBookmarkBtn.setIcon(QIconFromXPMString(toggle_bookmark_icon))
+        self.toggleBookmarkBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        gotoLayout.addWidget(self.toggleBookmarkBtn)
+        self.toggleBookmarkBtn.setToolTip("Toggle bookmark")
+        self.toggleBookmarkBtn.clicked.connect(self.toggleBookmark)
+
+        self.removeAllBookmarksBtn = QtGui.QPushButton()
+        self.removeAllBookmarksBtn.setIcon(QIconFromXPMString(remove_all_bookmarks_icon))
+        self.removeAllBookmarksBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        gotoLayout.addWidget(self.removeAllBookmarksBtn)
+        self.removeAllBookmarksBtn.setToolTip("Remove all bookmarks")
+        self.removeAllBookmarksBtn.clicked.connect(self.removeAllBookmarks)
+
         self.layout.addLayout(gotoLayout)
         if not showGotoLine:
             self.gotoHomeBtn.setVisible(showGotoLine)
             self.gotoEndBtn.setVisible(showGotoLine)
 
-        showUndoLine = self.pg.GetBool("ShowUndoLine",True)
+        showUndoLine = pg.GetBool("ShowUndoLine",True)
         undoLayout = QtGui.QHBoxLayout()
         self.undoBtn = QtGui.QPushButton()
         self.undoBtn.setEnabled(False)
@@ -253,7 +304,7 @@ Find results = results of searches for text in Find line edit\n\
         self.undoBtn.setIcon(QIconFromXPMString(undo_icon))
         self.undoClearBtn = QtGui.QPushButton()
         self.undoClearBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
-        self.undoClearBtn.setMaximumWidth(48)
+        self.undoClearBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.undoClearBtn.setToolTip("Purge undo/redo queues.  Clears both queues.")
         self.undoClearBtn.clicked.connect(self.onUndoClearBtnClicked)
         self.undoClearBtn.setEnabled(False)
@@ -270,8 +321,7 @@ Find results = results of searches for text in Find line edit\n\
             self.undoClearBtn.setVisible(showUndoLine)
         self.layout.addLayout(undoLayout)
 
-
-        showFindLine = self.pg.GetBool("ShowFindLine",True)
+        showFindLine = pg.GetBool("ShowFindLine",True)
         findEditLayout = QtGui.QHBoxLayout()
         self.findEdit = FindEdit(form=self)
         self.findEdit.setPlaceholderText("Find:")
@@ -280,16 +330,18 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout.addWidget(self.findEdit)
         self.findBtn = QtGui.QPushButton()
         self.findBtn.setIcon(QIconFromXPMString(find_next_icon))
+        self.findBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.findBtn.setToolTip("Find next\nCtrl+Click = Find from start\nAlt+Click = Find from selection")
         self.findBtn.clicked.connect(self.onFindBtnClicked)
         self.findBackBtn = QtGui.QPushButton()
         self.findBackBtn.setIcon(QIconFromXPMString(find_previous_icon))
+        self.findBackBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.findBackBtn.setToolTip("Find previous\nCtrl+Click = Find from end\nAlt+Click = Find from selection")
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
 
-####new
+        showFindLine2 = pg.GetBool("ShowFindLine2",False)
         findEditLayout2 = QtGui.QHBoxLayout()
         self.CBox_Find = QtWidgets.QComboBox()
         #self.CBox_Find.setCurrentIndex(4)
@@ -298,23 +350,19 @@ Find results = results of searches for text in Find line edit\n\
         self.CBox_Find.setEditable(True)              # editable
         QtCore.QObject.connect(self.CBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_Find)
         findEditLayout2.addWidget(self.CBox_Find)
-####new
 
         if not showFindLine:
             self.findEdit.setVisible(showFindLine)
             self.findBtn.setVisible(showFindLine)
             self.findBackBtn.setVisible(showFindLine)
-####new
-            self.CBox_Find.setVisible(showFindLine)
-####new
+
+        if not showFindLine2:
+            self.CBox_Find.setVisible(showFindLine2)
 
         self.layout.addLayout(findEditLayout)
-
-####new
         self.layout.addLayout(findEditLayout2)
-####new
 
-        showReplaceLine = self.pg.GetBool("ShowReplaceLine",True)
+        showReplaceLine = pg.GetBool("ShowReplaceLine",True)
         replaceEditLayout = QtGui.QHBoxLayout()
         #replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
         self.replaceEdit = FindEdit(form=self)
@@ -324,14 +372,16 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceBtn.setToolTip("Replace current selection and find next")
         self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
         self.replaceBtn.setIcon(QIconFromXPMString(replace_icon))
+        self.replaceBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.replaceAllBtn = QtGui.QPushButton()
         self.replaceAllBtn.setToolTip("Replace all\nCtrl+Click = Replace only in selection")
         self.replaceAllBtn.setIcon(QIconFromXPMString(replace_all_icon))
+        self.replaceAllBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
 
-####new
+        showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
         replaceEditLayout2 = QtGui.QHBoxLayout()
         self.CBox_replaceEdit = QtWidgets.QComboBox()
         #self.CBox_replaceEdit.setCurrentIndex(4)
@@ -340,34 +390,33 @@ Find results = results of searches for text in Find line edit\n\
         self.CBox_replaceEdit.setEditable(True)              # editable
         QtCore.QObject.connect(self.CBox_replaceEdit, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_replaceEdit)
         replaceEditLayout2.addWidget(self.CBox_replaceEdit)
-####new
 
         if not showReplaceLine:
             self.replaceEdit.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
-####new
-            self.CBox_replaceEdit.setVisible(showReplaceLine)
-####new
+
+        if not showReplaceLine2:
+            self.CBox_replaceEdit.setVisible(showReplaceLine2)
 
         self.layout.addLayout(replaceEditLayout)
-
-####new
         self.layout.addLayout(replaceEditLayout2)
-####new
 
-        showIndentLine = self.pg.GetBool("ShowIndentLine", True)
+        showIndentLine = pg.GetBool("ShowIndentLine", True)
         indentLayout = QtGui.QHBoxLayout()
         self.indentBackBtn = QtGui.QPushButton()
         self.indentBackBtn.setIcon(QIconFromXPMString(unindent_icon))
+        self.indentBackBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.indentBackBtn.setToolTip("Decrease indentation of selection")
         self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
         indentLayout.addWidget(self.indentBackBtn)
         self.indentBtn = QtGui.QPushButton()
         self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
+        self.indentBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.indentBtn.setToolTip("Increase indentation of selection")
         self.indentBtn.clicked.connect(self.onIndentBtnClicked)
         indentLayout.addWidget(self.indentBtn)
+        indentLayout.addStretch()
         self.matchWholeCheckBox = QtGui.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
         self.matchWholeCheckBox.setToolTip("Match whole words")
@@ -392,12 +441,12 @@ Find results = results of searches for text in Find line edit\n\
             self.matchWholeCheckBox.setVisible(showIndentLine)
         self.layout.addLayout(indentLayout)
 
-        showSnapsLine = self.pg.GetBool("ShowSnapLine",True)
+        showSnapsLine = pg.GetBool("ShowSnapLine",True)
         snapLayout = QtGui.QHBoxLayout()
         self.takeSnapBtn = QtGui.QPushButton()
 
         self.takeSnapBtn.setIcon(QIconFromXPMString(snapshot_icon))
-        self.takeSnapBtn.setMaximumWidth(48)
+        self.takeSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.takeSnapBtn.setToolTip("Take a snapshot of the text")
         self.snapCenterBtn = QtGui.QPushButton()
 
@@ -408,15 +457,17 @@ Find results = results of searches for text in Find line edit\n\
         snapCenterBtnLayout.setContentsMargins(snapCenterBtnLayoutMargins)
         snapCenterBtnLayout.setSpacing(0)
         self.snapCenterBtn.setLayout(snapCenterBtnLayout)
-        self.snapCenterBtn.setMaximumWidth(64)
+        self.snapCenterBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH *2)
         self.discardSnapBtn = QtGui.QPushButton()
 
         self.discardSnapBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.discardSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.discardSnapBtn.clicked.connect(self.discardSnap)
         self.discardSnapBtn.setToolTip("Discard the latest snap")
         snapCenterBtnLayout.addWidget(self.discardSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
         self.snapMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
+        self.snapMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.snapMenuBtn.setToolTip("\
 Snapshots menu\n\
 Restore = replace current text with snap and keep snap\n\
@@ -446,7 +497,7 @@ Diff = show difference between snap and current text\n\
             self.discardSnapBtn.setVisible(showSnapsLine)
             self.snapMenuBtn.setVisible(showSnapsLine)
 
-        showConsoleLine = self.pg.GetBool("ShowConsoleLine", True)
+        showConsoleLine = pg.GetBool("ShowConsoleLine", True)
         consoleLayout = QtGui.QHBoxLayout()
         self.consoleLabel = QtGui.QLabel("To console:")
 
@@ -840,7 +891,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
     def onFindEditReturnPressed(self):
         self.onFindBtnClicked(True)
 
-####new
     def on_CBox_Find(self,text):
         global duplicate_Find
 
@@ -850,7 +900,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             self.CBox_Find.addItem(text)
         self.CBox_Find.setCurrentText(text)
         self.findEdit.setText(text)
-####new
 
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
@@ -989,10 +1038,14 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         showDict = {
             "ShowEditorList": [self.editorList],
             "ShowRefreshLine": [self.refreshBtn, self.gotoMenuBtn, self.gotoLineEdit],
-            "ShowGotoLine": [self.gotoEndBtn, self.gotoHomeBtn],
+            "ShowGotoLine": [self.gotoEndBtn, self.gotoHomeBtn, self.nextBookmarkBtn, \
+                                self.previousBookmarkBtn, \
+                                self.removeAllBookmarksBtn, self.toggleBookmarkBtn],
             "ShowUndoLine": [self.undoBtn, self.undoClearBtn, self.redoBtn],
             "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn],
+            "ShowFindLine2": [self.CBox_Find],
             "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn],
+            "ShowReplaceLine2": [self.CBox_replaceEdit],
             "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.matchCaseCheckBox, \
                                 self.matchWholeCheckBox, self.loopCheckBox],
             "ShowSnapsLine": [self.takeSnapBtn, self.discardSnapBtn, self.snapCenterBtn, self.snapMenuBtn, self.popSnapBtn],
@@ -1002,7 +1055,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             widget.setVisible(show)
 
     def setBool(self, name, value):
-        self.pg.SetBool(name,value)
+        pg.SetBool(name,value)
         self.showWidgets(name,value)
 
     def onMainMenuBtnClicked(self, arg1):
@@ -1011,20 +1064,39 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
         def makeToggler(name,value): return lambda: self.setBool(name,value)
 
+
 #begin settings menu
-        showEditorList = self.pg.GetBool("ShowEditorList", True)
-        showRefreshLine = self.pg.GetBool("ShowRefreshLine", True)
-        showGotoLine = self.pg.GetBool("ShowGotoLine", False)
-        showUndoLine = self.pg.GetBool("ShowUndoLine", True)
-        showFindLine = self.pg.GetBool("ShowFindLine", True)
-        showReplaceLine = self.pg.GetBool("ShowReplaceLine", True)
-        showIndentLine = self.pg.GetBool("ShowIndentLine", True)
-        showSnapsLine = self.pg.GetBool("ShowSnapsLine", True)
-        showConsoleLine = self.pg.GetBool("ShowConsoleLine", True)
+        showEditorList = pg.GetBool("ShowEditorList", True)
+        showRefreshLine = pg.GetBool("ShowRefreshLine", True)
+        showGotoLine = pg.GetBool("ShowGotoLine", True)
+        showUndoLine = pg.GetBool("ShowUndoLine", True)
+        showFindLine = pg.GetBool("ShowFindLine", True)
+        showFindLine2 = pg.GetBool("ShowFindLine2", False)
+        showReplaceLine = pg.GetBool("ShowReplaceLine", True)
+        showReplaceLine2 = pg.GetBool("ShowReplaceLine2", False)
+        showIndentLine = pg.GetBool("ShowIndentLine", True)
+        showSnapsLine = pg.GetBool("ShowSnapsLine", True)
+        showConsoleLine = pg.GetBool("ShowConsoleLine", True)
+
+        allLines = ["ShowEditorList","ShowRefreshLine","ShowGotoLine","ShowUndoLine",\
+                    "ShowFindLine","ShowFindLine2","ShowReplaceLine","ShowReplaceLine2",\
+                    "ShowIndentLine","ShowSnapsLine","ShowConsoleLine"]
+
+        defaultLines = ["ShowEditorList","ShowRefreshLine","ShowGotoLine", "ShowUndoLine","ShowFindLine",\
+                        "ShowReplaceLine","ShowIndentLine","ShowSnapsLine","ShowConsoleLine"]
+
+        minimalLines = ["ShowEditorList","ShowRefreshLine","ShowUndoLine","ShowFindLine",\
+                        "ShowReplaceLine","ShowIndentLine"]
+
+        def show(lines):
+            for line in allLines:
+                self.setBool(line, False)
+            for line in lines:
+                self.setBool(line, True)
 
         mainMenu = QtGui.QMenu("Main menu")
         settingsMenu = QtGui.QMenu("Settings")
-        layoutMenu = QtGui.QMenu("Layout")
+        layoutMenu = QtGui.QMenu("Layout lines")
         settingsMenu.addMenu(layoutMenu)
 
         togglers = []
@@ -1048,7 +1120,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         gotoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(gotoLineAction)
 
-
         undoLineAction = QtGui.QAction("Undo line", layoutMenu, checkable=True)
         undoLineAction.setChecked(showUndoLine)
         togglers.append(makeToggler("ShowUndoLine", not undoLineAction.isChecked()))
@@ -1061,11 +1132,23 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         findLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(findLineAction)
 
+        findLine2Action = QtGui.QAction("Find line2", layoutMenu, checkable=True)
+        findLine2Action.setChecked(showFindLine2)
+        togglers.append(makeToggler("ShowFindLine2", not findLine2Action.isChecked()))
+        findLine2Action.toggled.connect(togglers[-1])
+        layoutMenu.addAction(findLine2Action)
+
         replaceLineAction = QtGui.QAction("Replace line", layoutMenu, checkable=True)
         replaceLineAction.setChecked(showReplaceLine)
         togglers.append(makeToggler("ShowReplaceLine", not replaceLineAction.isChecked()))
         replaceLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(replaceLineAction)
+
+        replaceLine2Action = QtGui.QAction("Replace line2", layoutMenu, checkable=True)
+        replaceLine2Action.setChecked(showReplaceLine2)
+        togglers.append(makeToggler("ShowReplaceLine2", not replaceLine2Action.isChecked()))
+        replaceLine2Action.toggled.connect(togglers[-1])
+        layoutMenu.addAction(replaceLine2Action)
 
         indentLineAction = QtGui.QAction("Indent line", layoutMenu, checkable=True)
         indentLineAction.setChecked(showIndentLine)
@@ -1084,6 +1167,20 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         togglers.append(makeToggler("ShowConsoleLine", not consoleLineAction.isChecked()))
         consoleLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(consoleLineAction)
+
+        settingsMenu.addSeparator()
+        showAllAction = QtGui.QAction("Show all", layoutMenu)
+        showAllAction.triggered.connect(lambda: show(allLines))
+        settingsMenu.addAction(showAllAction)
+
+        showDefaultsAction = QtGui.QAction("Show defaults", settingsMenu)
+        showDefaultsAction.triggered.connect(lambda: show(defaultLines))
+        settingsMenu.addAction(showDefaultsAction)
+
+        showMinimalAction = QtGui.QAction("Show Minimal", settingsMenu)
+        showMinimalAction.triggered.connect(lambda: show(minimalLines))
+        settingsMenu.addAction(showMinimalAction)
+
 #end settings->layout
 
         mainMenu.addMenu(settingsMenu)
@@ -1201,9 +1298,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
         qtMenu.addAction(QtGuiAction)
 
-        QtNetworkAction = QtGui.QAction("QtNetwork")
+        QtNetworkAction = QtGui.QAction("QtNetwork") if hasQtNetwork else QtGui.QAction("QtNetwork (not installed)")
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
+        if not hasQtNetwork:
+            qtNetWorkAction.setEnabled(False)
 
         QtHelpAction = QtGui.QAction("QtHelp")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
@@ -1426,7 +1525,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         template_file = real_path.replace(".FCMacro","_Templates.txt")
         bHasFile = os.path.exists(template_file)
         if not bHasFile:
-            dictString = self.pg.GetString("TemplateDictString","{}")
+            dictString = pg.GetString("TemplateDictString","{}")
             if dictString == "{}": #no parameter
                 templateDict = {
 "button":{"label":"input", "name":"input","output":"name = QtGui.QPushButton('label')"},
@@ -1434,12 +1533,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 }
             else:
                 templateDict = json.loads(dictString) #preserve existing templates from parameters
-            self.pg.RemString("TemplateDictString")
+            pg.RemString("TemplateDictString")
             self.setTemplateString(templateDict) #make the file with default samples
         else: #file already exists
             with open(template_file, 'r') as infile:
                 self.templateDictString = infile.read()
-            #self.templateDictString = self.pg.GetString("TemplateDictString","{}")
+            #self.templateDictString = pg.GetString("TemplateDictString","{}")
             templateDict = json.loads(self.templateDictString, strict=False)
         return templateDict
 
@@ -1454,7 +1553,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         template_file = real_path.replace(".FCMacro","_Templates.txt")
         with open(template_file, 'w') as outfile:
             outfile.write(formatted)
-        #self.pg.SetString("TemplateDictString", dumped)
+        #pg.SetString("TemplateDictString", dumped)
 
     def editTemplates(self):
         dlg = TemplateEditor(form=self)
@@ -2074,9 +2173,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         newTxt = self.replaceEdit.text()
-####new
         self.on_CBox_replaceEdit(newTxt)
-####new
         self.replace(name, txt, newTxt)
 
     def onReplaceBtnClicked(self, arg1):
@@ -2097,26 +2194,21 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         txt1 = txt[:start]
         txt2 = txt[end:]
         newtxt = self.replaceEdit.text()
-####new
         self.on_CBox_replaceEdit(newtxt)
-####new
         newText = txt1 + newtxt + txt2
         self.setText(name,newText,f"replace {txt[start:end]}")
         text_cursor.setPosition(end)
         self.currentEditor.setTextCursor(text_cursor)
         self.onFindBtnClicked(True)
 
-####new
     def on_CBox_replaceEdit(self,text):
         global duplicate_Replace
-
         if text not in duplicate_Replace:
             duplicate_Replace.append(text)
             duplicate_Replace = sorted(list(set(duplicate_Replace))) # sort
             self.CBox_replaceEdit.addItem(text)
         self.CBox_replaceEdit.setCurrentText(text)
         self.replaceEdit.setText(text)
-####new
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
@@ -2217,6 +2309,27 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
         bookmarks = sorted(self.getBookmarks())
         bookmarksMenu = QtGui.QMenu("Bookmarks")
+        toggleBookmarkAction = QtGui.QAction("Toggle Bookmark current line", mw)
+        toggleBookmarkAction.triggered.connect(self.toggleBookmark)
+        toggleBookmarkAction.setEnabled(curName != "")
+        bookmarksMenu.addAction(toggleBookmarkAction)
+
+        removeAllBookmarksAction = QtGui.QAction("Remove all bookmarks", mw)
+        removeAllBookmarksAction.triggered.connect(self.removeAllBookmarks)
+        removeAllBookmarksAction.setEnabled(bool(bookmarks))
+        bookmarksMenu.addAction(removeAllBookmarksAction)
+
+        nextBookmarkAction = QtGui.QAction("Goto next bookmark", mw)
+        nextBookmarkAction.triggered.connect(self.nextBookmark)
+        nextBookmarkAction.setEnabled(bool(bookmarks))
+        bookmarksMenu.addAction(nextBookmarkAction)
+
+        previousBookmarkAction = QtGui.QAction("Goto previous bookmark", mw)
+        previousBookmarkAction.triggered.connect(self.previousBookmark)
+        previousBookmarkAction.setEnabled(bool(bookmarks))
+        bookmarksMenu.addAction(previousBookmarkAction)
+
+        bookmarksMenu.addSeparator()
         bookmarkActions = []
         bookmarkLambdas = [makeLambda(bm[1]) for bm in bookmarks]
         for ii,bm in enumerate(bookmarks):
@@ -2224,8 +2337,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             bookmarkActions[-1].triggered.connect(bookmarkLambdas[ii])
             bookmarksMenu.addAction(bookmarkActions[-1])
         gotoMenu.addMenu(bookmarksMenu)
-        if not bookmarks:
-            bookmarksMenu.setEnabled(False)
 
         findResults = sorted(self.getFindResults())
         findResultsMenu = QtGui.QMenu("Find results")
@@ -2278,6 +2389,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         gotoMenu.addAction(gotoEndAction)
 
 
+
         return gotoMenu
 
 
@@ -2286,6 +2398,92 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         gotoMenu = self.makeGotoMenu()
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
+    def removeAllBookmarks(self):
+        if not self.currentEditor:
+            return
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("No editor to remove bookmarks from","Error")
+            return
+        bookmarks = self.getBookmarks()
+        self.setModified(curName, self.currentEditor.toPlainText(),\
+            "Remove all bookmarks", self.getTC(self.currentEditor.textCursor()))
+        for bookmark in bookmarks:
+            self.removeBookmark(bookmark, setModified=False)
+
+    def removeBookmark(self, bookmark, setModified=True):
+        """bookmark is a tuple (desc, line)"""
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("No current editor for bookmarking","Error")
+            return
+        lines = self.getLines()
+        curLine = bookmark[1]
+        idx = lines[curLine-1].index(BOOKMARK_MARKER)
+        lines[curLine-1] = lines[curLine-1][:idx]
+        plainText = '\n'.join(lines)
+        if lines[-1] == '':
+            plainText += "\n"
+        if setModified:
+            self.setModified(curName, self.currentEditor.toPlainText(),"toggle " + bookmark[0], self.getTC(self.currentEditor.textCursor()))
+        self.currentEditor.setPlainText(plainText)
+        self.gotoLine(curLine)
+
+    def addBookmark(self, bookmark):
+        """bookmark is a tuple (desc, line)"""
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("No current editor for bookmarking","Error")
+            return
+        lines = self.getLines()
+        curLine = bookmark[1]
+        lines[curLine-1] = lines[curLine-1] + BOOKMARK_MARKER + bookmark[0]
+        plainText = '\n'.join(lines)
+        if lines[-1] == '':
+            plainText += "\n"
+        self.setModified(curName, self.currentEditor.toPlainText(),"toggle " + bookmark[0], self.getTC(self.currentEditor.textCursor()))
+        self.currentEditor.setPlainText(plainText)
+        self.gotoLine(curLine)
+
+    def toggleBookmark(self):
+        if not self.currentEditor:
+            return
+        bookmarks = self.getBookmarks()
+        curLine = self.getLineNumberAtCursor()
+        hasBookmark = False
+        for bookmark in bookmarks:
+            if curLine == bookmark[1]:
+                hasBookmark = True
+                self.removeBookmark(bookmark)
+                return
+        #no bookmark on curLine if we get here
+        self.addBookmark(tuple([f"Bookmark line {curLine}", curLine]))
+
+    def nextBookmark(self):
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("No current editor for bookmarking","Error")
+            return
+        curLine = self.getLineNumberAtCursor()
+        bookmarks = self.getBookmarks()
+        for bookmark in bookmarks:
+            if bookmark[1] > curLine:
+                self.gotoLine(bookmark[1])
+                return
+        self.toast(f"No next bookmark found from {curLine}","Warning")
+
+    def previousBookmark(self):
+        curName = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
+        if not curName:
+            self.toast("No current editor for bookmarking","Error")
+            return
+        curLine = self.getLineNumberAtCursor()
+        bookmarks = reversed(self.getBookmarks())
+        for bookmark in bookmarks:
+            if bookmark[1] < curLine:
+                self.gotoLine(bookmark[1])
+                return
+        self.toast(f"No previous bookmark found from {curLine}","Warning")
 
     def onGotoLineEditReturnPressed(self):
         lines = self.getGotoLines()
@@ -2358,13 +2556,16 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 findResults.append(tuple([ii+1, preDesc, find, desc[len(find):]]))
         return findResults
 
-    def getBookmarks(self):
-        lines = self.getTrimmedLines()
+    def getBookmarks(self, trimmed=True):
+        if trimmed:
+            lines = self.getTrimmedLines()
+        else:
+            lines = self.getLines()
         bookmarks = []
         for ii,line in enumerate(lines):
             if BOOKMARK_MARKER in line:
                 descIdx = line.find(BOOKMARK_MARKER) + len(BOOKMARK_MARKER)
-                desc = line[descIdx:].strip()
+                desc = line[descIdx:].strip() if trimmed else line[descIdx:]
                 if desc:
                     bookmarks.append(tuple([desc, ii+1]))
         return bookmarks
@@ -2445,6 +2646,20 @@ class TemplateEditor(QtGui.QWidget):
         self.templateList = QtGui.QListWidget()
         self.templateList.currentItemChanged.connect(self.onTemplateListCurrentItemChanged)
         self.templateDict = {}
+        filterLine = QtGui.QHBoxLayout()
+        self.layout.addLayout(filterLine)
+        self.useFilterCheckBox = QtGui.QCheckBox("Filter")
+        self.useFilterCheckBox.setCheckState(QtCore.Qt.Checked)
+        self.useFilterCheckBox.stateChanged.connect(self.onUseFilterCheckBoxStateChanged)
+        filterLine.addWidget(self.useFilterCheckBox)
+        self.filterEdit = QtGui.QLineEdit()
+        filterLine.addWidget(self.filterEdit)
+        self.filterEdit.setPlaceholderText("Filter text goes here")
+        self.filterEdit.textChanged.connect(self.onFilterEditTextChanged)
+        self.matchCaseCheckBox = QtGui.QCheckBox()
+        self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
+        self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
+        filterLine.addWidget(self.matchCaseCheckBox)
         topLine = QtGui.QHBoxLayout()
         topLine.addWidget(self.templateList)
         buttonBox = QtGui.QVBoxLayout()
@@ -2501,14 +2716,32 @@ class TemplateEditor(QtGui.QWidget):
         self.resize(800,600)
         self.updateList()
 
+    def onFilterEditTextChanged(self, arg1):
+        self.updateList(fetch=False)
+
+    def onMatchCaseCheckBoxStateChanged(self, arg1):
+        self.updateList(fetch=False)
+
+    def onUseFilterCheckBoxStateChanged(self, arg1):
+        self.updateList(fetch=False)
+
     def updateList(self, fetch=True):
         self.templateList.clear()
         if fetch:
             self.templateDict = self.form.getTemplateString()
         self.blockSignals = True
         items=[]
+        filter = self.filterEdit.text()
         for k,v in self.templateDict.items():
-            items.append(k)
+            if self.useFilterCheckBox.checkState():
+                if self.matchCaseCheckBox.checkState():
+                    if filter == "" or filter in k:
+                        items.append(k)
+                else:
+                    if filter == "" or filter.lower() in k.lower():
+                        items.append(k)
+            else:
+                items.append(k)
         self.templateList.addItems(sorted(items))
         self.blockSignals = False
         if self.templateList.count():
@@ -3781,6 +4014,386 @@ static char *_647901969918[] = {
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+};
+"""
+home_icon = """
+/* XPM */
+static char *_649035328466[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 3 1 ",
+"  c black",
+". c #C3C3C3",
+"X c None",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXX      XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXX        XXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXX          XXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXX            XXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXX              XXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXX       ..       XXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXX        ....        XXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXX        ......        XXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXX        ........        XXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXX        ..........        XXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXX        ............        XXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXX       ................       XXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXX       ..................       XXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXX        ....................        XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX        ......................        XXXXXXXXXXXXX",
+"XXXXXXXXXXXX        ........................        XXXXXXXXXXXX",
+"XXXXXXXXXXX        ..........................        XXXXXXXXXXX",
+"XXXXXXXXXX        ............................        XXXXXXXXXX",
+"XXXXXXXXX       ................................       XXXXXXXXX",
+"XXXXXXXX       ..................................       XXXXXXXX",
+"XXXXXX        ....................................        XXXXXX",
+"XXXXX        ......................................        XXXXX",
+"XXXX        ........................................        XXXX",
+"XXX                                                          XXX",
+"XX                                                            XX",
+"XX                                                            XX",
+"XX                                                            XX",
+"XXX                                                          XXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX     ...........................     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX                                     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX                                     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX                                     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX                                     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXX                                     XXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+};
+"""
+
+end_icon = """
+/* XPM */
+static char *_649036163438[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 8 1 ",
+"  c black",
+". c #ED1C24",
+"X c #22B14C",
+"o c #FFC90E",
+"O c #3F48CC",
+"+ c red",
+"@ c #DFDFDF",
+"# c None",
+"################################################################",
+"################################################################",
+"#####++++++++++++++++++++++++++++++++++++++++++++++++++++#######",
+"####++++++++++++++++++++++++++++++++++++++++++++++++++++++######",
+"####+++++++++++++++++++++++++++++++++++++++++++++++++++++++#####",
+"####++++++++++++++++++++++++++++++++++++++++++++++++++++++++####",
+"#####+++++++++++++++++++++++++++++++++++++++++++++++++++++++####",
+"#####+++++++++++++++++++++++++++++++++++++++++++++++++++++++####",
+"#####################################################+++++++####",
+"#####################################################+++++++####",
+"#####################################################+++++++####",
+"###                                      ############+++++++####",
+"###                                       ###########+++++++####",
+"###                                        ##########+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@    ##########+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@      ########+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @    #######+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@   #######+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@@    #####+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@@@    ####+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@@@@   ####+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  @@@@@@   ###+++++++####",
+"###   @@@@@OOOOOOOOXXXXXXXX       @@@@@            ##+++++++####",
+"###   @@@@@OOOOOOOOXXXXXXXX       @@@@@            ##+++++++####",
+"###   @@@@@OOOOOOOOXXXXXXXX       @@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@OOOOOOOOXXXXXXXX       @@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@oooo      .........       XXX@@@@@@@@   ##+++++++####",
+"###   @@@@@oooo      .........       XXX@@@@@@@@   ##+++++++####",
+"###   @@@@@oooo      .........       XXX@@@@@@@@   ##+++++++####",
+"###   @@@@@oooo      .........       XXX@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@    XXXXXXXXXXOOOOXXXXXXX    @@@@@@@@   ##+++++++####",
+"###   @@@@@    XXXXXXXXXXOOOOXXXXXXX    @@@@@@@@   ##+++++++####",
+"###   @@@@@    XXXXXXXXXXOOOOXXXXXXX    @@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@++++@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@@   ##+++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@@@   ##+++++++####",
+"###   @@@@@.....          oooooOOOOOOOO+++++@@@@   ##+++++++####",
+"###   @@@@@.....          oooooOOOOOOO++++++++++++++++++++++####",
+"###   @@@@@.....          oooooOOOOOO+++++++++++++++++++++++####",
+"###   @@@@@.....          oooooOOOOOO+++++++++++++++++++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++++++++++++++++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@++++++++++++++++++++++####",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@@@@   #############",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@@@   #############",
+"###   @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+++++@@   #############",
+"###                                       ++++     #############",
+"###                                        +++     #############",
+"###                                                #############",
+"################################################################",
+"################################################################",
+"################################################################",
+"################################################################",
+"################################################################"
+};
+"""
+
+toggle_bookmark_icon = """
+/* XPM */
+static char *_649037028270[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 3 1 ",
+"  c black",
+". c #C3C3C3",
+"X c None",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXX............................................XXXXXXXXXX",
+"XXXXXXXXXX............................................XXXXXXXXXX",
+"XXXXXXXXXX............................................XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                                      ...XXXXXXXXXX",
+"XXXXXXXXXX...                   .                  ...XXXXXXXXXX",
+"XXXXXXXXXX...                  ...                 ...XXXXXXXXXX",
+"XXXXXXXXXX...                 .....                ...XXXXXXXXXX",
+"XXXXXXXXXX...                 .....                ...XXXXXXXXXX",
+"XXXXXXXXXX...                ...X...               ...XXXXXXXXXX",
+"XXXXXXXXXX...               ....X....              ...XXXXXXXXXX",
+"XXXXXXXXXX...               ...XXX...              ...XXXXXXXXXX",
+"XXXXXXXXXX...              ....XXX....             ...XXXXXXXXXX",
+"XXXXXXXXXX...              ...XXXXX...             ...XXXXXXXXXX",
+"XXXXXXXXXX...             ...XXXXXXX...            ...XXXXXXXXXX",
+"XXXXXXXXXX...            ....XXXXXXX....           ...XXXXXXXXXX",
+"XXXXXXXXXX...           ....XXXXXXXXX...           ...XXXXXXXXXX",
+"XXXXXXXXXX...           ....XXXXXXXXX....          ...XXXXXXXXXX",
+"XXXXXXXXXX...          ....XXXXXXXXXXX................XXXXXXXXXX",
+"XXXXXXXXXX................XXXXXXXXXXXX................XXXXXXXXXX",
+"XXXXXXXXXX................XXXXXXXXXXXXX...............XXXXXXXXXX",
+"XXXXXXXXXX...............XXXXXXXXXXXXXXX..............XXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+};
+"""
+next_bookmark_icon = """
+/* XPM */
+static char *_649037522124[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 5 1 ",
+"  c black",
+". c red",
+"X c darkorange",
+"o c #C3C3C3",
+"O c None",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOooooooooooooooooooooooooooooooooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOooooooooooooooooooooooooooooooooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOooooooooooooooooooooooooooooooooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                           oooOOOOO",
+"OOOOOOOOOOooo                                ...        oooOOOOO",
+"OOOOOOOOOOooo                                ......     oooOOOOO",
+"OOOOOOOOOOooo                                .........  oooOOOOO",
+"OOOOOOOOOOooo              ................................OOOOO",
+"OOOOOOOOOOooo             ......................XXX.........OOOO",
+"OOOOOOOOOOooo             ......................XXXXXX.........O",
+"OOOOOOOOOOooo             ...XXXXXXXXXXXXXXXXXXXXXXXXXXX........",
+"OOOOOOOOOOooo             ...XXXXXXXXXXXXXXXXXXXXXXXXXXX........",
+"OOOOOOOOOOooo             ...XXXXXXXXXXXXXXXXXXXXXXXXXXX........",
+"OOOOOOOOOOooo             ...XXXXXXXXXXXXXXXXXXXXXXXXXXX........",
+"OOOOOOOOOOooo             ......................XXXXXX.........O",
+"OOOOOOOOOOooo             ......................XXX.........OOOO",
+"OOOOOOOOOOooo              ................................OOOOO",
+"OOOOOOOOOOooo                                .........  oooOOOOO",
+"OOOOOOOOOOooo                                ......     oooOOOOO",
+"OOOOOOOOOOooo                                 ..        oooOOOOO",
+"OOOOOOOOOOooo                                           oooOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                                      oooOOOOOOOOOO",
+"OOOOOOOOOOooo                   o                  oooOOOOOOOOOO",
+"OOOOOOOOOOooo                  ooo                 oooOOOOOOOOOO",
+"OOOOOOOOOOooo                 ooooo                oooOOOOOOOOOO",
+"OOOOOOOOOOooo                 ooooo                oooOOOOOOOOOO",
+"OOOOOOOOOOooo                oooOooo               oooOOOOOOOOOO",
+"OOOOOOOOOOooo               ooooOoooo              oooOOOOOOOOOO",
+"OOOOOOOOOOooo               oooOOOooo              oooOOOOOOOOOO",
+"OOOOOOOOOOooo              ooooOOOoooo             oooOOOOOOOOOO",
+"OOOOOOOOOOooo              oooOOOOOooo             oooOOOOOOOOOO",
+"OOOOOOOOOOooo             oooOOOOOOOooo            oooOOOOOOOOOO",
+"OOOOOOOOOOooo            ooooOOOOOOOoooo           oooOOOOOOOOOO",
+"OOOOOOOOOOooo           ooooOOOOOOOOOooo           oooOOOOOOOOOO",
+"OOOOOOOOOOooo           ooooOOOOOOOOOoooo          oooOOOOOOOOOO",
+"OOOOOOOOOOooo          ooooOOOOOOOOOOOooooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOooooooooooooooooOOOOOOOOOOOOooooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOooooooooooooooooOOOOOOOOOOOOOoooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOoooooooooooooooOOOOOOOOOOOOOOOooooooooooooooOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"
+};
+"""
+remove_all_bookmarks_icon = """
+/* XPM */
+static char *_649039201346[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 4 1 ",
+"  c black",
+". c #ED1C24",
+"X c #C3C3C3",
+"o c None",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooo...ooooooooooooooooooooooooooooooooooooooooooooooooo.....ooo",
+"oooo....ooooooooooooooooooooooooooooooooooooooooooooooo......ooo",
+"oooo.....ooooooooooooooooooooooooooooooooooooooooooooo.......ooo",
+"oooo......ooooooooooooooooooooooooooooooooooooooooooo.......oooo",
+"oooo.......ooooooooooooooooooooooooooooooooooooooooo.......ooooo",
+"ooooo.......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.......oooooo",
+"oooooo.......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.......ooooooo",
+"ooooooo.......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.......oooooooo",
+"oooooooo.......                                 .......ooooooooo",
+"ooooooooo.......                               .......oooooooooo",
+"oooooooooo.......                             .......Xoooooooooo",
+"ooooooooooX.......                           .......XXoooooooooo",
+"ooooooooooXX.......                         .......XXXoooooooooo",
+"ooooooooooXXX.......                       ....... XXXoooooooooo",
+"ooooooooooXXX .......                     .......  XXXoooooooooo",
+"ooooooooooXXX  .......                   .......   XXXoooooooooo",
+"ooooooooooXXX   .......                 .......    XXXoooooooooo",
+"ooooooooooXXX    .......               .......     XXXoooooooooo",
+"ooooooooooXXX     .......             .......      XXXoooooooooo",
+"ooooooooooXXX      .......           .......       XXXoooooooooo",
+"ooooooooooXXX       .......         .......        XXXoooooooooo",
+"ooooooooooXXX        .......       .......         XXXoooooooooo",
+"ooooooooooXXX         .......     .......          XXXoooooooooo",
+"ooooooooooXXX          .......   .......           XXXoooooooooo",
+"ooooooooooXXX           ....... .......            XXXoooooooooo",
+"ooooooooooXXX            .............             XXXoooooooooo",
+"ooooooooooXXX             ...........              XXXoooooooooo",
+"ooooooooooXXX              .........               XXXoooooooooo",
+"ooooooooooXXX               .......                XXXoooooooooo",
+"ooooooooooXXX              .........               XXXoooooooooo",
+"ooooooooooXXX             ...........              XXXoooooooooo",
+"ooooooooooXXX            .............             XXXoooooooooo",
+"ooooooooooXXX           ....... .......            XXXoooooooooo",
+"ooooooooooXXX          .......   .......           XXXoooooooooo",
+"ooooooooooXXX         .......     .......          XXXoooooooooo",
+"ooooooooooXXX        .......       .......         XXXoooooooooo",
+"ooooooooooXXX       .......         .......        XXXoooooooooo",
+"ooooooooooXXX      .......      X    .......       XXXoooooooooo",
+"ooooooooooXXX     .......      XXX    .......      XXXoooooooooo",
+"ooooooooooXXX    .......      XXXXX    .......     XXXoooooooooo",
+"ooooooooooXXX   .......       XXXXX     .......    XXXoooooooooo",
+"ooooooooooXXX  .......       XXXoXXX     .......   XXXoooooooooo",
+"ooooooooooXXX .......       XXXXoXXXX     .......  XXXoooooooooo",
+"ooooooooooXXX.......        XXXoooXXX      ....... XXXoooooooooo",
+"ooooooooooXX.......        XXXXoooXXXX      .......XXXoooooooooo",
+"ooooooooooX.......         XXXoooooXXX       .......XXoooooooooo",
+"oooooooooo.......         XXXoooooooXXX       .......Xoooooooooo",
+"ooooooooo.......         XXXXoooooooXXXX       .......oooooooooo",
+"oooooooo.......         XXXXoooooooooXXX        .......ooooooooo",
+"ooooooo.......          XXXXoooooooooXXXX        .......oooooooo",
+"oooooo.......          XXXXoooooooooooXXXXXXXXXXXX.......ooooooo",
+"ooooo.......XXXXXXXXXXXXXXooooooooooooXXXXXXXXXXXXX.......oooooo",
+"oooo.......XXXXXXXXXXXXXXXoooooooooooooXXXXXXXXXXXXX.......ooooo",
+"oooo......XXXXXXXXXXXXXXXoooooooooooooooXXXXXXXXXXXXX.......oooo",
+"oooo.....ooooooooooooooooooooooooooooooooooooooooooooo.......ooo",
+"oooo....ooooooooooooooooooooooooooooooooooooooooooooooo......ooo",
+"oooo...ooooooooooooooooooooooooooooooooooooooooooooooooo.....ooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
+"oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
 };
 """
 children = mw.findChildren(QtGui.QWidget,"Editor assistant")
