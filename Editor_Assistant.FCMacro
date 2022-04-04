@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.78"
+__version__ = "1.79"
 __date__    = "2022/04/03"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -37,33 +37,7 @@ try:
     hasQtNetwork = True
 except ImportError:
     pass
-import Draft
-import DraftUtils
-import Fem
-import FemGui
-import Image
-import ImageGui
-import Measure
-import Mesh
-import MeshGui
-import MeshPart
-import MeshPartGui
-import PartDesign
-import PartDesignGui
-import PartGui
-import Path
-import PathGui
-import PathSimulator
-import Points
-import PointsGui
-import Sketcher
-import SketcherGui
-import Spreadsheet
-import SpreadsheetGui
-import TechDraw
-import TechDrawGui
-import Web
-import WebGui
+
 
 global duplicate_Find   ; duplicate_Find    = []
 global duplicate_Replace; duplicate_Replace = []
@@ -1237,34 +1211,34 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         def makeModule(x): return lambda : self.makeReferenceMenu(x)
 
         packagesDict = {
-        "Draft":Draft,
-        "DraftUtils":DraftUtils,
-        "Fem": Fem,
-        "FemGui": FemGui,
-        "Image": Image,
-        "ImageGui": ImageGui,
-        "Measure": Measure,
-        "Mesh": Mesh,
-        "MeshGui": MeshGui,
-        "MeshPart": MeshPart,
-        "MeshPartGui":MeshPartGui,
-        "PartDesign": PartDesign,
-        "PartDesignGui":PartDesignGui,
-        "Part":Part,
-        "PartGui":PartGui,
-        "Path":Path,
-        "PathGui":PathGui,
-        "PathSimulator":PathSimulator,
-        "Points":Points,
-        "PointsGui":PointsGui,
-        "Sketcher":Sketcher,
-        "SketcherGui":SketcherGui,
-        "Spreadsheet":Spreadsheet,
-        "SpreadsheetGui":SpreadsheetGui,
-        "TechDraw":TechDraw,
-        "TechDrawGui":TechDrawGui,
-        "Web":Web,
-        "WebGui":WebGui
+        "Draft":"Draft",
+        "DraftUtils":"DraftUtils",
+        "Fem":" Fem",
+        "FemGui":" FemGui",
+        "Image":" Image",
+        "ImageGui":" ImageGui",
+        "Measure":" Measure",
+        "Mesh":" Mesh",
+        "MeshGui":" MeshGui",
+        "MeshPart":" MeshPart",
+        "MeshPartGui":"MeshPartGui",
+        "PartDesign":" PartDesign",
+        "PartDesignGui":"PartDesignGui",
+        "Part":"Part",
+        "PartGui":"PartGui",
+        "Path":"Path",
+        "PathGui":"PathGui",
+        "PathSimulator":"PathSimulator",
+        "Points":"Points",
+        "PointsGui":"PointsGui",
+        "Sketcher":"Sketcher",
+        "SketcherGui":"SketcherGui",
+        "Spreadsheet":"Spreadsheet",
+        "SpreadsheetGui":"SpreadsheetGui",
+        "TechDraw":"TechDraw",
+        "TechDrawGui":"TechDrawGui",
+        "Web":"Web",
+        "WebGui":"WebGui"
         }
         moduleActions = []
         modules = []
@@ -1383,9 +1357,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
 
-        #unHighlightAction = QtGui.QAction("Unhighlight")
-        #unHighlightAction.triggered.connect(self.unHighlight)
-        #highlightMenu.addAction(unHighlightAction)
 
 
 
@@ -1611,7 +1582,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
     def makeReferenceMenu(self, mod):
         def makeReference(name): return lambda: self.showHelp(name)
         if isinstance(mod, str):
-            mod = __import__(mod)
+            mod = __import__(mod.strip())
         refMenu = QtGui.QMenu(mod.__name__)
         subMenus = []
 
