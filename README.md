@@ -243,6 +243,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.81 (2022.04.05)
+* add stretch between go to end button and the bookmark buttons, to keep them all together
+* do not add highlighting to the undo/redo queue, not needed with new highlight method and obfuscates more important stuff that could be undone
+* fix bug in replace all where the final character of the document was getting deleted
+* make unindent and indent icon arrows red
 ### 1.80 (2022.04.04)
 * add wiki search function
 ### 1.79 (2022.04.04)
