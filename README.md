@@ -1,5 +1,5 @@
 # Editor_Assistant
-FreeCAD macro adds additional functionality to FreeCAD's built-in python editor.  It is not a replacement for the editor, but rather a supplemental toolkit for the editor.  It gives you functions like find and replace, diffing, snapshots, templates, and convenient links to help and documentation.
+FreeCAD macro adds additional functionality to FreeCAD's built-in python editor.  It is not a replacement for the editor, but rather a supplemental toolkit for the editor.  It gives you functions like find and replace, diffing, snapshots, templates, bookmarks, and convenient links to help and documentation.
 
 ## Installation
 Install via the Addon manager (soon).  Until then copy the .FCMacro file to your Macro folder.  The macro will create a new file called Editor_Assistant_Templates.txt in the same folder.  This file holds the templates.  It will need to be removed manually when you uninstall the macro.
