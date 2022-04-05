@@ -243,6 +243,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.80 (2022.04.04)
+* add wiki search function
 ### 1.79 (2022.04.04)
 * speed up loading by not importing some things until needed when creating help -> reference menus for FreeCAD packages.
 ### 1.78 (2022.04.04)
