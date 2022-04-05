@@ -48,7 +48,6 @@ except:
     shiboken = None
 mw = FreeCADGui.getMainWindow()
 
-
 class FindEdit (QtGui.QLineEdit):
     def __init__(self, parent=None, form=None):
         super(FindEdit, self).__init__()
@@ -153,9 +152,9 @@ class TaskEditorAssistant:
         #gotoLayout = goto home button + goto end button (hidden by default)
         #undoLayout =  undo + pop undos + redo
         #findEditLayout = Find edit + search + search previous
-        #findEditLayout2 = CBox_Find
+        #findEditLayout2 = ComboBox_Find
         #replaceEditLayout = Replace edit + replace + replace all
-        #replaceEditLayout2 = CBox_replaceEdit
+        #replaceEditLayout2 = ComboBox_replace
         #indentLayout = unindent button + indent button + Match case checkbox + whole words checkbox
         #snapLayout = snap button + discard button + snap menu + pop button
         #consoleLayout = to console label + console line edit
@@ -316,24 +315,32 @@ Find results = results of searches for text in Find line edit\n\
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
-
+####B
+        self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
+        self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
+        self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
+        findEditLayout.addWidget(self.Clear_FindReplaceCB)
+####E
         showFindLine2 = pg.GetBool("ShowFindLine2",False)
         findEditLayout2 = QtGui.QHBoxLayout()
-        self.CBox_Find = QtWidgets.QComboBox()
-        #self.CBox_Find.setCurrentIndex(4)
-        self.CBox_Find.setMaxVisibleItems(16)
-        self.CBox_Find.setDuplicatesEnabled(False)    # not work ?
-        self.CBox_Find.setEditable(True)              # editable
-        QtCore.QObject.connect(self.CBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_Find)
-        findEditLayout2.addWidget(self.CBox_Find)
+        self.ComboBox_Find = QtWidgets.QComboBox()
+        self.ComboBox_Find.setMaxVisibleItems(16)
+        self.ComboBox_Find.setDuplicatesEnabled(False)    # not work ?
+        self.ComboBox_Find.setEditable(True)              # editable
+        QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Find_Clicked)
+        findEditLayout2.addWidget(self.ComboBox_Find)
 
         if not showFindLine:
             self.findEdit.setVisible(showFindLine)
             self.findBtn.setVisible(showFindLine)
             self.findBackBtn.setVisible(showFindLine)
+####B
+            self.Clear_FindReplaceCB.setVisible(showFindLine)
+####E
 
         if not showFindLine2:
-            self.CBox_Find.setVisible(showFindLine2)
+            self.ComboBox_Find.setVisible(showFindLine2)
 
         self.layout.addLayout(findEditLayout)
         self.layout.addLayout(findEditLayout2)
@@ -356,24 +363,32 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
-
+####B
+        self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
+        self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
+        self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
+        self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
+        replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
+####E
         showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
         replaceEditLayout2 = QtGui.QHBoxLayout()
-        self.CBox_replaceEdit = QtWidgets.QComboBox()
-        #self.CBox_replaceEdit.setCurrentIndex(4)
-        self.CBox_replaceEdit.setMaxVisibleItems(16)
-        self.CBox_replaceEdit.setDuplicatesEnabled(False)    # not work ?
-        self.CBox_replaceEdit.setEditable(True)              # editable
-        QtCore.QObject.connect(self.CBox_replaceEdit, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_CBox_replaceEdit)
-        replaceEditLayout2.addWidget(self.CBox_replaceEdit)
+        self.ComboBox_replace = QtWidgets.QComboBox()
+        self.ComboBox_replace.setMaxVisibleItems(16)
+        self.ComboBox_replace.setDuplicatesEnabled(False)    # not work ?
+        self.ComboBox_replace.setEditable(True)              # editable
+        QtCore.QObject.connect(self.ComboBox_replace, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Replace_Clicked)
+        replaceEditLayout2.addWidget(self.ComboBox_replace)
 
         if not showReplaceLine:
             self.replaceEdit.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
+####B
+            self.Reverse_FindReplaceCB.setVisible(showReplaceLine)
+####E
 
         if not showReplaceLine2:
-            self.CBox_replaceEdit.setVisible(showReplaceLine2)
+            self.ComboBox_replace.setVisible(showReplaceLine2)
 
         self.layout.addLayout(replaceEditLayout)
         self.layout.addLayout(replaceEditLayout2)
@@ -878,15 +893,23 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
     def onFindEditReturnPressed(self):
         self.onFindBtnClicked(True)
 
-    def on_CBox_Find(self,text):
+    def on_ComboBox_Find_Clicked(self, text):
         global duplicate_Find
 
         if text not in duplicate_Find:
             duplicate_Find.append(text)
             duplicate_Find = sorted(list(set(duplicate_Find))) # sort
-            self.CBox_Find.addItem(text)
-        self.CBox_Find.setCurrentText(text)
+            self.ComboBox_Find.addItem(text)
+        self.ComboBox_Find.setCurrentText(text)
         self.findEdit.setText(text)
+
+####B
+    def on_Clear_FindReplaceCB_Clicked(self):
+        self.findEdit.clear()
+        self.ComboBox_Find.clear()
+        self.replaceEdit.clear()
+        self.ComboBox_replace.clear()
+####E
 
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
@@ -928,7 +951,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if self.loopCheckBox.checkState():
                 self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
-        self.on_CBox_Find(txt)
+        self.on_ComboBox_Find_Clicked(txt)
 
     def updateSnapBtns(self,refresh=True):
         if refresh:
@@ -1029,10 +1052,10 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                                 self.previousBookmarkBtn, \
                                 self.removeAllBookmarksBtn, self.toggleBookmarkBtn],
             "ShowUndoLine": [self.undoBtn, self.undoClearBtn, self.redoBtn],
-            "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn],
-            "ShowFindLine2": [self.CBox_Find],
-            "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn],
-            "ShowReplaceLine2": [self.CBox_replaceEdit],
+            "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn, self.Clear_FindReplaceCB],
+            "ShowFindLine2": [self.ComboBox_Find],
+            "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn, self.Reverse_FindReplaceCB],
+            "ShowReplaceLine2": [self.ComboBox_replace],
             "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.matchCaseCheckBox, \
                                 self.matchWholeCheckBox, self.loopCheckBox],
             "ShowSnapsLine": [self.takeSnapBtn, self.discardSnapBtn, self.snapCenterBtn, self.snapMenuBtn, self.popSnapBtn],
@@ -1050,7 +1073,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
            or managing snaps or diffs"""
 
         def makeToggler(name,value): return lambda: self.setBool(name,value)
-
 
 #begin settings menu
         showEditorList = pg.GetBool("ShowEditorList", True)
@@ -1384,12 +1406,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         highlightFromFindAction = QtGui.QAction("From find")
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
-
-
-
-
         mainMenu.addMenu(highlightMenu)
-
 #close menu
         if self.isTabbed:
             closeAction = QtGui.QAction("Close")
@@ -1996,7 +2013,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.onRefreshBtnClicked(True)
         #self.toast(f"make diff of snap = {idx}","Message")
 
-
     def doSaveSnapshotAs(self):
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
@@ -2125,7 +2141,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 self.gotoLine(-1, silent=True, eol=True)
             else:
                 self.toast(f"{txt} not found backwards in {name}","Message")
-        self.on_CBox_Find(txt)
+        self.on_ComboBox_Find_Clicked(txt)
 
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
@@ -2196,7 +2212,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         newTxt = self.replaceEdit.text()
-        self.on_CBox_replaceEdit(newTxt)
+        self.on_ComboBox_Replace_Clicked(newTxt)
         self.replace(name, txt, newTxt)
 
     def onReplaceBtnClicked(self, arg1):
@@ -2217,21 +2233,31 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         txt1 = txt[:start]
         txt2 = txt[end:]
         newtxt = self.replaceEdit.text()
-        self.on_CBox_replaceEdit(newtxt)
+        self.on_ComboBox_Replace_Clicked(newtxt)
         newText = txt1 + newtxt + txt2
         self.setText(name,newText,f"replace {txt[start:end]}")
         text_cursor.setPosition(end)
         self.currentEditor.setTextCursor(text_cursor)
         self.onFindBtnClicked(True)
 
-    def on_CBox_replaceEdit(self,text):
+    def on_ComboBox_Replace_Clicked(self, text):
         global duplicate_Replace
         if text not in duplicate_Replace:
             duplicate_Replace.append(text)
             duplicate_Replace = sorted(list(set(duplicate_Replace))) # sort
-            self.CBox_replaceEdit.addItem(text)
-        self.CBox_replaceEdit.setCurrentText(text)
+            self.ComboBox_replace.addItem(text)
+        self.ComboBox_replace.setCurrentText(text)
         self.replaceEdit.setText(text)
+
+####B
+    def on_Reverse_FindReplaceCB_Clicked(self):
+        txtf = self.findEdit.text()
+        txtr = self.replaceEdit.text()
+        self.replaceEdit.setText(txtf)
+        self.on_ComboBox_Replace_Clicked(txtf)
+        self.findEdit.setText(txtr)
+        self.on_ComboBox_Find_Clicked(txtr)
+####E
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
@@ -2410,14 +2436,9 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         gotoEndAction.triggered.connect(lambda: self.onGotoEndBtnClicked(True))
         gotoEndAction.setEnabled(curName != "")
         gotoMenu.addAction(gotoEndAction)
-
-
-
         return gotoMenu
 
-
     def onGotoMenuBtnClicked(self, arg1):
-
         gotoMenu = self.makeGotoMenu()
         gotoMenu.exec_(self.gotoMenuBtn.mapToGlobal(QtCore.QPoint()))
 
@@ -2969,7 +2990,6 @@ text is inserted.  The "goto" key can have these values:
     def reject(self):
         self.close()
 
-
 class DiffSaver (QtGui.QDialog):
     def __init__(self, parent=mw, form=None, plainText=None, snapText=None, label1=None, label2=None):
         super(DiffSaver, self).__init__(parent, QtCore.Qt.Tool)
@@ -3174,7 +3194,6 @@ static char *_647719150564[] = {
 };
 
 """
-
 undo_icon = """
 /* XPM */
 static char *edit_undo_XPM[] = {
@@ -3888,7 +3907,6 @@ static char *_647898900207[] = {
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 };
 """
-
 match_case_icon = """
 /* XPM */
 static char *_647901377770[] = {
@@ -4113,7 +4131,6 @@ static char *_649035328466[] = {
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 };
 """
-
 end_icon = """
 /* XPM */
 static char *_649036163438[] = {
@@ -4193,7 +4210,6 @@ static char *_649036163438[] = {
 "################################################################"
 };
 """
-
 toggle_bookmark_icon = """
 /* XPM */
 static char *_649037028270[] = {
@@ -4419,6 +4435,83 @@ static char *_649039201346[] = {
 "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
 };
 """
+reverse_find_replace_icon = """
+/* XPM */
+static char * Reverse3_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 5 1",
+" 	c None",
+".	c #A70002",
+"+	c #EF2B29",
+"@	c #4E990D",
+"#	c #8AE138",
+"                                                                ",
+"                                                                ",
+"                               .........                        ",
+"                             .............                      ",
+"                            ..+++++++++++....                   ",
+"                           ..+++++++++++++++..                  ",
+"                          ..+++++++++++++++++..                 ",
+"                         ..+++++++++++++++++++..                ",
+"                        ..+++++++++++++++++++++..               ",
+"                       ..+++++++++++++++++++++++..              ",
+"                      ..+++........++++++++++++++..             ",
+"                      ..++..      ..+++++++++++++..             ",
+"                     ..++..        ..+++++++++++++..            ",
+"                     .++..          ..+++++++++++++.            ",
+"                     .++..           ..++++++++++++..           ",
+"                     .++.             ..+++++++++++..           ",
+"                     ....             ..++++++++++++.           ",
+"                                       .++++++++++++.           ",
+"                                       .++++++++++++.           ",
+"                              ..........++++++++++++.           ",
+"                              .+++++++++++++++++++++........... ",
+"                              .+++++++++++++++++++++........... ",
+"                              ..+++++++++++++++++++++++++++++.. ",
+"                               ..+++++++++++++++++++++++++++..  ",
+"                                ..+++++++++++++++++++++++++..   ",
+"                                 ..+++++++++++++++++++++++..    ",
+"                 @@               ..+++++++++++++++++++++..     ",
+"                @@@@               ..+++++++++++++++++++..      ",
+"               @@##@@               ..+++++++++++++++++..       ",
+"              @@####@@               ..+++++++++++++++..        ",
+"             @@######@@               ..+++++++++++++..         ",
+"            @@########@                ..+++++++++++..          ",
+"           @@#########@@                ..+++++++++..           ",
+"          @@###########@@                .++++++++..            ",
+"         @@#############@@               ..++++++..             ",
+"        @@###############@@               ..++++..              ",
+"       @@#################@@               ..++..               ",
+"      @@###################@@               ....                ",
+"     @@#####################@@               ..                 ",
+"    @@#######################@@                                 ",
+"   @@#########################@@                                ",
+"  @@###########################@@                               ",
+" @@#############################@@                              ",
+" @@@@@@@@@@@#####################@                              ",
+" @@@@@@@@@@@#####################@                              ",
+"           @############@@@@@@@@@@                              ",
+"           @############@                                       ",
+"           @############@                                       ",
+"           @############@@             @@@@                     ",
+"           @@###########@@             @##@                     ",
+"           @@############@@           @@##@                     ",
+"            @#############@@          @@##@                     ",
+"            @@#############@@        @@##@@                     ",
+"             @@#############@@      @@##@@                      ",
+"             @@##############@@@@@@@@###@@                      ",
+"              @@#######################@@                       ",
+"               @@#####################@@                        ",
+"                @@###################@@                         ",
+"                 @@#################@@                          ",
+"                  @@###############@@                           ",
+"                   @@@@###########@@                            ",
+"                      @@@@@@@@@@@@@                             ",
+"                        @@@@@@@@@                               ",
+"                                                                "
+};
+"""
+
 children = mw.findChildren(QtGui.QWidget,"Editor assistant")
 if not children:
     modifiers = QtGui.QApplication.keyboardModifiers()
