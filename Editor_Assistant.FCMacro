@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.79"
+__version__ = "1.80"
 __date__    = "2022/04/03"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -764,6 +764,13 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         import webbrowser
         webbrowser.open_new_tab(queryUrl)
 
+    def wSearch(self, txt):
+        """open a new tab in default browser the wiki search page, search results for txt"""
+        qText = txt.replace(" ","+")
+        queryUrl = f"https://wiki.freecadweb.org/index.php?search={qText}&title=Special%3ASearch&go=Go"
+        import webbrowser
+        webbrowser.open_new_tab(queryUrl)
+
     def search(self,txt):
         """do a search for txt on github FreeCAD repo"""
         import webbrowser
@@ -825,6 +832,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         consoleCmd = consoleCmd.replace("menu(","dlg.makeReferenceMenu(")
         consoleCmd = consoleCmd.replace("search(", "dlg.search(")
         consoleCmd = consoleCmd.replace("qSearch(", "dlg.qSearch(")
+        consoleCmd = consoleCmd.replace("wSearch(", "dlg.wSearch(")
         consoleCmd = consoleCmd.replace("\\n",chr(10))
         name = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         if not name:
@@ -1347,6 +1355,21 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         qSearchMenu.addAction(qSearchAskAction)
 
         helpMenu.addMenu(qSearchMenu)
+
+        wSearchMenu = QtGui.QMenu("Search wiki")
+        wSearchAction = QtGui.QAction("Use find edit text")
+        wSearchAction.triggered.connect(self.makewSearchFromFindEdit)
+        wSearchMenu.addAction(wSearchAction)
+
+        wSearchSelAction = QtGui.QAction("Use selected text")
+        wSearchSelAction.triggered.connect(self.makewSearchFromSelection)
+        wSearchMenu.addAction(wSearchSelAction)
+
+        wSearchAskAction = QtGui.QAction("Ask for query")
+        wSearchAskAction.triggered.connect(self.makewSearchFromImmediate)
+        wSearchMenu.addAction(wSearchAskAction)
+
+        helpMenu.addMenu(wSearchMenu)
 #highlight menu
         highlightMenu = QtGui.QMenu("Highlight", mw)
         highlightFromSelectionAction = QtGui.QAction("From selection")
@@ -1554,6 +1577,30 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         findTxt, ok = QtGui.QInputDialog.getText(mw, "Search source","Enter search query:")
         if ok:
             self.search(findTxt)
+
+    def makewSearchFromFindEdit(self):
+        findTxt = self.findEdit.text()
+        if not findTxt:
+            self.toast("Nothing in Find edit","Error")
+            return
+        self.wSearch(findTxt)
+
+    def makewSearchFromSelection(self):
+        self.onRefreshBtnClicked(True)
+        if not self.currentEditor:
+            self.toast("No current editor","Error")
+            return
+        tc = self.currentEditor.textCursor()
+        findTxt = tc.selectedText()
+        if not findTxt:
+            self.toast("Nothing in selection","Error")
+            return
+        self.wSearch(findTxt)
+
+    def makewSearchFromImmediate(self):
+        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search wiki","Enter search query:")
+        if ok:
+            self.wSearch(findTxt)
 
     def makeqSearchFromFindEdit(self):
         findTxt = self.findEdit.text()
