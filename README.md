@@ -243,6 +243,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.82 (2022.04.05)
+* mario52 PR -- add reverse and clear buttons for find/replace edits.
 ### 1.81 (2022.04.05)
 * add stretch between go to end button and the bookmark buttons, to keep them all together
 * do not add highlighting to the undo/redo queue, not needed with new highlight method and obfuscates more important stuff that could be undone
