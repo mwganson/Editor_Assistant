@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.80"
+__version__ = "1.81"
 __date__    = "2022/04/03"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -233,6 +233,8 @@ Find results = results of searches for text in Find line edit\n\
         self.gotoEndBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.gotoEndBtn.clicked.connect(self.onGotoEndBtnClicked)
         gotoLayout.addWidget(self.gotoEndBtn)
+
+        gotoLayout.addStretch()
 
         self.previousBookmarkBtn = QtGui.QPushButton("")
         nextIcon = QIconFromXPMString(next_bookmark_icon)
@@ -540,9 +542,9 @@ Type 'help(editor)' in the console for help.\n\
         if not txt:
             return
         plainText = self.currentEditor.toPlainText()
-        cursor = self.currentEditor.textCursor()
-        start,end = self.getTC(cursor)
-        self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
+        #cursor = self.currentEditor.textCursor()
+        #start,end = self.getTC(cursor)
+        #self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
         indices = self.reFindIndices(plainText, txt, 0)
         extraSelections = []
         count = len(indices)
@@ -677,8 +679,11 @@ Type 'help(editor)' in the console for help.\n\
         indices = self.reFindIndices(fullText, txt, 0)
         chunks = []
         last = -1
-        for i in reversed(indices):
-            chunks.insert(0, fullText[i[1]:last])
+        for ii,i in enumerate(reversed(indices)):
+            if ii == 0:
+                chunks.insert(0, fullText[i[1]:])
+            else:
+                chunks.insert(0, fullText[i[1]:last])
             chunks.insert(0, newTxt)
             last = i[0]
         chunks.insert(0, fullText[:last])
@@ -3338,7 +3343,7 @@ static char *indent_xpm[] = {
 "+  c #DFDFDF",
 "@  c #3F48CC",
 "#  c green",
-"$  c #3F48CC",
+"$  c red",
 "%  c black",
 "&  c #ED1C24",
 "*  c #E2D9D6",
@@ -3739,7 +3744,7 @@ static char * unindent_xpm[] = {
 "+  c #DFDFDF",
 "@  c #3F48CC",
 "#  c #22B14C",
-"x  c #3F48CC",
+"x  c red",
 "%  c black",
 "&  c #ED1C24",
 "*  c #E2D9D6",
