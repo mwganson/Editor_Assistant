@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
 __wiki__    = ""
-__version__ = "1.81"
+__version__ = "1.82b"
 __date__    = "2022/04/03"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -151,9 +151,9 @@ class TaskEditorAssistant:
         #refreshLayout = refresh button + goto menu button + goto line edit
         #gotoLayout = goto home button + goto end button (hidden by default)
         #undoLayout =  undo + pop undos + redo
-        #findEditLayout = Find edit + search + search previous
+        #findEditLayout = Find edit + search + search previous + clear
         #findEditLayout2 = ComboBox_Find
-        #replaceEditLayout = Replace edit + replace + replace all
+        #replaceEditLayout = Replace edit + replace + replace all + reverse
         #replaceEditLayout2 = ComboBox_replace
         #indentLayout = unindent button + indent button + Match case checkbox + whole words checkbox
         #snapLayout = snap button + discard button + snap menu + pop button
@@ -315,13 +315,13 @@ Find results = results of searches for text in Find line edit\n\
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
-####B
+
         self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
         self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
         self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
-####E
+
         showFindLine2 = pg.GetBool("ShowFindLine2",False)
         findEditLayout2 = QtGui.QHBoxLayout()
         self.ComboBox_Find = QtWidgets.QComboBox()
@@ -335,9 +335,7 @@ Find results = results of searches for text in Find line edit\n\
             self.findEdit.setVisible(showFindLine)
             self.findBtn.setVisible(showFindLine)
             self.findBackBtn.setVisible(showFindLine)
-####B
             self.Clear_FindReplaceCB.setVisible(showFindLine)
-####E
 
         if not showFindLine2:
             self.ComboBox_Find.setVisible(showFindLine2)
@@ -363,13 +361,12 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
-####B
         self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
         self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
         self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
         self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
         replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
-####E
+
         showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
         replaceEditLayout2 = QtGui.QHBoxLayout()
         self.ComboBox_replace = QtWidgets.QComboBox()
@@ -383,9 +380,7 @@ Find results = results of searches for text in Find line edit\n\
             self.replaceEdit.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
-####B
             self.Reverse_FindReplaceCB.setVisible(showReplaceLine)
-####E
 
         if not showReplaceLine2:
             self.ComboBox_replace.setVisible(showReplaceLine2)
@@ -416,7 +411,10 @@ Find results = results of searches for text in Find line edit\n\
         self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
-        self.loopCheckBox = QtGui.QCheckBox("Loop")
+        self.loopCheckBox = QtGui.QCheckBox()
+        loop_icon = reverse_find_replace_icon.replace("#EF2B29","#3F48CC").replace("#8AE138","#3F48CC")
+        loop_icon = loop_icon.replace("#4E990D","black").replace("#A70002","black")
+        self.loopCheckBox.setIcon(QIconFromXPMString(loop_icon))
         self.loopCheckBox.setCheckState(QtCore.Qt.Checked)
         self.loopCheckBox.setToolTip ("Loop to start/end if text not found")
         indentLayout.addWidget(self.matchCaseCheckBox)
@@ -903,13 +901,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.ComboBox_Find.setCurrentText(text)
         self.findEdit.setText(text)
 
-####B
     def on_Clear_FindReplaceCB_Clicked(self):
         self.findEdit.clear()
         self.ComboBox_Find.clear()
         self.replaceEdit.clear()
         self.ComboBox_replace.clear()
-####E
 
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
@@ -2249,7 +2245,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.ComboBox_replace.setCurrentText(text)
         self.replaceEdit.setText(text)
 
-####B
     def on_Reverse_FindReplaceCB_Clicked(self):
         txtf = self.findEdit.text()
         txtr = self.replaceEdit.text()
@@ -2257,7 +2252,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.on_ComboBox_Replace_Clicked(txtf)
         self.findEdit.setText(txtr)
         self.on_ComboBox_Find_Clicked(txtr)
-####E
 
     def onRefreshBtnClicked(self, arg1):
         self.getEditors()
