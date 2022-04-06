@@ -243,6 +243,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.83 (2022.04.06)
+* rearrange icons, so clear and reverse are in front of find and replace, to better indicate their purposes
+* down arrow moves from find edit to replace edit, up arrow from replace to find
+* randomly add different suggested text to To console: edit each time the macro is executed
+* ensure popSnapBtn exists before trying to enable/disable after call to refresh()
 ### 1.82 (2022.04.05)
 * mario52 PR -- add reverse and clear buttons for find/replace edits.
 ### 1.81 (2022.04.05)
