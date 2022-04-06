@@ -8,10 +8,10 @@
 __title__   = "Editor_Assistant"
 __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
-__github__  = "https://raw.githubusercontent.com/mwganson/Editor_Assistant/main/Editor_Assistant.FCMacro"
+__github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.82b"
-__date__    = "2022/04/03"
+__version__ = "1.83"
+__date__    = "2022/04/06"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
@@ -27,6 +27,7 @@ from PySide import QtGui,QtCore
 import difflib
 import json
 import re
+import random
 ## used for help -> reference menus
 import PySide2
 from PySide2 import QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
@@ -67,6 +68,12 @@ class FindEdit (QtGui.QLineEdit):
                     self.form.toast("Nothing selected in editor","Error")
             else:
                 self.form.toast("Editor is invalid","Error")
+        elif hasattr(self.form, "findEdit") and watched == self.form.findEdit and event.type() == QtCore.QEvent.KeyPress and event.key() == QtCore.Qt.Key_Down:
+            self.form.replaceEdit.setFocus()
+            event.accept()
+        elif hasattr(self.form, "replaceEdit") and watched == self.form.replaceEdit and event.type() == QtCore.QEvent.KeyPress and event.key() == QtCore.Qt.Key_Up:
+            self.form.findEdit.setFocus()
+            event.accept()
         return QtGui.QLineEdit.eventFilter(self, watched, event)
 
     def __contextMenu(self):
@@ -78,7 +85,7 @@ class FindEdit (QtGui.QLineEdit):
         menu.addSeparator()
         action = QtGui.QAction("Use selected", self)
         action.triggered.connect(self.useSelected)
-        action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "")
+        action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "" if self.form.currentEditor else False)
         menu.addAction(action)
 
         actionClear = QtGui.QAction("Clear", self)
@@ -298,6 +305,12 @@ Find results = results of searches for text in Find line edit\n\
 
         showFindLine = pg.GetBool("ShowFindLine",True)
         findEditLayout = QtGui.QHBoxLayout()
+        self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
+        self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
+        self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
+        findEditLayout.addWidget(self.Clear_FindReplaceCB)
+
         self.findEdit = FindEdit(form=self)
         self.findEdit.setPlaceholderText("Find:")
         self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
@@ -315,12 +328,6 @@ Find results = results of searches for text in Find line edit\n\
         self.findBackBtn.clicked.connect(self.onFindBackBtnClicked)
         findEditLayout.addWidget(self.findBtn)
         findEditLayout.addWidget(self.findBackBtn)
-
-        self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
-        self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
-        self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
-        self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
-        findEditLayout.addWidget(self.Clear_FindReplaceCB)
 
         showFindLine2 = pg.GetBool("ShowFindLine2",False)
         findEditLayout2 = QtGui.QHBoxLayout()
@@ -345,7 +352,11 @@ Find results = results of searches for text in Find line edit\n\
 
         showReplaceLine = pg.GetBool("ShowReplaceLine",True)
         replaceEditLayout = QtGui.QHBoxLayout()
-        #replaceEditLayout.addWidget(QtGui.QLabel("Replace: "))
+        self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
+        self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
+        self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
+        self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
+        replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
         self.replaceEdit = FindEdit(form=self)
         self.replaceEdit.setPlaceholderText("Replace:")
         replaceEditLayout.addWidget(self.replaceEdit)
@@ -361,11 +372,7 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
-        self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
-        self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
-        self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
-        self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
-        replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
+
 
         showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
         replaceEditLayout2 = QtGui.QHBoxLayout()
@@ -499,7 +506,10 @@ Enter command here and press return\n\
 Variable 'editor' will remain afterwards for direct access from the console.\n\
 Type 'help(editor)' in the console for help.\n\
 ")
-        self.consoleEdit.setText("editor.selectAll()")
+        choices = ["editor.selectAll()", "qSearch('QLineEdit')", "wSearch('topological naming problem')",
+                   "search('Part.makeFace')", "help('Qt.Key')", "menu('Draft')", "dlg.close()",
+                   "dlg.highlight('def', 'yellow')", "help('numpy')", "dlg.refresh()"]
+        self.consoleEdit.setText(random.choice(choices))
         self.consoleSendBtn = QtGui.QPushButton("Send")
         self.consoleSendBtn.clicked.connect(self.onConsoleBtnClicked)
         consoleLayout.addWidget(self.consoleEdit)
@@ -956,12 +966,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             return
         curName = self.editorList.currentItem().text() if self.editorList.count() else None
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
-        if not snaps:
+        if not snaps and hasattr(self, "popSnapBtn"):
             self.popSnapBtn.setEnabled(False)
             self.popSnapBtn.setText("Pop")
             self.popSnapBtn.setToolTip("Pop/restore and discard latest snap")
             self.discardSnapBtn.setEnabled(False)
-        else:
+        elif hasattr(self, "popSnapBtn"):
             self.popSnapBtn.setEnabled(True)
             self.popSnapBtn.setText(f"Pop {snaps[0]['reason']}")
             self.popSnapBtn.setToolTip(f"Pop/restore and discard {snaps[0]['reason']}")
