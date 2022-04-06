@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.83"
+__version__ = "1.84d"
 __date__    = "2022/04/06"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -30,14 +30,84 @@ import re
 import random
 ## used for help -> reference menus
 import PySide2
-from PySide2 import QtHelp, QtMultimedia, QtOpenGL, QtPrintSupport, \
-                    QtSql, QtSvg, QtTest, QtWidgets, QtXml, QtXmlPatterns
+
+hasQtXmlPatterns = False
+try:
+    from PySide2 import QtXmlPatterns
+    hasQtXmlPatterns = True
+except ImportError:
+    pass
+
+hasQtXml = False
+try:
+    from PySide2 import QtXml
+    hasQtXml = True
+except ImportError:
+    pass
+
+hasQtWidgets = False
+try:
+    from PySide2 import QtWidgets
+    hasQtWidgets = True
+except ImportError:
+    pass
+
+hasQtHelp = False
+try:
+    from PySide2 import QtHelp
+    hasQtHelp = True
+except ImportError:
+    pass
+
 hasQtNetwork = False
 try:
     from PySide2 import QtNetwork
     hasQtNetwork = True
 except ImportError:
     pass
+
+hasQtMultimedia = False
+try:
+    from PySide2 import QtMultimedia
+    hasQtMultimedia = True
+except ImportError:
+    pass
+
+hasQtOpenGL = False
+try:
+    from PySide2 import QtOpenGL
+    hasQtOpenGL = True
+except ImportError:
+    pass
+
+hasQtPrintSupport = False
+try:
+    from PySide2 import QtPrintSupport
+    hasQtPrintSupport = True
+except ImportError:
+    pass
+
+hasQtSql = False
+try:
+    from PySide2 import QtSql
+    hasQtSql = True
+except ImportError:
+    pass
+
+hasQtSvg = False
+try:
+    from PySide2 import QtSvg
+    hasQtSvg = True
+except ImportError:
+    pass
+
+hasQtTest = False
+try:
+    from PySide2 import QtTest
+    hasQtTest = True
+except ImportError:
+    pass
+
 
 
 global duplicate_Find   ; duplicate_Find    = []
@@ -692,7 +762,7 @@ Type 'help(editor)' in the console for help.\n\
             return
         inSelectionOnly = False
         modifiers = QtGui.QGuiApplication.keyboardModifiers()
-        if modifiers & QtCore.Qt.ControlModifier:
+        if modifiers == QtCore.Qt.ControlModifier:
             inSelectionOnly = True
         if not inSelectionOnly:
             fullText = self.getText(name)
@@ -944,11 +1014,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         txt = self.findEdit.text()
         matchCase = self.matchCaseCheckBox.checkState()
         modifiers = QtGui.QApplication.keyboardModifiers()
-        if modifiers & QtCore.Qt.AltModifier:
+        if modifiers == QtCore.Qt.AltModifier:
             selText = self.currentEditor.textCursor().selectedText()
             self.findEdit.setText(selText if selText else txt)
             txt = self.findEdit.text()
-        if modifiers & QtCore.Qt.ControlModifier:
+        elif modifiers == QtCore.Qt.ControlModifier:
             self.gotoLine(1, silent=True)
 
         self.found = False
@@ -1317,47 +1387,67 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
         if not hasQtNetwork:
-            qtNetWorkAction.setEnabled(False)
+            QtNetWorkAction.setEnabled(False)
 
-        QtHelpAction = QtGui.QAction("QtHelp")
+        QtHelpAction = QtGui.QAction("QtHelp") if hasQtHelp else QtGui.QAction("QtHelp (not installed)")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
         qtMenu.addAction(QtHelpAction)
+        if not hasQtHelp:
+            QtHelpAction.setEnabled(False)
 
-        QtMultimediaAction = QtGui.QAction("QtMultimedia")
+        QtMultimediaAction = QtGui.QAction("QtMultimedia") if hasQtMultimedia else QtGui.QAction("QtMultimedia (not installed)")
         QtMultimediaAction.triggered.connect(lambda :self.makeReferenceMenu(QtMultimedia))
         qtMenu.addAction(QtMultimediaAction)
+        if not hasQtMultimedia:
+            QtMultimediaAction.setEnabled(False)
 
-        QtOpenGLAction = QtGui.QAction("QtOpenGL")
+        QtOpenGLAction = QtGui.QAction("QtOpenGL") if hasQtOpenGL else QtGui.QAction("QtOpenGL (not installed)")
         QtOpenGLAction.triggered.connect(lambda :self.makeReferenceMenu(QtOpenGL))
         qtMenu.addAction(QtOpenGLAction)
+        if not hasQtOpenGL:
+            QtOpenGLAction.setEnabled(False)
 
-        QtPrintSupportAction = QtGui.QAction("QtPrintSupport")
+        QtPrintSupportAction = QtGui.QAction("QtPrintSupport") if hasQtPrintSupport else QtGui.QAction("QtPrintSupport (not installed)")
         QtPrintSupportAction.triggered.connect(lambda :self.makeReferenceMenu(QtPrintSupport))
         qtMenu.addAction(QtPrintSupportAction)
+        if not hasQtPrintSupport:
+            QtPrintSupportAction.setEnabled(False)
 
-        QtSqlAction = QtGui.QAction("QtSql")
+        QtSqlAction = QtGui.QAction("QtSql") if hasQtSql else QtGui.QAction("QtSql (not installed)")
         QtSqlAction.triggered.connect(lambda :self.makeReferenceMenu(QtSql))
         qtMenu.addAction(QtSqlAction)
+        if not hasQtSql:
+            QtSqlAction.setEnabled(False)
 
-        QtSvgAction = QtGui.QAction("QtSvg")
+        QtSvgAction = QtGui.QAction("QtSvg") if hasQtSvg else QtGui.QAction("QtSvg (not installed)")
         QtSvgAction.triggered.connect(lambda :self.makeReferenceMenu(QtSvg))
         qtMenu.addAction(QtSvgAction)
+        if not hasQtSvg:
+            QtSvgAction.setEnabled(False)
 
-        QtTestAction = QtGui.QAction("QtTest")
+        QtTestAction = QtGui.QAction("QtTest") if hasQtTest else QtGui.QAction("QtTest (not installed)")
         QtTestAction.triggered.connect(lambda :self.makeReferenceMenu(QtTest))
         qtMenu.addAction(QtTestAction)
+        if not hasQtTest:
+            QtTestAction.setEnabled(False)
 
-        QtWidgetsAction = QtGui.QAction("QtWidgets")
+        QtWidgetsAction = QtGui.QAction("QtWidgets") if hasQtWidgets else QtGui.QAction("QtWidgets (not installed)")
         QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
         qtMenu.addAction(QtWidgetsAction)
+        if not hasQtWidgets:
+            QtWidgetsAction.setEnabled(False)
 
-        QtXmlAction = QtGui.QAction("QtXml")
+        QtXmlAction = QtGui.QAction("QtXml") if hasQtXml else QtGui.QAction("QtXml (not installed)")
         QtXmlAction.triggered.connect(lambda :self.makeReferenceMenu(QtXml))
         qtMenu.addAction(QtXmlAction)
+        if not hasQtXml:
+            QtXmlAction.setEnabled(False)
 
-        QtXmlPatternsAction = QtGui.QAction("QtXmlPatterns")
+        QtXmlPatternsAction = QtGui.QAction("QtXmlPatterns") if hasQtXmlPatterns else QtGui.QAction("QtXmlPatterns (not installed)")
         QtXmlPatternsAction.triggered.connect(lambda :self.makeReferenceMenu(QtXmlPatterns))
         qtMenu.addAction(QtXmlPatternsAction)
+        if not hasQtXmlPatterns:
+            QtXmlPatternsAction.setEnabled(False)
 
         searchMenu = QtGui.QMenu("Search source code")
         searchAction = QtGui.QAction("Use find edit text")
@@ -2132,11 +2222,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         modifiers = QtGui.QApplication.keyboardModifiers()
-        if modifiers & QtCore.Qt.AltModifier:
+        if modifiers == QtCore.Qt.AltModifier:
             selText = self.currentEditor.textCursor().selectedText()
             self.findEdit.setText(selText if selText else txt)
             txt = self.findEdit.text()
-        if modifiers & QtCore.Qt.ControlModifier:
+        elif modifiers == QtCore.Qt.ControlModifier:
             self.gotoLine(-1, silent=True, eol=True)
 
         self.found = False
