@@ -243,6 +243,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.84e (2022.04.06)
+* eliminate some xpm string warnings
+### 1.84 - 1.84d (2022.04.06)
+* put on wiki for addon manager install
+* workaround some qt modules not available for import on all systems
 ### 1.83 (2022.04.06)
 * rearrange icons, so clear and reverse are in front of find and replace, to better indicate their purposes
 * down arrow moves from find edit to replace edit, up arrow from replace to find
