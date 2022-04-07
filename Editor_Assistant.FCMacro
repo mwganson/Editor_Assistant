@@ -10,8 +10,8 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.84e"
-__date__    = "2022/04/06"
+__version__ = "1.85"
+__date__    = "2022/04/07"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
@@ -107,8 +107,6 @@ try:
     hasQtTest = True
 except ImportError:
     pass
-
-
 
 global duplicate_Find   ; duplicate_Find    = []
 global duplicate_Replace; duplicate_Replace = []
@@ -217,9 +215,7 @@ class TaskEditorAssistant:
         self.form.setObjectName("Editor assistant")
         self.form.setWindowTitle(" Editor assistant v"+__version__)
         self.form.setWindowIcon(QIconFromXPMString(__icon__))
-####Begin
         self.Indent_Memo = ""
-####End
         #self.form.form = self
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
@@ -236,7 +232,7 @@ class TaskEditorAssistant:
         #findEditLayout2 = ComboBox_Find
         #replaceEditLayout = Replace edit + replace + replace all + reverse
         #replaceEditLayout2 = ComboBox_replace
-        #indentLayout = unindent button + indent button + Match case checkbox + whole words checkbox
+        #indentLayout = unindent button + indent button + combo box indent memo + match case checkbox + whole words checkbox
         #snapLayout = snap button + discard button + snap menu + pop button
         #consoleLayout = to console label + console line edit
 
@@ -381,9 +377,7 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout = QtGui.QHBoxLayout()
         self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
         self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
-####Begin
         self.Clear_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
-####End
         self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
@@ -431,9 +425,7 @@ Find results = results of searches for text in Find line edit\n\
         replaceEditLayout = QtGui.QHBoxLayout()
         self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
         self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
-####Begin
         self.Reverse_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
-####End
         self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
         self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
         replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
@@ -452,7 +444,6 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceAllBtn.clicked.connect(self.onReplaceAllBtnClicked)
         replaceEditLayout.addWidget(self.replaceBtn)
         replaceEditLayout.addWidget(self.replaceAllBtn)
-
 
         showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
         replaceEditLayout2 = QtGui.QHBoxLayout()
@@ -490,7 +481,6 @@ Find results = results of searches for text in Find line edit\n\
         self.indentBtn.clicked.connect(self.onIndentBtnClicked)
         indentLayout.addWidget(self.indentBtn)
 
-####Begin
         self.ComboBox_Indent_Memo = QtWidgets.QComboBox()
         self.ComboBox_Indent_Memo.setMaxVisibleItems(16)
         self.ComboBox_Indent_Memo.setToolTip("Insert the text in front instead of the indentation " + "\n"
@@ -504,7 +494,6 @@ Find results = results of searches for text in Find line edit\n\
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Indent_Memo_Clicked)
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("editTextChanged (QString)"), self.on_ComboBox_Indent_Memo_Changed_Clicked)
         indentLayout.addWidget(self.ComboBox_Indent_Memo)
-####End
 
         indentLayout.addStretch()
         self.matchWholeCheckBox = QtGui.QCheckBox()
@@ -2289,9 +2278,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             return
         lines = txt.splitlines()
 
-####Begin
-#ori        lines2 = ['    '+line for line in lines]
-#
         if len(self.ComboBox_Indent_Memo.currentText()) == 0: 
             self.Indent_Memo = ""
         else:
@@ -2302,7 +2288,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             lines2 = ['    ' + line for line in lines]
         else:
             lines2 = [self.Indent_Memo + line for line in lines]
-####End
 
         joined = '\u2029'.join(lines2)
         tc.insertText(joined)
@@ -2311,7 +2296,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
         self.currentEditor.setTextCursor(tc)
 
-####Begin
     def on_ComboBox_Indent_Memo_Changed_Clicked(self, text):    # change indentBtn icon 
         self.Indent_Memo = ""
         if text == "":
@@ -2333,7 +2317,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             self.ComboBox_Find.setCurrentText(text)
             self.findEdit.setText(text)
             self.Indent_Memo = self.ComboBox_Indent_Memo.currentText()
-####End
 
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -3595,7 +3578,6 @@ static char *indent_xpm[] = {
 "................................................................"
 };"""
 
-####Begin
 indent_Memo_icon = """
 /* XPM */
 static char *indent_xpm[] = {
@@ -3676,7 +3658,6 @@ static char *indent_xpm[] = {
 "................................................................",
 "................................................................"
 };"""
-####End
 
 replace_icon = """
 /* XPM */
