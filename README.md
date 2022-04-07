@@ -243,6 +243,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.85 (2022.04.07)
+* accept mario52 PR to add custom indent text
 ### 1.84e (2022.04.06)
 * eliminate some xpm string warnings
 ### 1.84 - 1.84d (2022.04.06)
