@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.84d"
+__version__ = "1.84e"
 __date__    = "2022/04/06"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -3171,6 +3171,9 @@ class Dockable (QtGui.QDockWidget):
 
 def QIconFromXPMString(xpm_string):
     xpm = xpm_string.replace("\"","").replace(',','').splitlines()[4:-1]
+    for line in reversed(xpm):
+        if line.startswith("/*") and line.endswith("*/"):
+            xpm.pop(xpm.index(line))
     pixmap = QtGui.QPixmap(xpm)
     icon = QtGui.QIcon(pixmap)
     return icon
@@ -3285,9 +3288,8 @@ static char *_647719150564[] = {
 "                                                                ",
 "                                                                ",
 "                                                                "
-};
+};"""
 
-"""
 undo_icon = """
 /* XPM */
 static char *edit_undo_XPM[] = {
@@ -3365,8 +3367,8 @@ static char *edit_undo_XPM[] = {
 "                 %%    %%%% %%%%%%%%  %%                        ",
 "                         %%     %                               ",
 "                                                                "
-};
-"""
+};"""
+
 redo_icon = """
 /* XPM */
 static char *edit_redo_XPM[] = {
@@ -3444,8 +3446,8 @@ static char *edit_redo_XPM[] = {
 "                        %%  %%%%%%%% %%%%    %%                 ",
 "                               %     %%                         ",
 "                                                                "
-};
-"""
+};"""
+
 indent_icon = """
 /* XPM */
 static char *indent_xpm[] = {
@@ -3524,9 +3526,9 @@ static char *indent_xpm[] = {
 "................................................................",
 "................................................................",
 "................................................................",
-"................................................................"};
+"................................................................"
+};"""
 
-"""
 replace_icon = """
 /* XPM */
 static char *_647894170722[] = {
@@ -3605,9 +3607,8 @@ static char *_647894170722[] = {
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-};
+};"""
 
-"""
 find_previous_icon = """
 /* XPM */
 static char *_647896432515[] = {
@@ -3685,8 +3686,8 @@ static char *_647896432515[] = {
 "#####################OOO########################################",
 "################################################################",
 "################################################################"
-};
-"""
+};"""
+
 find_next_icon = """
 /* XPM */
 static char *_647896407113[] = {
@@ -3764,9 +3765,8 @@ static char *_647896407113[] = {
 "########################################OOOO####################",
 "########################################OOOO####################",
 "################################################################"
-};
+};"""
 
-"""
 replace_all_icon = """
 /* XPM */
 static char *_647894950477[] = {
@@ -3845,8 +3845,8 @@ static char *_647894950477[] = {
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",
 "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-};
-"""
+};"""
+
 unindent_icon = """
 /* XPM */
 static char * unindent_xpm[] = {
@@ -3925,8 +3925,9 @@ static char * unindent_xpm[] = {
 "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
 "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
 "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"};
-"""
+"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+};"""
+
 snapshot_icon = """
 /* XPM */
 static char *_647898900207[] = {
@@ -3999,8 +4000,8 @@ static char *_647898900207[] = {
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-};
-"""
+};"""
+
 match_case_icon = """
 /* XPM */
 static char *_647901377770[] = {
@@ -4073,8 +4074,8 @@ static char *_647901377770[] = {
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-};
-"""
+};"""
+
 match_whole_word_icon = """
 /* XPM */
 static char *_647901969918[] = {
@@ -4149,8 +4150,8 @@ static char *_647901969918[] = {
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-};
-"""
+};"""
+
 home_icon = """
 /* XPM */
 static char *_649035328466[] = {
@@ -4223,8 +4224,8 @@ static char *_649035328466[] = {
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-};
-"""
+};"""
+
 end_icon = """
 /* XPM */
 static char *_649036163438[] = {
@@ -4302,8 +4303,8 @@ static char *_649036163438[] = {
 "################################################################",
 "################################################################",
 "################################################################"
-};
-"""
+};"""
+
 toggle_bookmark_icon = """
 /* XPM */
 static char *_649037028270[] = {
@@ -4376,8 +4377,8 @@ static char *_649037028270[] = {
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-};
-"""
+};"""
+
 next_bookmark_icon = """
 /* XPM */
 static char *_649037522124[] = {
@@ -4452,8 +4453,8 @@ static char *_649037522124[] = {
 "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
 "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
 "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"
-};
-"""
+};"""
+
 remove_all_bookmarks_icon = """
 /* XPM */
 static char *_649039201346[] = {
@@ -4527,18 +4528,18 @@ static char *_649039201346[] = {
 "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
 "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo",
 "oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
-};
-"""
+};"""
+
 reverse_find_replace_icon = """
 /* XPM */
 static char * Reverse3_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
-" 	c None",
-".	c #A70002",
-"+	c #EF2B29",
-"@	c #4E990D",
-"#	c #8AE138",
+"   c None",
+".  c #A70002",
+"+  c #EF2B29",
+"@  c #4E990D",
+"#  c #8AE138",
 "                                                                ",
 "                                                                ",
 "                               .........                        ",
@@ -4603,8 +4604,7 @@ static char * Reverse3_xpm[] = {
 "                      @@@@@@@@@@@@@                             ",
 "                        @@@@@@@@@                               ",
 "                                                                "
-};
-"""
+};"""
 
 children = mw.findChildren(QtGui.QWidget,"Editor assistant")
 if not children:
