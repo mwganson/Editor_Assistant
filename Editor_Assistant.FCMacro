@@ -112,6 +112,7 @@ except ImportError:
 
 global duplicate_Find   ; duplicate_Find    = []
 global duplicate_Replace; duplicate_Replace = []
+global duplicate_Indent_Memo   ; duplicate_Indent_Memo    = []
 
 try:
     import shiboken2 as shiboken
@@ -216,6 +217,9 @@ class TaskEditorAssistant:
         self.form.setObjectName("Editor assistant")
         self.form.setWindowTitle(" Editor assistant v"+__version__)
         self.form.setWindowIcon(QIconFromXPMString(__icon__))
+####Begin
+        self.Indent_Memo = ""
+####End
         #self.form.form = self
         #self.print(f"self.editors = {self.editors}")
         for ed in self.editors:
@@ -377,6 +381,9 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout = QtGui.QHBoxLayout()
         self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
         self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
+####Begin
+        self.Clear_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+####End
         self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
@@ -424,6 +431,9 @@ Find results = results of searches for text in Find line edit\n\
         replaceEditLayout = QtGui.QHBoxLayout()
         self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
         self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
+####Begin
+        self.Reverse_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+####End
         self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
         self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
         replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
@@ -479,6 +489,23 @@ Find results = results of searches for text in Find line edit\n\
         self.indentBtn.setToolTip("Increase indentation of selection")
         self.indentBtn.clicked.connect(self.onIndentBtnClicked)
         indentLayout.addWidget(self.indentBtn)
+
+####Begin
+        self.ComboBox_Indent_Memo = QtWidgets.QComboBox()
+        self.ComboBox_Indent_Memo.setMaxVisibleItems(16)
+        self.ComboBox_Indent_Memo.setToolTip("Insert the text in front instead of the indentation " + "\n"
+                                             "(the button indentation icon change)" + "\n"
+                                             "Ex: '#ori'" + "\n"
+                                             "Validate by Enter" + "\n"
+                                             "If the field is empty the normal indentation is used" + "\n")
+        #self.ComboBox_Indent_Memo.addItem("")
+        self.ComboBox_Indent_Memo.setDuplicatesEnabled(False)    # not work ?
+        self.ComboBox_Indent_Memo.setEditable(True)              # editable
+        QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Indent_Memo_Clicked)
+        QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("editTextChanged (QString)"), self.on_ComboBox_Indent_Memo_Changed_Clicked)
+        indentLayout.addWidget(self.ComboBox_Indent_Memo)
+####End
+
         indentLayout.addStretch()
         self.matchWholeCheckBox = QtGui.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
@@ -1132,7 +1159,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             "ShowFindLine2": [self.ComboBox_Find],
             "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn, self.Reverse_FindReplaceCB],
             "ShowReplaceLine2": [self.ComboBox_replace],
-            "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.matchCaseCheckBox, \
+            "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.ComboBox_Indent_Memo, self.matchCaseCheckBox, \
                                 self.matchWholeCheckBox, self.loopCheckBox],
             "ShowSnapsLine": [self.takeSnapBtn, self.discardSnapBtn, self.snapCenterBtn, self.snapMenuBtn, self.popSnapBtn],
             "ShowConsoleLine": [self.consoleLabel, self.consoleEdit]
@@ -2261,13 +2288,52 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             self.toast("nothing selected to indent")
             return
         lines = txt.splitlines()
-        lines2 = ['    '+line for line in lines]
+
+####Begin
+#ori        lines2 = ['    '+line for line in lines]
+#
+        if len(self.ComboBox_Indent_Memo.currentText()) == 0: 
+            self.Indent_Memo = ""
+        else:
+            self.Indent_Memo = self.ComboBox_Indent_Memo.currentText()
+            self.on_ComboBox_Indent_Memo_Clicked(self.Indent_Memo)
+
+        if self.Indent_Memo == "":
+            lines2 = ['    ' + line for line in lines]
+        else:
+            lines2 = [self.Indent_Memo + line for line in lines]
+####End
+
         joined = '\u2029'.join(lines2)
         tc.insertText(joined)
         self.setModified(self.editorList.currentItem().text(), old_text, "Indent >>", self.getTC(tc))
         tc.movePosition(QtGui.QTextCursor.Up, QtGui.QTextCursor.KeepAnchor, len(lines2)-1)
         tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
         self.currentEditor.setTextCursor(tc)
+
+####Begin
+    def on_ComboBox_Indent_Memo_Changed_Clicked(self, text):    # change indentBtn icon 
+        self.Indent_Memo = ""
+        if text == "":
+            self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
+        else:
+            self.indentBtn.setIcon(QIconFromXPMString(indent_Memo_icon))
+
+    def on_ComboBox_Indent_Memo_Clicked(self, text):
+        global duplicate_Indent_Memo
+        global duplicate_Find
+
+        if text not in duplicate_Indent_Memo:
+            duplicate_Indent_Memo.append(text)
+            duplicate_Indent_Memo = sorted(list(set(duplicate_Indent_Memo))) # sort duplicate
+            duplicate_Find.append(text)
+            duplicate_Find = sorted(list(set(duplicate_Find))) # sort duplicate
+            self.ComboBox_Indent_Memo.setCurrentText(text)
+            self.ComboBox_Find.addItem(text)
+            self.ComboBox_Find.setCurrentText(text)
+            self.findEdit.setText(text)
+            self.Indent_Memo = self.ComboBox_Indent_Memo.currentText()
+####End
 
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -3528,6 +3594,89 @@ static char *indent_xpm[] = {
 "................................................................",
 "................................................................"
 };"""
+
+####Begin
+indent_Memo_icon = """
+/* XPM */
+static char *indent_xpm[] = {
+/* format */
+"64 64 9 1",
+"   c None",
+".  c black",
+"+  c #DFDFDF",
+"@  c #3F48CC",
+"#  c green",
+"$  c red",
+"%  c black",
+"&  c #ED1C24",
+"*  c #E2D9D6",
+/* pixels */
+"...................................................             ",
+"...................................................             ",
+"....................................................            ",
+".....................................................           ",
+"....++++++++++++++++++++++++++++++++++++++++++++......          ",
+"....++++++++++++++++++++++++++++++++++++++++++++.......         ",
+"....++++++++++++++++++++++++++++++++++++++++++++........        ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+.....       ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++.....      ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++.....     ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++.....    ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++.....   ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++.....  ",
+"....++++++++++++++++++++++++++++++++++++++++++++...+++++++..... ",
+"....++++++++++++++++++++++++++++++++++++++++++++...++++++++.... ",
+"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
+"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
+"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++................",
+"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++....",
+"....+++++++%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%++++++++++++++++++....",
+"....++++++++++++++++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%%%%%%%%%%%%%%%%++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"....+++..$$$$$$..++++++++++++++++++++++++++++++++++++++++++++...",
+"....+++..$$$$$$..+++++++++++++++++++++++++++++++++++++++++++....",
+"................................................................",
+"................................................................",
+"................................................................",
+"................................................................"
+};"""
+####End
 
 replace_icon = """
 /* XPM */
