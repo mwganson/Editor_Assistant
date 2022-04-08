@@ -31,7 +31,7 @@ This is the QListWidget at the top of the dialog.  It will list the names of the
 This button is labeled "Refresh".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  Updates also happen when other functions are used and when documents are opened, but not when closed.
 ### Goto menu button
 This button is next to the refresh button and currently has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.  It provides quick access to find results, bookmarks, line number presets, and more.
-#### Go to line numbers
+### Go to line numbers
 This is a QLineEdit that can hold either a single number (the line number you wish to go to) or a (comma separated) list of numbers that will appear in a selection menu when press return/enter while the widget has keyboard focus.  The goto line option(s) appear as menu items in the Goto menu.
 ## Undo line
 ### Undo button
