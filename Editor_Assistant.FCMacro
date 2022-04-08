@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.85"
+__version__ = "1.86"
 __date__    = "2022/04/07"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -804,7 +804,10 @@ Type 'help(editor)' in the console for help.\n\
                 self.setText(name, newText, f"replace {txt}")
             else:
                 self.setModified(name,self.currentEditor.toPlainText(), "Replace in selection",self.getTC(self.currentEditor.textCursor()))
-                self.currentEditor.textCursor().insertText(newText)
+                tc = self.currentEditor.textCursor()
+                tc.setKeepPositionOnInsert(True)
+                tc.insertText(newText)
+                self.currentEditor.setTextCursor(tc)
 
     def reFindIndices(self, plainText, txt, searchFrom = 0):
         """replaces plainText.find(txt, searchFrom=0) with same find using re
@@ -4745,4 +4748,3 @@ if not children:
         showEditorAssistantDialog()
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
-
