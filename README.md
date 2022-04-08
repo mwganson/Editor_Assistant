@@ -2,7 +2,7 @@
 FreeCAD macro adds additional functionality to FreeCAD's built-in python editor.  It is not a replacement for the editor, but rather a supplemental toolkit for the editor.  It gives you functions like find and replace, diffing, snapshots, templates, bookmarks, and convenient links to help and documentation.
 
 ## Installation
-Install via the Addon manager (soon).  Until then copy the .FCMacro file to your Macro folder.  The macro will create a new file called Editor_Assistant_Templates.txt in the same folder.  This file holds the templates.  It will need to be removed manually when you uninstall the macro.
+Install via the Addon manager in the macros section.  The macro will create a new file called Editor_Assistant_Templates.txt in the same folder.  This file holds the templates.  It will need to be removed manually when you uninstall the macro.
 
 ## Toolbar icon
 Download the toolbar icon: <img src="Editor_Assistant_Icon.svg" alt="icon"><a href="Editor_Assistant_Icon.svg"> Link</a><br/>
@@ -15,10 +15,10 @@ By default the macro opens in a 3rd tab in the combo view.  You will have Model,
 
 The title bar will show the current version: "Editor Assistant v1.09", for example.  The dialog works with the concept of a current editor, which will be one of the text documents currently open.  These can be python scripts or "Text document" objects.  Basically, any view in the MDI area that has a QPlainTextEdit as a child shows up in the macro's editor list at the top of the dialog.  The editor list will need to be refreshed from time to time when you open/close a document, using the "Refresh" button.  Ensure you are viewing the current editor by selecting it in the editor list at the top of the macro.
 
-The widgets in the dialog are presented in a series of horizontal lines (using QHBoxLayouts).  Here I will discuss briefly each line and the widgets contained on each.
+The widgets in the dialog are presented in a series of horizontal lines (using QHBoxLayouts).  Here I will discuss briefly each line and the widgets contained on each.  These lines can be individually enabled/disabled in settings menu -> layout.
 
 ## Top line
-The Top Line has the Main menu button and the Toast button.
+The Top Line has the Main menu button and the Toast button.  This is the only line that cannot be disabled.
 ### Main menu button
 This button is at the top left of the dialog and has the main editor assistant icon.  Click the button to bring up the main menu, which contains the Close option to exit the macro.  (But it's not really necessary to close the macro, just switch to one of the other tabs.)  The main menu will be discussed in more detail below.
 ### Toast button
@@ -30,39 +30,47 @@ This is the QListWidget at the top of the dialog.  It will list the names of the
 ### Refresh button
 This button is labeled "Refresh".  Click it if you have opened a new document or closed a document, so the Editor List can be updated.  Updates also happen when other functions are used and when documents are opened, but not when closed.
 ### Goto menu button
-This button is next to the refresh button and currently has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.  It provides quick access to find results, bookmarks, line number presets, and more.
+This button is next to the refresh button and has a down arrow icon.  Click this button to bring up a menu of Goto options.  This is a very powerful and useful feature that can save you a lot of time.  The Goto menu is also incorporated into the main menu as a Goto submenu.  The Goto menu will be discussed in more detail below.  It provides quick access to find results, bookmarks, line number presets, and more.
 ### Go to line numbers
 This is a QLineEdit that can hold either a single number (the line number you wish to go to) or a (comma separated) list of numbers that will appear in a selection menu when press return/enter while the widget has keyboard focus.  The goto line option(s) appear as menu items in the Goto menu.
 ## Undo line
 ### Undo button
-Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typing that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).  The editor has its own Undo/Redo system that does not always coincide with the macro's Undo/Redo queue.  Use the macro's Undo to undo things done in teh macro, such as replacing text or something done in the To console: edit.
+Important: Both undo and redo will replace all the text in the current editor with what it was when the undo/redo was stored in memory.  This overwrite any changes you made by, for example, typing directly into the editor.  As an example, suppose you rename some variable using replace all, from "myvar" to "myvariable".  This is staged in the undo queue as "Undo replace myvar".  Then you type in code for a new function definition.  After typing that in you decide you want to undo renaming myvar to myvarible because it's too much typing, so you click Undo rename myvar.  Guess what just happened to the new function definition?  It's a gone pecan (but is staged in Redo).  The editor has its own Undo/Redo system that does not always coincide with the macro's Undo/Redo queue.  Use the macro's Undo to undo things done in the macro, such as replacing text or something done in the To console: line edit.
 
-Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
+Click to undo an operation.  Undo only works on things done in the dialog.  There is a maximum number of events that can be undone.  Currently, this is 100, but is subject to change.  This is set in the source code as UNDO_QUEUE_MAX_SIZE = 100, at the top of the source file.  You can change this default in user parameters.  Tools menu -> edit parameters -> Plugings -> Editor assistant -> UndoQueueMaxSize.  This is to prevent potential out of memory errors.  The queue is based on the current editor.  As you switch editors (via the editor list) the Undo button label will change, and will sometimes become disabled if there are no undo events in the queue for that editor.
 ### Purge undo/redo queues
 Clicking this button purges the undo/redo queues.  This cannot be undone.
 ### Redo button
 When an operation is undone, the undone is popped and sent to the redo queue.
 ## Find line
+### Clear button
+This button clears both the Find edit and the Replace edit fields.
 ### Find edit
-This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  If you are in "find" highlight mode you will also see matching text being highlighted in the current editor, if it is visible.  (The Match case checkbox and the Whole words checkbox both figure into this.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.
+This is a QLineEdit into which you may enter text to search for in the current editor.  As characters are typed you will see a new toast showing how many times the entered text can be found in the current editor.  If you are in "find" highlight mode you will also see matching text being highlighted in the current editor, if it is visible.  (The Match case checkbox and the Whole words checkbox both figure into this.)  You may press Enter/Return in this box to instigate a search or use one of the Find buttons, Find next for Find previous.  For both the Find and Replace line edit widgets there is a context menu option to paste the currently selected text from the current editor into them.  This can also be done by double clicking the line edit.  For example, select some text in the current editor, and then double click the Find edit to put that text into it, replacing any existing text.
 
 The text in the Find edit can also be used to fill in replacement text when using templates, discussed in more detail below.
 ### Find next
 Click this button to find the next instance of the text in the Find edit.  If a match is found the text will be selected in the current editor and the cursor will move to that line.  If it is not found, then nothing happens.  Ctrl+Click to search from the beginning of the document.  Alt+Click to find from selection.  This uses the text currently selected in the current editor as if it were in the Find edit widget.
 ### Find previous
 Like Find next except it searches backward.  Ctrl+Click to begin the search from the end of the document.  Alt+Click to find from selection.  This uses the text currently selected in the current editor as if it were in the Find edit widget.
+
+Note: the find from selection option for both Find previous and Find next does not limit the search to the selection, it searches the entire document for the selection.
 ## Replace line
+### Reverse button
+This button replaces the text in the Find edit with that in the Replace edit and vice versa.  You might find this convenient when you have done a search and replace and want to reverse that operation.
 ### Replace edit
 This is a QLineEdit containing replacement text (replacing the text in the Find Edit) when the Replace or Replace All buttons are used.  The text in the Replace edit can also be used as replacement text when using templates, discussed in more detail below.
 ### Replace
 Replace the currently selected text in the current editor with the text in the Replace Edit, and then toggle the Find next button.  Note: there need not be a previous find success.  Whatever is currently selected gets replaced.  You can use Undo to undo this operation.
 ### Replace all
-Replace all occurrences of the text in the Find edit with the text in the Replace edit in the entire document.  Or Ctrl+Click to only replace the occurrences in the currently selected text.  If Replace edit is empty, then the occurrences are simply deleted.  This respects the Match case checkbox state.  It is incompatible with the Whole word checkbox checked state, and is therefore disabled when that checkbox is checked.  This can be undone using the Undo button.
+Replace all occurrences of the text in the Find edit with the text in the Replace edit in the entire document.  Or Ctrl+Click to only replace the occurrences in the currently selected text.  If Replace edit is empty, then the occurrences are simply deleted.  This respects both the Match case checkbox state and the match whole words check state.  This can be undone using the Undo button.
 ## Match line
 ### Unindent
-Moves the selected text in the current editor to the left by 4 spaces if there are 4 spaces in front of every selected line.  If not every selected line has 4 leading spaces the operation will not be done.
+Moves the selected text in the current editor to the left by 4 spaces if there are 4 spaces in front of every selected line.  If not every selected line has 4 leading spaces the operation will not be done for any of the lines.
 ### Indent
-Moves the selected text in the current editor to the right by 4 spaces.
+Moves the selected text in the current editor to the right by 4 spaces.  If the Memo combo box contains any text, then that text is used rather than 4 spaces.  The Indent icon changes to reflect this different behavior.  This can be useful where you wish to comment out a block of text with a comment, such as #original.  It can also be used if you prefer a different indentation than 4 spaces, for example if you want 2 spaces only.
+### Memo combo box
+If this contains text the behavior of the Indent button changes.  This text is used instead of 4 spaces.  See Indent button above for more details.
 ### Match case
 This is a QCheckBox.  If checked searches are case-sensitive.  Replace and Replace all both respect this checkbox state.
 ### Whole words
@@ -74,9 +82,9 @@ This is a QCheckBox.  If checked, then when there is a search that finds no resu
 Takes a snapshot of the current editor, including it's full text and position of cursor if there is text selected.  Snapshots can be very useful as temporary, in-memory backups of the file currently open.  They can be used to restore the content back to the previous state, including the cursor position.  They can be used to create diffs to show the changes that have been made since the snapshot was taken.  (When a file is first opened an automatic snapshot is taken.)
 There is a special menu devoted to snapshots and diffs, the Snaps menu, discussed in more detail below.
 
-Snapshots can be taken, popped, restored, discarded, saved, loaded, edited, and diffed.  Popping a snapshot means to restore it to the current editor and then discard it.  Restoring is like popping except for 2 differences: the snapshot is not discarded, and snapshots may be restored in any order (not only the most recent).  Discarding is like popping except without restoring.  You may save the snapshot as a file with the .py or .FCMacro extension, or any other extension you prefer.  You can also save all the snapshots into a single file, stored in JSON format.  Snapshots may be loaded from the JSON file.  Editing a snapshot involved editing the "reason", which is a very brief description of the snapshot.  Diffing creates an html file showing the differences between the 2 compared things, typically the current editor with one of its snapshots.
+Snapshots can be taken, popped, restored, discarded, saved, loaded, edited, and diffed.  Popping a snapshot means to restore it to the current editor and then discard it.  Restoring is like popping except for 2 differences: the snapshot is not discarded, and snapshots may be restored in any order (not only the most recent).  Discarding is like popping except without restoring.  You may save the snapshot as a file with the .py or .FCMacro extension, or any other extension you prefer.  You can also save all the snapshots into a single file, stored in JSON format.  Snapshots may be loaded from the JSON file.  Editing a snapshot involves editing the "reason", which is a very brief description of the snapshot.  Diffing creates an html file showing the differences between the 2 compared things, typically the current editor with one of its snapshots.  Diffs can also be made between the current editor an another open file or between the current editor and some clipboard text.
 ### Discard latest snapshot
-Discards most recent snapshot (without restoring it).  Use pop to restore and discard or restore from the menu if you don't want to discard.
+Discards most recent snapshot (without restoring it).  Use pop to restore and discard or use restore from the menu if you don't want to discard.
 ### Snaps menu
 This opens the Snaps menu, discussed in more detail below.
 ### Pop snap
@@ -99,20 +107,22 @@ Use "\n" for multiple line commands.
 
 Once a command has been entered you can then access "editor" and "dlg" via the python console.
 
+Randomly, different default texts will appear in the To console: edit each time you run the macro to help demonstrate more of its capabilities.
+
 ## Menus
 There are 3 menus: the main menu, the goto menu, and the snaps menu.  The goto and snaps menus are also accessible from the main menu.
 ### Main menu
 The main menu is accessed by clicking the Main menu button at the top left of the dialog.
 #### Settings menu
-Here you can change some settings.  Currently, only layout is available, but more settings will be coming to this menu in the future.  Within layout you can individually enable/disable various lines of widgets.  This is so you can make the dialog smaller if you need to and if you don't need access to those widgets you are hiding.
+Here you can change some settings.  Currently, only layout is available, but more settings will likely be coming to this menu in the future.  Within layout you can individually enable/disable various lines of widgets.  This is so you can make the dialog smaller if you need to and if you don't need access to those widgets you are hiding.  There are also 3 presets to choose from: show all, show only defaults, show minimal.  Clicking any of the 3 presets changes the individual line settings.
 #### Goto menu
 Discussed in detail in its own section below.
 #### Snaps menu
 Discussed in detail in its own section below.
 #### Templates menu
-Templates are a way to insert text into the current document without needing to do so much typing.  They are also convenient because there is less need to refer to documentation for exact syntax, arguments available, etc.  In its simplest form a template merely inserts some text into the current cursor position.  A more advanced usage is to have replaceable text that is dynamically replaced during the insertion.
+Templates are a way to insert text into the current document without needing to do so much typing.  They are also convenient because there is less need to refer to documentation for exact syntax, arguments available, etc.  In its simplest form a template merely inserts some text into the current cursor position.  A more advanced usage is to have replaceable text that is dynamically replaced during the insertion.  The cursor position can also be manipulated automatically by the template mechanism.
 
-Templates are a dictionary of dictionaries.  The entire template set is a dictionary with the template names serving as keys.  The value for each key is a dictionary.  
+Templates are a dictionary of dictionaries.  The entire template set is a dictionary with the template names serving as keys.  The value for each top level key is a dictionary.  A template item is a dictionary whose key is seen in the template editor in the list widget. 
 
 This template item dictionary must have at least one key named "output".  The rest are all optional.  The value of this "output" key is the text to be inserted or one of these recognized tokens:
 
@@ -139,7 +149,7 @@ An optional key is "goto", which contains the line to go to before inserting the
 "relative:-7" -- go 7 lines up from current cursor position
 </pre>
 
-We have "output" and "goto" as recognized tokens for key names that have special meanings.  All other keys are treated as the text to be replaced in the "output" value.  For example, if the key is "label", then the string label is replaced with the value of this key during template execution.  You can see this at work with the default "button" template item.  The 2 keys "label" and "name" are replaced in the "output" value.
+We have only "output" and "goto" as recognized tokens for key names that have special meanings.  All other keys are treated as the text to be replaced in the "output" value.  For example, if the key is "label", then the string label is replaced with the value of this key during template execution.  You can see this at work with the default "button" template item.  The 2 keys "label" and "name" are replaced in the "output" value.
 <pre>
 Replacement key values:
 
@@ -150,8 +160,23 @@ Replacement key values:
 "replace" -- use the text from the Replace edit
 "selection" -- use the text selected in the current editor
 Any other value is used directly as the replacement text
+
+Examples:
+
+"label":
+"myLabel" (replaces all instances of "label" in the output text with "myLabel")
+
+"name":
+"input"  (replaces all instances of "name" with what the user enters into a multi line input dialog during template execution)
+
+"QPushButton":
+"QAbstractButton" (replaces all instances of "QPushButton" in the output text with "QAbstractButton" during template execution)
+
+"message":
+"clipboard"  (replaces all instances of "message" in the output text with the text from the clipboard)
+
 </pre>
-Template items are converted many times between string and dictionary using json.dumps() and json.loads().  These functions require very specific syntax.  The templates are stored in a file called "Editor_Assistant_Templates.txt" and may be edited with any text editor if you prefer that method over using the Template editor dialog.  This file is created and placed into the Macro folder, as a sibling to the macro.  Its name is based on the macro name, so if you rename the macro it also uses a different name for its templates file.  This can be a way to maintain separate template files, if preferred.  The file is created and managed automatically, but it must be manually deleted if you decide to uninstall the macro.
+Template items are converted many times between string and dictionary using json.dumps() and json.loads().  These functions require very specific syntax.  You must use double quotes, for example, and a colon after the key name, commas to separate, etc.  The templates are stored in a file called "Editor_Assistant_Templates.txt" and may be edited with any text editor if you prefer that method over using the Template editor dialog.  This file is created and placed into the Macro folder, as a sibling to the macro.  Its name is based on the macro name, so if you rename the macro it also uses a different name for its templates file.  This can be a way to maintain separate template files, if preferred.  The file is created and managed automatically, but it must be manually deleted if you decide to uninstall the macro.
 
 ##### Insert from dialog
 This brings up a QInputDialog.getItem() dialog from which you can select the desired template to execute.
@@ -159,14 +184,14 @@ This brings up a QInputDialog.getItem() dialog from which you can select the des
 This does the same thing as Insert from dialog except you are presented with the templates directly as menu / submenu items, the goal being to make it a bit more streamlined.  Once the template is selected the procedure is the same for both here and using Insert from dialog.  Just use the one you prefer.
 ##### Edit templates
 This brings up the Template editor dialog.  In that dialog you can create new templates, delete templates, edit their content, execute them, test them, execute to clipboard, and get some additional help text.
+###### Filtering
+Filtering allows you to view only those templates that contain the given filter text.  So, for example, if you only want to see the templates for a certain project you could include the project name in the templates' names for that project, and then apply the filter to see only those templates.  Or you might have some specifically for QInputDialogs.
 ###### + button
-This creates a new template that is a copy of the currently selected template, to be used as a starting point.
+This creates a new template that is a copy of the currently selected template, to be used as a starting point.  There is no limit to how many templates you may have, except for the amount of memory / storage / processing power, of course.
 ###### - button
 This deletes the currently selected template.  If you delete the last template, a new default is created.  This is so there is always at least one template.  Deleting cannot be undone.  (But if you press the cancel button your templates file has not yet been changed at this point.  It only changes on clicking Apply or Ok.)
 ###### Rename button
-This allows to rename a template.  You cannot have 2 templates with the same name.
-###### Filter
-The very top of the dialog features a filter section.  If the checkbox is checked, then the text in the filter edit (if any) is used to filter which templates are showing in the template list.  There is also a match case checkbox for case-sensitive filtering.  When filtering, only those template times that have the filter text in their names will be shown.
+This allows to rename a template.  You cannot have 2 templates with the same name since they are stored as python dictionaries.
 ###### templateList (QListWidget)
 This is the list of templates at the top of the dialog.  Select the template to work on and its text appears in the edit widget.  Changing templates causes the previous template's changes to be updated in editor memory, but not the templates file.  That file only gets updated when pressing Ok or Apply.  Press Cancel to close the dialog without changing the templates file (as long as you didn't already use Apply).
 ###### edit (QPlainTextEdit)
@@ -189,13 +214,13 @@ In addition to the reference submenu you can also search FreeCAD source code and
 Note: the menu creation can also be done via the To console: line edit.  Type in menu("Part.Circle") to see an example.  Similarly, search("search string") searches FreeCAD source on github and qSearch("search string") searches Qt for Python documentation.
 
 #### Highlight menu
-Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit context menu.  Note: the text highlighting is automatically undone when the selection changes.
+Highlighting is changing the background color of some text in the current editor.  This is done for text that matches what is currently selected in the editor or what is in the Find edit.  The highlight command can be invoked from the Main menu or from the Find edit context menu.  Note: the text highlighting is automatically undone when the selection changes.  Text currently selected does not appear to get the highlighting, but it is highlighted, it's just the selection highlighting supercedes the highlighting done here.
 
-Highlighting does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.  But the undo is still there in case you want to restore the cursor position.
+Highlighting does not change the text.  You can see this by doing taking a snapshot before highlighting, and then doing a diff to see there are no changes.  Previously, highlighting was added to undo, but that was when a different method of highlighting involving adding html was used.  Since that is no longer the case and since adding highlighting to the undo queue tends to replace more important undo items, it has been removed from undo.
 
 There are 2 highlighting modes: "find" and "selection".  By default, the macro opens in "find" highlight mode.  If you select some text in the current editor, then invoke highlight from selection from the main menu, this puts you into "selection" mode.  When in "find" mode, every time you make a change to the text in the Find edit the highlighting gets updated.  When in "selection" mode this does not happen, not even when the selection changes.  (You can double click the Find edit to conveniently put the selected text into it.)
 
-When changing the state of the Match case and Match whole words checkboxes, the highlighting gets updated automatically.
+When changing the state of the Match case and Match whole words checkboxes, the highlighting gets updated automatically for both "find" and "selection" modes.
 
 ##### From selection
 This uses the text currently selected in the current editor as the search text for the highlight process.  This can be useful where you have some text in the Find edit that you don't want to change, but you want to highlight occurrences of some text in the current editor.  It is recommended to use the Find edit where possible because then when you update the text in the Find edit the highlight changes automatically.  This doesn't happen when changing the selected text while in "selection" highlight mode.
@@ -213,7 +238,7 @@ Here you will find dynamic menus created for each line (if any) listed in the Go
 #### Class / def lines
 This is a way to quickly jump to a particular function definition or class definition in your file.  It is sorted by class name, then function name, so all the functions in a class are grouped together.  This is a huge time-saver.  Get familiar with it.  Note: this is done with very simple methodology.  It does not always work perfectly.
 #### Bookmarks
-A bookmark can be created for each line of interest.  Creation is done by adding a comment to the line in the form of ##: comment, 2 pound symbols (#) and a colon (:) followed by a label/comment, which can be anything.  Without a comment/label the bookmark will be ignored.
+A bookmark can be created for each line of interest.  Creation is done by adding a comment to the line in the form of ##: comment, 2 pound symbols (#) and a colon (:) followed by a label/comment, which can be anything.  Without a comment/label the bookmark will be ignored.  The default "##:" bookmark marker can be changed in user parameters: Tools menu -> edit parameters -> plugins -> editor assitant -> "BookmarkMarker".  The bookmark marker should, of course, begin with a # or else the python interpreter will most likely flag it as a syntax error.
 #### Find results
 If the Find edit contains text that can be found in the document, then for each line the text is found on there is a dynamic menu item.  There will be a few characters before and after the Find text added for context.
 #### Find selection results
