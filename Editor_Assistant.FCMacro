@@ -10,10 +10,10 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.87b"
-__date__    = "2022/04/09"
+__version__ = "1.88"
+__date__    = "2022/04/10"
 #
-pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
+pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
 pg.SetInt("UndoQueueMaxSize",UNDO_QUEUE_MAX_SIZE)
 
@@ -23,13 +23,39 @@ pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
 MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
 pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
-from PySide import QtGui,QtCore
+#from PySide import QtGui,QtCore
+import PySide2
+from PySide2 import QtGui ,QtCore, QtWidgets
+from PySide2.QtGui import *
+from PySide2.QtCore import *
+from PySide2.QtWidgets import * #QApplication, QStyle, QHBoxLayout, QVBoxLayout, QPlainTextEdit    #QSlider, QGraphicsView, QGraphicsScene, 
+
 import difflib
 import json
 import re
 import random
+import os
+import platform
+
 ## used for help -> reference menus
-import PySide2
+#import PySide2
+####path#########################################################################
+global path          ; path          = ""                            #
+#path  = FreeCAD.ConfigGet(u"AppHomePath")                           # path FreeCAD installation
+#path  = FreeCAD.ConfigGet(u"UserAppData")                           # path FreeCAD User data
+#path  = "your path"                                                 # your directory path
+param = FreeCAD.ParamGet(u"User parameter:BaseApp/Preferences/Macro")# macro path
+path = param.GetString(u"MacroPath","") + "/"                        # macro path
+path = path.replace(u"\\","/")                                       # convert the "\" to "/"
+#print( u"Path for the icons : " , path )                            #
+#################################################################################
+##
+global setPathLatestDirectory   #; setPathLatestDirectory   = "C:\ ???"
+setPathLatestDirectory = pg.GetString("setPathLatestDirectory")
+if setPathLatestDirectory == "": setPathLatestDirectory = path
+FreeCAD.ParamGet(u"User parameter:BaseApp/Preferences/Macros/FCMmacros/" + __title__).SetString(u"setPathLatestDirectory", setPathLatestDirectory)    #*"C:\ ???"
+pg.SetString("setPathLatestDirectory", setPathLatestDirectory)
+#################################################################################
 
 hasQtXmlPatterns = False
 try:
@@ -118,7 +144,7 @@ except:
     shiboken = None
 mw = FreeCADGui.getMainWindow()
 
-class FindEdit (QtGui.QLineEdit):
+class FindEdit (QtWidgets.QLineEdit):
     def __init__(self, parent=None, form=None):
         super(FindEdit, self).__init__()
         self.form = form
@@ -143,7 +169,7 @@ class FindEdit (QtGui.QLineEdit):
         elif hasattr(self.form, "replaceEdit") and watched == self.form.replaceEdit and event.type() == QtCore.QEvent.KeyPress and event.key() == QtCore.Qt.Key_Up:
             self.form.findEdit.setFocus()
             event.accept()
-        return QtGui.QLineEdit.eventFilter(self, watched, event)
+        return QtWidgets.QLineEdit.eventFilter(self, watched, event)
 
     def __contextMenu(self):
         self._normalMenu = self.createStandardContextMenu()
@@ -152,17 +178,17 @@ class FindEdit (QtGui.QLineEdit):
 
     def _addCustomMenuItems(self, menu):
         menu.addSeparator()
-        action = QtGui.QAction("Use selected", self)
+        action = QtWidgets.QAction("Use selected", self)
         action.triggered.connect(self.useSelected)
         action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "" if self.form.currentEditor else False)
         menu.addAction(action)
 
-        actionClear = QtGui.QAction("Clear", self)
+        actionClear = QtWidgets.QAction("Clear", self)
         actionClear.triggered.connect(self.clear)
         actionClear.setEnabled(len(self.text()))
         menu.addAction(actionClear)
 
-        actionHighlight = QtGui.QAction("Highlight",self)
+        actionHighlight = QtWidgets.QAction("Highlight",self)
         actionHighlight.triggered.connect(self.highlight)
         actionHighlight.setEnabled(len(self.text()))
         if self == self.form.findEdit:
@@ -180,7 +206,7 @@ class FindEdit (QtGui.QLineEdit):
         txt = txt_cur.selectedText()
         self.setText(txt)
 
-class CustomQWidget(QtGui.QWidget):
+class CustomQWidget(QtWidgets.QWidget):
     def __init__(self, parent=None, form=None):
         super(CustomQWidget, self).__init__()
         self.form = form
@@ -230,11 +256,10 @@ class TaskEditorAssistant:
         self.form.setWindowTitle(" Editor assistant v"+__version__)
         self.form.setWindowIcon(QIconFromXPMString(__icon__))
         self.Indent_Memo = ""
-        #self.form.form = self
-        #self.print(f"self.editors = {self.editors}")
+
         for ed in self.editors:
             self.editorDict [ed.parent().parent().windowTitle()] = ed
-        self.mdi = mw.findChild(QtGui.QMdiArea)
+        self.mdi = mw.findChild(QtWidgets.QMdiArea)
         self.mdi.subWindowActivated.connect(self.onSubWindowActivated)
         #self.layout = VBox = main layout (rest are all HBox)
         #topLabelLayout = toast label
@@ -250,29 +275,30 @@ class TaskEditorAssistant:
         #snapLayout = snap button + discard button + snap menu + pop button
         #consoleLayout = to console label + console line edit
 
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QVBoxLayout()
         self.form.setLayout(self.layout)
-        topLabelLayout = QtGui.QHBoxLayout()
-        self.mainMenuBtn = QtGui.QPushButton()
+        topLabelLayout = QtWidgets.QHBoxLayout()
+        self.mainMenuBtn = QtWidgets.QPushButton()
         self.mainMenuBtn.setIcon(QIconFromXPMString(__icon__))
         self.mainMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.mainMenuBtn.setToolTip("Main menu")
         self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
         topLabelLayout.addWidget(self.mainMenuBtn)
-        self.msgBtn = QtGui.QPushButton()
+        self.msgBtn = QtWidgets.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
-        self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
+        self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
         self.msgBtn.setToolTip("Toast message area, click to see most recent message")
         topLabelLayout.addWidget(self.msgBtn)
         self.layout.addLayout(topLabelLayout)
 
-        editorLayout = QtGui.QHBoxLayout()
+        editorLayout = QtWidgets.QHBoxLayout()
         showEditorList = pg.GetBool("ShowEditorList",True)
-        self.editorList = QtGui.QListWidget()
+        self.editorList = QtWidgets.QListWidget()
         editorListMinimumHeight = pg.GetInt("EditorListMinimumHeight",32)
         pg.SetInt("EditorListMinimumHeight", editorListMinimumHeight)
         self.editorList.setMinimumHeight(editorListMinimumHeight)
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
+        self.editorList.doubleClicked.connect(self.onRefreshBtnClicked)
         self.editorList.setToolTip("Open editors, press Refresh to update")
         editorLayout.addWidget(self.editorList)
         if not showEditorList:
@@ -280,18 +306,19 @@ class TaskEditorAssistant:
         self.layout.addLayout(editorLayout)
         self.populateList()
 
-        refreshLayout = QtGui.QHBoxLayout()
+        refreshLayout = QtWidgets.QHBoxLayout()
         showRefreshLine = pg.GetBool("ShowRefreshLine", True)
-        self.refreshBtn = QtGui.QPushButton("Refresh")
+        self.refreshBtn = QtWidgets.QPushButton("Refresh")
         self.refreshBtn.setToolTip("Refresh list of editors in the list widget above")
-        self.refreshBtn.setIcon(QIconFromStandard("SP_BrowserReload"))
+        self.refreshBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_BrowserReload))) #
+
         self.refreshBtn.clicked.connect(self.onRefreshBtnClicked)
         refreshLayout.addWidget(self.refreshBtn)
-        self.gotoLineEdit = QtGui.QLineEdit()
+        self.gotoLineEdit = QtWidgets.QLineEdit()
         self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
         self.gotoLineEdit.setPlaceholderText("Goto Line numbers")
-        self.gotoMenuBtn = QtGui.QPushButton()
+        self.gotoMenuBtn = QtWidgets.QPushButton()
         self.gotoMenuBtn.setToolTip(f"\
 Goto menu\n\
 Line numbers = comma separated lines in Goto line edit\n\
@@ -299,7 +326,8 @@ Bookmarks = lines with {BOOKMARK_MARKER} bookmark description\n\
 Find results = results of searches for text in Find line edit\n\
 ")
         self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
-        self.gotoMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
+
+        self.gotoMenuBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_TitleBarUnshadeButton))) #
         self.gotoMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
@@ -309,15 +337,15 @@ Find results = results of searches for text in Find line edit\n\
             self.gotoMenuBtn.setVisible(showRefreshLine)
             self.gotoLineEdit.setVisible(showRefreshLine)
 
-        gotoLayout = QtGui.QHBoxLayout()
+        gotoLayout = QtWidgets.QHBoxLayout()
         showGotoLine = pg.GetBool("ShowGotoLine", True)
-        self.gotoHomeBtn = QtGui.QPushButton()
+        self.gotoHomeBtn = QtWidgets.QPushButton()
         self.gotoHomeBtn.setIcon(QIconFromXPMString(home_icon))
         self.gotoHomeBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.gotoHomeBtn.setToolTip("Go to first line")
         self.gotoHomeBtn.clicked.connect(self.onGotoHomeBtnClicked)
         gotoLayout.addWidget(self.gotoHomeBtn)
-        self.gotoEndBtn = QtGui.QPushButton()
+        self.gotoEndBtn = QtWidgets.QPushButton()
         self.gotoEndBtn.setIcon(QIconFromXPMString(end_icon))
         self.gotoEndBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.gotoEndBtn.clicked.connect(self.onGotoEndBtnClicked)
@@ -325,7 +353,7 @@ Find results = results of searches for text in Find line edit\n\
 
         gotoLayout.addStretch()
 
-        self.previousBookmarkBtn = QtGui.QPushButton("")
+        self.previousBookmarkBtn = QtWidgets.QPushButton("")
         nextIcon = QIconFromXPMString(next_bookmark_icon)
         prevIcon = QtGui.QPixmap(nextIcon.pixmap(64,64)).transformed(QtGui.QTransform().scale(-1,1), QtCore.Qt.SmoothTransformation)
         self.previousBookmarkBtn.setIcon(prevIcon)
@@ -334,21 +362,21 @@ Find results = results of searches for text in Find line edit\n\
         self.previousBookmarkBtn.setToolTip("Goto previous bookmark")
         self.previousBookmarkBtn.clicked.connect(self.previousBookmark)
 
-        self.nextBookmarkBtn = QtGui.QPushButton()
+        self.nextBookmarkBtn = QtWidgets.QPushButton()
         self.nextBookmarkBtn.setIcon(QIconFromXPMString(next_bookmark_icon))
         self.nextBookmarkBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         gotoLayout.addWidget(self.nextBookmarkBtn)
         self.nextBookmarkBtn.setToolTip("Goto next bookmark")
         self.nextBookmarkBtn.clicked.connect(self.nextBookmark)
 
-        self.toggleBookmarkBtn = QtGui.QPushButton("")
+        self.toggleBookmarkBtn = QtWidgets.QPushButton("")
         self.toggleBookmarkBtn.setIcon(QIconFromXPMString(toggle_bookmark_icon))
         self.toggleBookmarkBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         gotoLayout.addWidget(self.toggleBookmarkBtn)
         self.toggleBookmarkBtn.setToolTip("Toggle bookmark")
         self.toggleBookmarkBtn.clicked.connect(self.toggleBookmark)
 
-        self.removeAllBookmarksBtn = QtGui.QPushButton()
+        self.removeAllBookmarksBtn = QtWidgets.QPushButton()
         self.removeAllBookmarksBtn.setIcon(QIconFromXPMString(remove_all_bookmarks_icon))
         self.removeAllBookmarksBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         gotoLayout.addWidget(self.removeAllBookmarksBtn)
@@ -361,20 +389,21 @@ Find results = results of searches for text in Find line edit\n\
             self.gotoEndBtn.setVisible(showGotoLine)
 
         showUndoLine = pg.GetBool("ShowUndoLine",True)
-        undoLayout = QtGui.QHBoxLayout()
-        self.undoBtn = QtGui.QPushButton()
+        undoLayout = QtWidgets.QHBoxLayout()
+        self.undoBtn = QtWidgets.QPushButton()
         self.undoBtn.setEnabled(False)
         undoLayout.addWidget(self.undoBtn)
         self.undoBtn.clicked.connect(self.onUndoBtnClicked)
         self.undoBtn.setIcon(QIconFromXPMString(undo_icon))
-        self.undoClearBtn = QtGui.QPushButton()
-        self.undoClearBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.undoClearBtn = QtWidgets.QPushButton()
+        #replaced self.undoClearBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.undoClearBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
         self.undoClearBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.undoClearBtn.setToolTip("Purge undo/redo queues.  Clears both queues.")
         self.undoClearBtn.clicked.connect(self.onUndoClearBtnClicked)
         self.undoClearBtn.setEnabled(False)
         undoLayout.addWidget(self.undoClearBtn)
-        self.redoBtn = QtGui.QPushButton()
+        self.redoBtn = QtWidgets.QPushButton()
         self.redoBtn.setEnabled(False)
         undoLayout.addWidget(self.redoBtn)
         self.redoBtn.clicked.connect(self.onRedoBtnClicked)
@@ -387,11 +416,11 @@ Find results = results of searches for text in Find line edit\n\
         self.layout.addLayout(undoLayout)
 
         showFindLine = pg.GetBool("ShowFindLine",True)
-        findEditLayout = QtGui.QHBoxLayout()
-        self.Clear_FindReplaceCB = QtGui.QPushButton()  #"Clear"
+        findEditLayout = QtWidgets.QHBoxLayout()
+        self.Clear_FindReplaceCB = QtWidgets.QPushButton()  #"Clear"
         self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
         self.Clear_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
-        self.Clear_FindReplaceCB.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.Clear_FindReplaceCB.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
 
@@ -400,12 +429,12 @@ Find results = results of searches for text in Find line edit\n\
         self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
         self.findEdit.textChanged.connect(self.onFindEditTextChanged)
         findEditLayout.addWidget(self.findEdit)
-        self.findBtn = QtGui.QPushButton()
+        self.findBtn = QtWidgets.QPushButton()
         self.findBtn.setIcon(QIconFromXPMString(find_next_icon))
         self.findBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.findBtn.setToolTip("Find next\nCtrl+Click = Find from start\nAlt+Click = Find from selection")
         self.findBtn.clicked.connect(self.onFindBtnClicked)
-        self.findBackBtn = QtGui.QPushButton()
+        self.findBackBtn = QtWidgets.QPushButton()
         self.findBackBtn.setIcon(QIconFromXPMString(find_previous_icon))
         self.findBackBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.findBackBtn.setToolTip("Find previous\nCtrl+Click = Find from end\nAlt+Click = Find from selection")
@@ -414,7 +443,7 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout.addWidget(self.findBackBtn)
 
         showFindLine2 = pg.GetBool("ShowFindLine2",False)
-        findEditLayout2 = QtGui.QHBoxLayout()
+        findEditLayout2 = QtWidgets.QHBoxLayout()
         self.ComboBox_Find = QtWidgets.QComboBox()
         self.ComboBox_Find.setMaxVisibleItems(16)
         self.ComboBox_Find.setDuplicatesEnabled(False)    # not work ?
@@ -435,8 +464,8 @@ Find results = results of searches for text in Find line edit\n\
         self.layout.addLayout(findEditLayout2)
 
         showReplaceLine = pg.GetBool("ShowReplaceLine",True)
-        replaceEditLayout = QtGui.QHBoxLayout()
-        self.Reverse_FindReplaceCB = QtGui.QPushButton()    #"Reverse"
+        replaceEditLayout = QtWidgets.QHBoxLayout()
+        self.Reverse_FindReplaceCB = QtWidgets.QPushButton()    #"Reverse"
         self.Reverse_FindReplaceCB.setToolTip("Reverse the fields Find / Replace")
         self.Reverse_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
@@ -445,12 +474,12 @@ Find results = results of searches for text in Find line edit\n\
         self.replaceEdit = FindEdit(form=self)
         self.replaceEdit.setPlaceholderText("Replace:")
         replaceEditLayout.addWidget(self.replaceEdit)
-        self.replaceBtn = QtGui.QPushButton()
+        self.replaceBtn = QtWidgets.QPushButton()
         self.replaceBtn.setToolTip("Replace current selection and find next")
         self.replaceBtn.clicked.connect(self.onReplaceBtnClicked)
         self.replaceBtn.setIcon(QIconFromXPMString(replace_icon))
         self.replaceBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
-        self.replaceAllBtn = QtGui.QPushButton()
+        self.replaceAllBtn = QtWidgets.QPushButton()
         self.replaceAllBtn.setToolTip("Replace all\nCtrl+Click = Replace only in selection")
         self.replaceAllBtn.setIcon(QIconFromXPMString(replace_all_icon))
         self.replaceAllBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
@@ -459,7 +488,7 @@ Find results = results of searches for text in Find line edit\n\
         replaceEditLayout.addWidget(self.replaceAllBtn)
 
         showReplaceLine2 = pg.GetBool("ShowReplaceLine2",False)
-        replaceEditLayout2 = QtGui.QHBoxLayout()
+        replaceEditLayout2 = QtWidgets.QHBoxLayout()
         self.ComboBox_replace = QtWidgets.QComboBox()
         self.ComboBox_replace.setMaxVisibleItems(16)
         self.ComboBox_replace.setDuplicatesEnabled(False)    # not work ?
@@ -480,14 +509,14 @@ Find results = results of searches for text in Find line edit\n\
         self.layout.addLayout(replaceEditLayout2)
 
         showIndentLine = pg.GetBool("ShowIndentLine", True)
-        indentLayout = QtGui.QHBoxLayout()
-        self.indentBackBtn = QtGui.QPushButton()
+        indentLayout = QtWidgets.QHBoxLayout()
+        self.indentBackBtn = QtWidgets.QPushButton()
         self.indentBackBtn.setIcon(QIconFromXPMString(unindent_icon))
         self.indentBackBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.indentBackBtn.setToolTip("Decrease indentation of selection")
         self.indentBackBtn.clicked.connect(self.onIndentBackBtnClicked)
         indentLayout.addWidget(self.indentBackBtn)
-        self.indentBtn = QtGui.QPushButton()
+        self.indentBtn = QtWidgets.QPushButton()
         self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
         self.indentBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.indentBtn.setToolTip("Increase indentation of selection")
@@ -501,7 +530,6 @@ Find results = results of searches for text in Find line edit\n\
                                              "Ex: '#ori'" + "\n"
                                              "Validate by Enter" + "\n"
                                              "If the field is empty the normal indentation is used" + "\n")
-        #self.ComboBox_Indent_Memo.addItem("")
         self.ComboBox_Indent_Memo.setDuplicatesEnabled(False)    # not work ?
         self.ComboBox_Indent_Memo.setEditable(True)              # editable
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Indent_Memo_Clicked)
@@ -509,15 +537,15 @@ Find results = results of searches for text in Find line edit\n\
         indentLayout.addWidget(self.ComboBox_Indent_Memo)
 
         indentLayout.addStretch()
-        self.matchWholeCheckBox = QtGui.QCheckBox()
+        self.matchWholeCheckBox = QtWidgets.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
         self.matchWholeCheckBox.setToolTip("Match whole words")
         self.matchWholeCheckBox.stateChanged.connect(self.onMatchWholeCheckBoxStateChanged)
-        self.matchCaseCheckBox = QtGui.QCheckBox()
+        self.matchCaseCheckBox = QtWidgets.QCheckBox()
         self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
-        self.loopCheckBox = QtGui.QCheckBox()
+        self.loopCheckBox = QtWidgets.QCheckBox()
         loop_icon = reverse_find_replace_icon.replace("#EF2B29","#3F48CC").replace("#8AE138","#3F48CC")
         loop_icon = loop_icon.replace("#4E990D","black").replace("#A70002","black")
         self.loopCheckBox.setIcon(QIconFromXPMString(loop_icon))
@@ -537,31 +565,32 @@ Find results = results of searches for text in Find line edit\n\
         self.layout.addLayout(indentLayout)
 
         showSnapsLine = pg.GetBool("ShowSnapLine",True)
-        snapLayout = QtGui.QHBoxLayout()
-        self.takeSnapBtn = QtGui.QPushButton()
+        snapLayout = QtWidgets.QHBoxLayout()
+        self.takeSnapBtn = QtWidgets.QPushButton()
 
         self.takeSnapBtn.setIcon(QIconFromXPMString(snapshot_icon))
         self.takeSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.takeSnapBtn.setToolTip("Take a snapshot of the text")
-        self.snapCenterBtn = QtGui.QPushButton()
+        self.snapCenterBtn = QtWidgets.QPushButton()
 
-        self.snapMenuBtn = QtGui.QPushButton()
+        self.snapMenuBtn = QtWidgets.QPushButton()
 
-        snapCenterBtnLayout = QtGui.QHBoxLayout()
+        snapCenterBtnLayout = QtWidgets.QHBoxLayout()
         snapCenterBtnLayoutMargins = QtCore.QMargins(0,0,0,0)
         snapCenterBtnLayout.setContentsMargins(snapCenterBtnLayoutMargins)
         snapCenterBtnLayout.setSpacing(0)
         self.snapCenterBtn.setLayout(snapCenterBtnLayout)
         self.snapCenterBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH *2)
-        self.discardSnapBtn = QtGui.QPushButton()
+        self.discardSnapBtn = QtWidgets.QPushButton()
 
-        self.discardSnapBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
+        self.discardSnapBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
         self.discardSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.discardSnapBtn.clicked.connect(self.discardSnap)
         self.discardSnapBtn.setToolTip("Discard the latest snap")
         snapCenterBtnLayout.addWidget(self.discardSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
-        self.snapMenuBtn.setIcon(QIconFromStandard("SP_TitleBarUnshadeButton"))
+
+        self.snapMenuBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_TitleBarUnshadeButton))) #
         self.snapMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.snapMenuBtn.setToolTip("\
 Snapshots menu\n\
@@ -575,7 +604,7 @@ Load = load all snaps from JSON file, replacing any in memory\n\
 Pop = restore and discard snap\n\
 Diff = show difference between snap and current text\n\
 ")
-        self.popSnapBtn = QtGui.QPushButton("Restore")
+        self.popSnapBtn = QtWidgets.QPushButton("Restore")
         self.popSnapBtn.setVisible(showSnapsLine)
         self.takeSnapBtn.clicked.connect(self.onTakeSnapBtnClicked)
         self.snapMenuBtn.clicked.connect(self.onSnapMenuBtnClicked)
@@ -583,8 +612,6 @@ Diff = show difference between snap and current text\n\
         snapLayout.addWidget(self.takeSnapBtn)
         snapLayout.addWidget(self.snapCenterBtn)
         snapLayout.addWidget(self.popSnapBtn)
-        #self.snapMenuBtn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        #self.snapMenuBtn.customContextMenuRequested.connect(self.snapMenuBtnContextMenu)
         self.layout.addLayout(snapLayout)
         if not showSnapsLine:
             self.takeSnapBtn.setVisible(showSnapsLine)
@@ -593,11 +620,11 @@ Diff = show difference between snap and current text\n\
             self.snapMenuBtn.setVisible(showSnapsLine)
 
         showConsoleLine = pg.GetBool("ShowConsoleLine", True)
-        consoleLayout = QtGui.QHBoxLayout()
-        self.consoleLabel = QtGui.QLabel("To console:")
+        consoleLayout = QtWidgets.QHBoxLayout()
+        self.consoleLabel = QtWidgets.QLabel("To console:")
 
         consoleLayout.addWidget(self.consoleLabel)
-        self.consoleEdit = QtGui.QLineEdit()
+        self.consoleEdit = QtWidgets.QLineEdit()
 
         self.consoleEdit.returnPressed.connect(self.onConsoleEditReturnPressed)
         self.consoleEdit.setToolTip("Access QPlainTextEdit of current editor directly.\n\
@@ -609,10 +636,9 @@ Type 'help(editor)' in the console for help.\n\
                    "search('Part.makeFace')", "help('Qt.Key')", "menu('Draft')", "dlg.close()",
                    "dlg.highlight('def', 'yellow')", "help('numpy')", "dlg.refresh()"]
         self.consoleEdit.setText(random.choice(choices))
-        self.consoleSendBtn = QtGui.QPushButton("Send")
+        self.consoleSendBtn = QtWidgets.QPushButton("Send")
         self.consoleSendBtn.clicked.connect(self.onConsoleBtnClicked)
         consoleLayout.addWidget(self.consoleEdit)
-        #consoleLayout.addWidget(self.consoleSendBtn)
         self.layout.addLayout(consoleLayout)
         if not showConsoleLine:
             self.consoleLabel.setVisible(showConsoleLine)
@@ -620,7 +646,7 @@ Type 'help(editor)' in the console for help.\n\
         self.updateSnapBtns()
 
     def getEditors(self):
-        self.editors = [child for child in mw.findChildren(QtGui.QPlainTextEdit) if child.objectName() != "Python console"]
+        self.editors = [child for child in mw.findChildren(QtWidgets.QPlainTextEdit) if child.objectName() != "Python console"]
         self.parents = [ed.parent() for ed in self.editors]
         self.grandparents = [p.parent() for p in self.parents]
         self.titles = [g.windowTitle() for g in self.grandparents]
@@ -664,14 +690,11 @@ Type 'help(editor)' in the console for help.\n\
         if not txt:
             return
         plainText = self.currentEditor.toPlainText()
-        #cursor = self.currentEditor.textCursor()
-        #start,end = self.getTC(cursor)
-        #self.setModified(self.editorList.currentItem().text(), plainText, f"highlight {txt}", self.getTC(cursor))
         indices = self.reFindIndices(plainText, txt, 0)
         extraSelections = []
         count = len(indices)
         for ind in indices:
-            extraSelection = QtGui.QTextEdit.ExtraSelection()
+            extraSelection = QtWidgets.QTextEdit.ExtraSelection()
             extraSelection.cursor = self.currentEditor.textCursor()
             extraSelection.cursor.setPosition(ind[0])
             extraSelection.cursor.setPosition(ind[1], QtGui.QTextCursor.KeepAnchor)
@@ -701,12 +724,12 @@ Type 'help(editor)' in the console for help.\n\
                 self.form.parent().hide()
                 self.currentEditor.setFocus()
                 self.form.parent().show()
-        #self.print(f"Current editor: {name}, text = {self.currentEditor.toPlainText()}")
+
     def onSubWindowActivated(self, arg1):
         if not shiboken.isValid(self.editorList):
             return
         sub = self.mdi.activeSubWindow()
-        ed = sub.findChild(QtGui.QPlainTextEdit) if sub else None
+        ed = sub.findChild(PySide2.QtWidgets.QPlainTextEdit) if sub else None
         if ed:
             p = ed.parent()
             gp = p.parent()
@@ -718,7 +741,7 @@ Type 'help(editor)' in the console for help.\n\
         self.onRefreshBtnClicked(True)
         #self.getEditors()
         #cur = self.mdi.currentSubWindow()
-        #ed = cur.findChild(QtGui.QPlainTextEdit) if cur else None
+        #ed = cur.findChild(QtWidgets.QPlainTextEdit) if cur else None
         #if ed:
         #    p = ed.parent()
         #    gp = p.parent()
@@ -869,16 +892,14 @@ Type 'help(editor)' in the console for help.\n\
         else:
             findFlags = ""
         newtxt = txt.replace('"', '\\"').replace("'","\\'")
-        #self.currentEditor.find(txt, flags)
-        #self.toast(f"self.currentEditor.find({txt},{flags})", "Message",10000)
 
         cmd = """
-from PySide import QtGui
-__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
+from PySide2 import QtGui, QtWidgets
+__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
 __editor__ = __editors__[__grandparents__.index('""" + name + """')]
-__dlg__ = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant")
+__dlg__ = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant")
 __dlg__.setFound(__editor__.find('""" + newtxt + str1 + findFlags + """))
 __editor__.centerCursor()
 
@@ -937,7 +958,8 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.msgBtn.setIcon(QIconFromStandard("SP_MessageBoxWarning"))
         elif msgType == 'Information':
             self.msgBtn.setStyleSheet("color:blue")
-            self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
+            #replaced self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
+            self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
         QtCore.QTimer().singleShot(length,self.clearToast)
 
     def clearToast(self):
@@ -947,13 +969,11 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         if len(self.timers) == 1:
             self.msgBtn.setText("")
             self.msgBtn.setStyleSheet("color:black")
-            self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
+            #replaced self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
+            self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
             self.timers.pop()
         elif len(self.timers) > 1:
             self.timers.pop()
-        #self.mainMenuBtn.show()
-        #self.form.resize(self.form.parent().layout().closestAcceptableSize(self.form.parent(), QtCore.QSize(0,0)))
-        #self.form.resize(self.form.layout().closestAcceptableSize(self.form, QtCore.QSize(0,0)))
 
     def onConsoleBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
@@ -972,11 +992,11 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             old_cursor = self.editorDict[name].textCursor()
             cmd = """
 from PySide import QtGui
-__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtGui.QPlainTextEdit)]
+__editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
 editor = __editors__[__grandparents__.index('""" + name + """')]
-dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
+dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 del(__editors__, __parents__, __grandparents__)
 """
@@ -986,7 +1006,7 @@ del(__editors__, __parents__, __grandparents__)
                 return
             cmd = """
 from PySide import QtGui
-dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
+dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 """
         self.doCommand(cmd)
@@ -994,7 +1014,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if not old_text == self.getText():
                 self.setModified(name, old_text, "Console command", self.getTC(old_cursor))
             self.toast("editor now available as variable in python console","Message")
-        pyconsole = mw.findChild(QtGui.QPlainTextEdit,"Python console")
+        pyconsole = mw.findChild(QtWidgets.QPlainTextEdit,"Python console")
         pyconsole.setFocus()
         self.form.parent().hide()
         pyconsole.parent().show()
@@ -1045,7 +1065,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
         matchCase = self.matchCaseCheckBox.checkState()
-        modifiers = QtGui.QApplication.keyboardModifiers()
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
         if modifiers == QtCore.Qt.AltModifier:
             selText = self.currentEditor.textCursor().selectedText()
             self.findEdit.setText(selText if selText else txt)
@@ -1145,7 +1165,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             old_text = self.getText(curName)
             old_cursor = self.currentEditor.textCursor()
             self.currentEditor.setPlainText(snaps[0]["old_text"])
-            #self.currentEditor.setTextCursor(snaps[0]['tc'])
             self.setTextCursor(self.editorList.currentItem().text(), snaps[0]['tc'])
             self.snaps.remove(snaps[0])
             self.updateSnapBtns()
@@ -1211,90 +1230,90 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             for line in lines:
                 self.setBool(line, True)
 
-        mainMenu = QtGui.QMenu("Main menu")
-        settingsMenu = QtGui.QMenu("Settings")
-        layoutMenu = QtGui.QMenu("Layout lines")
+        mainMenu = QtWidgets.QMenu("Main menu")
+        settingsMenu = QtWidgets.QMenu("Settings")
+        layoutMenu = QtWidgets.QMenu("Layout lines")
         settingsMenu.addMenu(layoutMenu)
 
         togglers = []
 
 #settings -> layout
-        editorListAction = QtGui.QAction("Editor list", layoutMenu, checkable=True)
+        editorListAction = QtWidgets.QAction("Editor list", layoutMenu, checkable=True)
         editorListAction.setChecked(showEditorList)
         togglers.append(makeToggler("ShowEditorList",not editorListAction.isChecked()))
         editorListAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(editorListAction)
 
-        refreshLineAction = QtGui.QAction("Refresh line",layoutMenu, checkable=True)
+        refreshLineAction = QtWidgets.QAction("Refresh line",layoutMenu, checkable=True)
         refreshLineAction.setChecked(showRefreshLine)
         togglers.append(makeToggler("ShowRefreshLine", not refreshLineAction.isChecked()))
         refreshLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(refreshLineAction)
 
-        gotoLineAction = QtGui.QAction("Goto line",layoutMenu, checkable=True)
+        gotoLineAction = QtWidgets.QAction("Goto line",layoutMenu, checkable=True)
         gotoLineAction.setChecked(showGotoLine)
         togglers.append(makeToggler("ShowGotoLine", not gotoLineAction.isChecked()))
         gotoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(gotoLineAction)
 
-        undoLineAction = QtGui.QAction("Undo line", layoutMenu, checkable=True)
+        undoLineAction = QtWidgets.QAction("Undo line", layoutMenu, checkable=True)
         undoLineAction.setChecked(showUndoLine)
         togglers.append(makeToggler("ShowUndoLine", not undoLineAction.isChecked()))
         undoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(undoLineAction)
 
-        findLineAction = QtGui.QAction("Find line", layoutMenu, checkable=True)
+        findLineAction = QtWidgets.QAction("Find line", layoutMenu, checkable=True)
         findLineAction.setChecked(showFindLine)
         togglers.append(makeToggler("ShowFindLine", not findLineAction.isChecked()))
         findLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(findLineAction)
 
-        findLine2Action = QtGui.QAction("Find line2", layoutMenu, checkable=True)
+        findLine2Action = QtWidgets.QAction("Find line2", layoutMenu, checkable=True)
         findLine2Action.setChecked(showFindLine2)
         togglers.append(makeToggler("ShowFindLine2", not findLine2Action.isChecked()))
         findLine2Action.toggled.connect(togglers[-1])
         layoutMenu.addAction(findLine2Action)
 
-        replaceLineAction = QtGui.QAction("Replace line", layoutMenu, checkable=True)
+        replaceLineAction = QtWidgets.QAction("Replace line", layoutMenu, checkable=True)
         replaceLineAction.setChecked(showReplaceLine)
         togglers.append(makeToggler("ShowReplaceLine", not replaceLineAction.isChecked()))
         replaceLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(replaceLineAction)
 
-        replaceLine2Action = QtGui.QAction("Replace line2", layoutMenu, checkable=True)
+        replaceLine2Action = QtWidgets.QAction("Replace line2", layoutMenu, checkable=True)
         replaceLine2Action.setChecked(showReplaceLine2)
         togglers.append(makeToggler("ShowReplaceLine2", not replaceLine2Action.isChecked()))
         replaceLine2Action.toggled.connect(togglers[-1])
         layoutMenu.addAction(replaceLine2Action)
 
-        indentLineAction = QtGui.QAction("Indent line", layoutMenu, checkable=True)
+        indentLineAction = QtWidgets.QAction("Indent line", layoutMenu, checkable=True)
         indentLineAction.setChecked(showIndentLine)
         togglers.append(makeToggler("ShowIndentLine", not indentLineAction.isChecked()))
         indentLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(indentLineAction)
 
-        snapsLineAction = QtGui.QAction("Snaps line", layoutMenu, checkable=True)
+        snapsLineAction = QtWidgets.QAction("Snaps line", layoutMenu, checkable=True)
         snapsLineAction.setChecked(showSnapsLine)
         togglers.append(makeToggler("ShowSnapsLine", not snapsLineAction.isChecked()))
         snapsLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(snapsLineAction)
 
-        consoleLineAction = QtGui.QAction("Console line", layoutMenu, checkable=True)
+        consoleLineAction = QtWidgets.QAction("Console line", layoutMenu, checkable=True)
         consoleLineAction.setChecked(showConsoleLine)
         togglers.append(makeToggler("ShowConsoleLine", not consoleLineAction.isChecked()))
         consoleLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(consoleLineAction)
 
         settingsMenu.addSeparator()
-        showAllAction = QtGui.QAction("Show all", layoutMenu)
+        showAllAction = QtWidgets.QAction("Show all", layoutMenu)
         showAllAction.triggered.connect(lambda: show(allLines))
         settingsMenu.addAction(showAllAction)
 
-        showDefaultsAction = QtGui.QAction("Show defaults", settingsMenu)
+        showDefaultsAction = QtWidgets.QAction("Show defaults", settingsMenu)
         showDefaultsAction.triggered.connect(lambda: show(defaultLines))
         settingsMenu.addAction(showDefaultsAction)
 
-        showMinimalAction = QtGui.QAction("Show Minimal", settingsMenu)
+        showMinimalAction = QtWidgets.QAction("Show Minimal", settingsMenu)
         showMinimalAction.triggered.connect(lambda: show(minimalLines))
         settingsMenu.addAction(showMinimalAction)
 
@@ -1310,12 +1329,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         snapsMenu = self.makeSnapsMenu()
         mainMenu.addMenu(snapsMenu)
 #start templates menu
-        templatesMenu = QtGui.QMenu("Templates")
-        insertFromTemplateAction = QtGui.QAction("Insert from dialog")
+        templatesMenu = QtWidgets.QMenu("Templates")
+        insertFromTemplateAction = QtWidgets.QAction("Insert from dialog")
         insertFromTemplateAction.triggered.connect(self.setupInsertFromTemplate)
         templatesMenu.addAction(insertFromTemplateAction)
 
-        insertMenu = QtGui.QMenu("Insert")
+        insertMenu = QtWidgets.QMenu("Insert")
         templatesMenu.addMenu(insertMenu)
         insertSubmenus = []
 
@@ -1326,30 +1345,30 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
         for ii, k in enumerate(sorted(templateDict.keys())):
             if ii % 25 == 0:
-                insertSubmenus.append(QtGui.QMenu(f"Start from -- {k}"))
-            templateActions.append(QtGui.QAction(k))
+                insertSubmenus.append(QtWidgets.QMenu(f"Start from -- {k}"))
+            templateActions.append(QtWidgets.QAction(k))
             templateActions[-1].triggered.connect(templateLambdas[ii])
             insertSubmenus[-1].addAction(templateActions[-1])
         for sub in insertSubmenus:
             insertMenu.addMenu(sub)
 
-        editTemplateAction = QtGui.QAction("Edit templates")
+        editTemplateAction = QtWidgets.QAction("Edit templates")
         editTemplateAction.triggered.connect(self.editTemplates)
         templatesMenu.addAction(editTemplateAction)
 
         mainMenu.addMenu(templatesMenu)
 
 #start help menu
-        helpMenu = QtGui.QMenu("Help")
+        helpMenu = QtWidgets.QMenu("Help")
         mainMenu.addMenu(helpMenu)
 
 #start help -> reference menu
-        helpReferenceMenu = QtGui.QMenu("Reference")
+        helpReferenceMenu = QtWidgets.QMenu("Reference")
         helpMenu.addMenu(helpReferenceMenu)
 
 #start help -> reference -> 
 
-        moduleMenu = QtGui.QMenu("FreeCAD Modules")
+        moduleMenu = QtWidgets.QMenu("FreeCAD Modules")
         helpReferenceMenu.addMenu(moduleMenu)
         def makeModule(x): return lambda : self.makeReferenceMenu(x)
 
@@ -1386,152 +1405,156 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         moduleActions = []
         modules = []
         for k,v in packagesDict.items():
-            moduleActions.append(QtGui.QAction(k))
+            moduleActions.append(QtWidgets.QAction(k))
             modules.append(makeModule(v))
             moduleActions[-1].triggered.connect(modules[-1])
             moduleMenu.addAction(moduleActions[-1])
 
-        FreeCADAction = QtGui.QAction("FreeCAD/App")
+        FreeCADAction = QtWidgets.QAction("FreeCAD/App")
         FreeCADAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCAD))
         helpReferenceMenu.addAction(FreeCADAction)
 
-        FreeCADGuiAction = QtGui.QAction("FreeCADGui/Gui")
+        FreeCADGuiAction = QtWidgets.QAction("FreeCADGui/Gui")
         FreeCADGuiAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCADGui))
         helpReferenceMenu.addAction(FreeCADGuiAction)
 
 
-        qtMenu = QtGui.QMenu("Qt/PySide")
+        qtMenu = QtWidgets.QMenu("Qt/PySide")
         helpReferenceMenu.addMenu(qtMenu)
 
-        QtCoreAction = QtGui.QAction("QtCore")
+        QtCoreAction = QtWidgets.QAction("QtCore")
         QtCoreAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore))
         qtMenu.addAction(QtCoreAction)
 
-        QtCore_QtAction = QtGui.QAction("QtCore.Qt")
+        QtCore_QtAction = QtWidgets.QAction("QtCore.Qt")
         QtCore_QtAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore.Qt))
         qtMenu.addAction(QtCore_QtAction)
 
-        QtGuiAction = QtGui.QAction("QtGui")
+        QtGuiAction = QtWidgets.QAction("QtGui")
         QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
         qtMenu.addAction(QtGuiAction)
 
-        QtNetworkAction = QtGui.QAction("QtNetwork") if hasQtNetwork else QtGui.QAction("QtNetwork (not installed)")
+        QtWidgetsAction = QtWidgets.QAction("QtWidgets")
+        QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
+        qtMenu.addAction(QtWidgetsAction)
+
+        QtNetworkAction = QtWidgets.QAction("QtNetwork") if hasQtNetwork else QtWidgets.QAction("QtNetwork (not installed)")
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
         if not hasQtNetwork:
             QtNetWorkAction.setEnabled(False)
 
-        QtHelpAction = QtGui.QAction("QtHelp") if hasQtHelp else QtGui.QAction("QtHelp (not installed)")
+        QtHelpAction = QtWidgets.QAction("QtHelp") if hasQtHelp else QtWidgets.QAction("QtHelp (not installed)")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
         qtMenu.addAction(QtHelpAction)
         if not hasQtHelp:
             QtHelpAction.setEnabled(False)
 
-        QtMultimediaAction = QtGui.QAction("QtMultimedia") if hasQtMultimedia else QtGui.QAction("QtMultimedia (not installed)")
+        QtMultimediaAction = QtWidgets.QAction("QtMultimedia") if hasQtMultimedia else QtWidgets.QAction("QtMultimedia (not installed)")
         QtMultimediaAction.triggered.connect(lambda :self.makeReferenceMenu(QtMultimedia))
         qtMenu.addAction(QtMultimediaAction)
         if not hasQtMultimedia:
             QtMultimediaAction.setEnabled(False)
 
-        QtOpenGLAction = QtGui.QAction("QtOpenGL") if hasQtOpenGL else QtGui.QAction("QtOpenGL (not installed)")
+        QtOpenGLAction = QtWidgets.QAction("QtOpenGL") if hasQtOpenGL else QtWidgets.QAction("QtOpenGL (not installed)")
         QtOpenGLAction.triggered.connect(lambda :self.makeReferenceMenu(QtOpenGL))
         qtMenu.addAction(QtOpenGLAction)
         if not hasQtOpenGL:
             QtOpenGLAction.setEnabled(False)
 
-        QtPrintSupportAction = QtGui.QAction("QtPrintSupport") if hasQtPrintSupport else QtGui.QAction("QtPrintSupport (not installed)")
+        QtPrintSupportAction = QtWidgets.QAction("QtPrintSupport") if hasQtPrintSupport else QtWidgets.QAction("QtPrintSupport (not installed)")
         QtPrintSupportAction.triggered.connect(lambda :self.makeReferenceMenu(QtPrintSupport))
         qtMenu.addAction(QtPrintSupportAction)
         if not hasQtPrintSupport:
             QtPrintSupportAction.setEnabled(False)
 
-        QtSqlAction = QtGui.QAction("QtSql") if hasQtSql else QtGui.QAction("QtSql (not installed)")
+        QtSqlAction = QtWidgets.QAction("QtSql") if hasQtSql else QtWidgets.QAction("QtSql (not installed)")
         QtSqlAction.triggered.connect(lambda :self.makeReferenceMenu(QtSql))
         qtMenu.addAction(QtSqlAction)
         if not hasQtSql:
             QtSqlAction.setEnabled(False)
 
-        QtSvgAction = QtGui.QAction("QtSvg") if hasQtSvg else QtGui.QAction("QtSvg (not installed)")
+        QtSvgAction = QtWidgets.QAction("QtSvg") if hasQtSvg else QtWidgets.QAction("QtSvg (not installed)")
         QtSvgAction.triggered.connect(lambda :self.makeReferenceMenu(QtSvg))
         qtMenu.addAction(QtSvgAction)
         if not hasQtSvg:
             QtSvgAction.setEnabled(False)
 
-        QtTestAction = QtGui.QAction("QtTest") if hasQtTest else QtGui.QAction("QtTest (not installed)")
+        QtTestAction = QtWidgets.QAction("QtTest") if hasQtTest else QtWidgets.QAction("QtTest (not installed)")
         QtTestAction.triggered.connect(lambda :self.makeReferenceMenu(QtTest))
         qtMenu.addAction(QtTestAction)
         if not hasQtTest:
             QtTestAction.setEnabled(False)
 
-        QtWidgetsAction = QtGui.QAction("QtWidgets") if hasQtWidgets else QtGui.QAction("QtWidgets (not installed)")
+        QtWidgetsAction = QtWidgets.QAction("QtWidgets") if hasQtWidgets else QtWidgets.QAction("QtWidgets (not installed)")
         QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
         qtMenu.addAction(QtWidgetsAction)
         if not hasQtWidgets:
             QtWidgetsAction.setEnabled(False)
 
-        QtXmlAction = QtGui.QAction("QtXml") if hasQtXml else QtGui.QAction("QtXml (not installed)")
+        QtXmlAction = QtWidgets.QAction("QtXml") if hasQtXml else QtWidgets.QAction("QtXml (not installed)")
         QtXmlAction.triggered.connect(lambda :self.makeReferenceMenu(QtXml))
         qtMenu.addAction(QtXmlAction)
         if not hasQtXml:
             QtXmlAction.setEnabled(False)
 
-        QtXmlPatternsAction = QtGui.QAction("QtXmlPatterns") if hasQtXmlPatterns else QtGui.QAction("QtXmlPatterns (not installed)")
+        QtXmlPatternsAction = QtWidgets.QAction("QtXmlPatterns") if hasQtXmlPatterns else QtWidgets.QAction("QtXmlPatterns (not installed)")
         QtXmlPatternsAction.triggered.connect(lambda :self.makeReferenceMenu(QtXmlPatterns))
         qtMenu.addAction(QtXmlPatternsAction)
         if not hasQtXmlPatterns:
             QtXmlPatternsAction.setEnabled(False)
 
-        searchMenu = QtGui.QMenu("Search source code")
-        searchAction = QtGui.QAction("Use find edit text")
+        searchMenu = QtWidgets.QMenu("Search source code")
+        searchAction = QtWidgets.QAction("Use find edit text")
         searchAction.triggered.connect(self.makeSearchFromFindEdit)
         searchMenu.addAction(searchAction)
 
-        searchSelAction = QtGui.QAction("Use selected text")
+        searchSelAction = QtWidgets.QAction("Use selected text")
         searchSelAction.triggered.connect(self.makeSearchFromSelection)
         searchMenu.addAction(searchSelAction)
 
-        searchAskAction = QtGui.QAction("Ask for query")
+        searchAskAction = QtWidgets.QAction("Ask for query")
         searchAskAction.triggered.connect(self.makeSearchFromImmediate)
         searchMenu.addAction(searchAskAction)
 
         helpMenu.addMenu(searchMenu)
 
-        qSearchMenu = QtGui.QMenu("Search Qt")
-        qSearchAction = QtGui.QAction("Use find edit text")
+        qSearchMenu = QtWidgets.QMenu("Search Qt")
+        qSearchAction = QtWidgets.QAction("Use find edit text")
         qSearchAction.triggered.connect(self.makeqSearchFromFindEdit)
         qSearchMenu.addAction(qSearchAction)
 
-        qSearchSelAction = QtGui.QAction("Use selected text")
+        qSearchSelAction = QtWidgets.QAction("Use selected text")
         qSearchSelAction.triggered.connect(self.makeqSearchFromSelection)
         qSearchMenu.addAction(qSearchSelAction)
 
-        qSearchAskAction = QtGui.QAction("Ask for query")
+        qSearchAskAction = QtWidgets.QAction("Ask for query")
         qSearchAskAction.triggered.connect(self.makeqSearchFromImmediate)
         qSearchMenu.addAction(qSearchAskAction)
 
         helpMenu.addMenu(qSearchMenu)
 
-        wSearchMenu = QtGui.QMenu("Search wiki")
-        wSearchAction = QtGui.QAction("Use find edit text")
+        wSearchMenu = QtWidgets.QMenu("Search wiki")
+        wSearchAction = QtWidgets.QAction("Use find edit text")
         wSearchAction.triggered.connect(self.makewSearchFromFindEdit)
         wSearchMenu.addAction(wSearchAction)
 
-        wSearchSelAction = QtGui.QAction("Use selected text")
+        wSearchSelAction = QtWidgets.QAction("Use selected text")
         wSearchSelAction.triggered.connect(self.makewSearchFromSelection)
         wSearchMenu.addAction(wSearchSelAction)
 
-        wSearchAskAction = QtGui.QAction("Ask for query")
+        wSearchAskAction = QtWidgets.QAction("Ask for query")
         wSearchAskAction.triggered.connect(self.makewSearchFromImmediate)
         wSearchMenu.addAction(wSearchAskAction)
 
         helpMenu.addMenu(wSearchMenu)
 #highlight menu
-        highlightMenu = QtGui.QMenu("Highlight", mw)
-        highlightFromSelectionAction = QtGui.QAction("From selection")
+        highlightMenu = QtWidgets.QMenu("Highlight", mw)
+        highlightFromSelectionAction = QtWidgets.QAction("From selection")
         highlightFromSelectionAction.triggered.connect(self.highlightFromSelection)
         highlightMenu.addAction(highlightFromSelectionAction)
 
-        highlightFromFindAction = QtGui.QAction("From find")
+        highlightFromFindAction = QtWidgets.QAction("From find")
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
         mainMenu.addMenu(highlightMenu)
@@ -1539,7 +1562,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         mainMenu.addSeparator()
 
 #drag to forum
-        dragToForumAction = QtGui.QAction("Drag to forum")
+        dragToForumAction = QtWidgets.QAction("Drag to forum")
         dragToForumEnabled = hasattr(self.editorList.currentItem(),"text")
         dragToForumAction.setEnabled(dragToForumEnabled)
         dragToForumAction.triggered.connect(lambda: self.dragToForum(self.editorList.currentItem()))
@@ -1547,7 +1570,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
 #close menu
         if self.isTabbed:
-            closeAction = QtGui.QAction("Close")
+            closeAction = QtWidgets.QAction("Close")
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
@@ -1578,14 +1601,14 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if not items:
             self.toast("No keys in template","Error")
             return
-        item,ok = QtGui.QInputDialog.getItem(mw, "Select template","Select which template to insert", sorted(items))
+        item,ok = QtWidgets.QInputDialog.getItem(mw, "Select template","Select which template to insert", sorted(items))
         if ok:
             self.testTemplateItem(key=item, execute=True)
 
     def testTemplateItem(self, key, testText="", execute=False):
         """test template from editor, but also can execute"""
-        def inp(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getMultiLineText(Gui.getMainWindow(), title, label)
-        def inp1(title="Input",label="Enter a value:"): return lambda:QtGui.QInputDialog.getText(Gui.getMainWindow(), title, label)
+        def inp(title="Input",label="Enter a value:"): return lambda:QtWidgets.QInputDialog.getMultiLineText(Gui.getMainWindow(), title, label)
+        def inp1(title="Input",label="Enter a value:"): return lambda:QtWidgets.QInputDialog.getText(Gui.getMainWindow(), title, label)
         if not testText:
             templateDict = self.getTemplateString()
             rawDict = templateDict[key]
@@ -1682,8 +1705,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             dictString = pg.GetString("TemplateDictString","{}")
             if dictString == "{}": #no parameter
                 templateDict = {
-"button":{"label":"input", "name":"input","output":"name = QtGui.QPushButton('label')"},
-"import QtGui, QtCore":{"output":"from PySide import QtGui, QtCore"}
+"button":{"label":"input", "name":"input","output":"name = QtWidgets.QPushButton('label')"},
+"import QtGui, QtWidgets, QtCore":{"output":"from PySide2 import QtGui, QtWidgets, QtCore"}
 }
             else:
                 templateDict = json.loads(dictString) #preserve existing templates from parameters
@@ -1692,7 +1715,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         else: #file already exists
             with open(template_file, 'r') as infile:
                 self.templateDictString = infile.read()
-            #self.templateDictString = pg.GetString("TemplateDictString","{}")
             templateDict = json.loads(self.templateDictString, strict=False)
         return templateDict
 
@@ -1734,7 +1756,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.search(findTxt)
 
     def makeSearchFromImmediate(self):
-        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search source","Enter search query:")
+        findTxt, ok = QtWidgets.QInputDialog.getText(mw, "Search source","Enter search query:")
         if ok:
             self.search(findTxt)
 
@@ -1758,7 +1780,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.wSearch(findTxt)
 
     def makewSearchFromImmediate(self):
-        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search wiki","Enter search query:")
+        findTxt, ok = QtWidgets.QInputDialog.getText(mw, "Search wiki","Enter search query:")
         if ok:
             self.wSearch(findTxt)
 
@@ -1782,7 +1804,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.qSearch(findTxt)
 
     def makeqSearchFromImmediate(self):
-        findTxt, ok = QtGui.QInputDialog.getText(mw, "Search Qt","Enter qSearch query:")
+        findTxt, ok = QtWidgets.QInputDialog.getText(mw, "Search Qt","Enter qSearch query:")
         if ok:
             self.qSearch(findTxt)
 
@@ -1790,13 +1812,13 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         def makeReference(name): return lambda: self.showHelp(name)
         if isinstance(mod, str):
             mod = __import__(mod.strip())
-        refMenu = QtGui.QMenu(mod.__name__)
+        refMenu = QtWidgets.QMenu(mod.__name__)
         subMenus = []
 
         attributeStrings = [att for att in dir(mod) if not "__" in att]
 
         attrActions = []
-        attrActions.append(QtGui.QAction(f"{mod.__name__}"))
+        attrActions.append(QtWidgets.QAction(f"{mod.__name__}"))
         attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}"))
         refMenu.addAction(attrActions[-1])
         if not attributeStrings:
@@ -1804,11 +1826,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         ii = 0
         for attr in attributeStrings:
             if ii % 50 == 0:
-                subMenus.append(QtGui.QMenu(f"Start from -- {mod.__name__}.{attr}"))
+                subMenus.append(QtWidgets.QMenu(f"Start from -- {mod.__name__}.{attr}"))
                 ii += 1
             if not hasattr(mod, "__name__"):
                 continue
-            attrActions.append(QtGui.QAction(f"{mod.__name__}.{attr}"))
+            attrActions.append(QtWidgets.QAction(f"{mod.__name__}.{attr}"))
             attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}.{attr}"))
             subMenus[-1].addAction(attrActions[-1])
             ii += 1
@@ -1834,10 +1856,10 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
     def makeWindow(self, name, txt):
         """make a window to show some text"""
-        dlg = QtGui.QDialog(mw)
-        edit = QtGui.QPlainTextEdit()
+        dlg = QtWidgets.QDialog(mw)
+        edit = QtWidgets.QPlainTextEdit()
         edit.setPlainText(txt)
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(edit)
         dlg.setLayout(layout)
         dlg.resize(800,600)
@@ -1855,30 +1877,30 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.snapMenuBtnContextMenu(qp)
 
     def makeSnapsMenu(self):
-        snapsMenu = QtGui.QMenu("Snaps")
+        snapsMenu = QtWidgets.QMenu("Snaps")
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
             self.toast("No current editor","Error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
 
-        takeSnapshotAction = QtGui.QAction("Take snapshot", mw)
+        takeSnapshotAction = QtWidgets.QAction("Take snapshot", mw)
         takeSnapshotAction.triggered.connect(lambda: self.onTakeSnapBtnClicked(True))
         snapsMenu.addAction(takeSnapshotAction)
         takeSnapshotAction.setEnabled(curName != "")
 
-        restoreMenu = QtGui.QMenu("Restore last snap")
-        restoreToCurrentEditorAction = QtGui.QAction("Restore to current editor", mw)
+        restoreMenu = QtWidgets.QMenu("Restore last snap")
+        restoreToCurrentEditorAction = QtWidgets.QAction("Restore to current editor", mw)
         restoreToCurrentEditorAction.triggered.connect(self.doRestoreToCurrentEditor)
         restoreToCurrentEditorAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToCurrentEditorAction)
 
-        restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
+        restoreToClipboardAction = QtWidgets.QAction("Restore to clipboard", mw)
         restoreToClipboardAction.triggered.connect(self.doRestoreToClipboard)
         restoreToClipboardAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToClipboardAction)
 
-        restoreToTextDocumentAction = QtGui.QAction("Restore to new Text document", mw)
+        restoreToTextDocumentAction = QtWidgets.QAction("Restore to new Text document", mw)
         restoreToTextDocumentAction.triggered.connect(self.doRestoreToTextDocument)
         restoreToTextDocumentAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToTextDocumentAction)
@@ -1889,24 +1911,24 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         def makeRestoreAnyLambda(name,reason,idx): return lambda: self.restoreAny(name,reason,idx)
 
         restoreAnys = self.getRestoreAnys()
-        restoreAnysMenu = QtGui.QMenu("Restore Any")
+        restoreAnysMenu = QtWidgets.QMenu("Restore Any")
         restoreAnyActions = []
         restoreAnyLambdas = [makeRestoreAnyLambda(tup[0],tup[1],ii) for ii,tup in enumerate(restoreAnys)]
         for ii,tup in enumerate(restoreAnys):
-            restoreAnyActions.append(QtGui.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
+            restoreAnyActions.append(QtWidgets.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
             restoreAnyActions[-1].triggered.connect(restoreAnyLambdas[ii])
             restoreAnysMenu.addAction(restoreAnyActions[-1])
         snapsMenu.addMenu(restoreAnysMenu)
         if not restoreAnys:
             restoreAnysMenu.setEnabled(False)
 
-        saveMenu = QtGui.QMenu("Save")
-        saveSnapshotAsAction = QtGui.QAction("Save snapshot as...", mw)
+        saveMenu = QtWidgets.QMenu("Save")
+        saveSnapshotAsAction = QtWidgets.QAction("Save snapshot as...", mw)
         saveSnapshotAsAction.triggered.connect(self.doSaveSnapshotAs)
         saveSnapshotAsAction.setEnabled(len(snaps) > 0)
         saveMenu.addAction(saveSnapshotAsAction)
 
-        saveAllSnapshotAsAction = QtGui.QAction("Save all snaps to JSON file...", mw)
+        saveAllSnapshotAsAction = QtWidgets.QAction("Save all snaps to JSON file...", mw)
         saveAllSnapshotAsAction.triggered.connect(self.saveSnapsToJSON)
         saveAllSnapshotAsAction.setEnabled(len(snaps) > 0)
         saveMenu.addAction(saveAllSnapshotAsAction)
@@ -1914,23 +1936,23 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if not len(self.getSnaps()):
             saveMenu.setEnabled(False)
 
-        loadMenu = QtGui.QMenu("Load")
-        loadSnapshotAction = QtGui.QAction("Load snapshots from JSON...", mw)
+        loadMenu = QtWidgets.QMenu("Load")
+        loadSnapshotAction = QtWidgets.QAction("Load snapshots from JSON...", mw)
         loadSnapshotAction.triggered.connect(self.loadSnapsFromJSON)
         loadMenu.addAction(loadSnapshotAction)
 
         snapsMenu.addMenu(loadMenu)
-        discardMenu = QtGui.QMenu("Discard")
+        discardMenu = QtWidgets.QMenu("Discard")
 
         def makeDiscardSnapLambda(x): return lambda: self.discardSnap(x)
 
-        discardAction = QtGui.QAction("Discard latest snap", mw)
+        discardAction = QtWidgets.QAction("Discard latest snap", mw)
         discardAction.setToolTip("Discards most recent snap for the current editor")
         discardAction.triggered.connect(self.discardSnap)
         discardAction.setEnabled(len(snaps) > 0)
         discardMenu.addAction(discardAction)
 
-        discardAllAction = QtGui.QAction("Discard all snaps", mw)
+        discardAllAction = QtWidgets.QAction("Discard all snaps", mw)
         discardAllAction.setToolTip("Disards all snaps for all editors")
         discardAllAction.triggered.connect(self.discardAllSnaps)
         discardAllAction.setEnabled(len(snaps) > 0)
@@ -1940,7 +1962,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         discardSnapActions = []
         discardSnapLambdas = [makeDiscardSnapLambda(ii) for ii,snap in enumerate(discardSnaps)]
         for ii,snap in enumerate(discardSnaps):
-            discardSnapActions.append(QtGui.QAction(f"Discard {snap['reason']}", mw))
+            discardSnapActions.append(QtWidgets.QAction(f"Discard {snap['reason']}", mw))
             discardSnapActions[-1].triggered.connect(discardSnapLambdas[ii])
             discardMenu.addAction(discardSnapActions[-1])
         if not discardSnaps:
@@ -1951,25 +1973,25 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         def makeDiffLambda(x,y,xlab="",ylab=""): return lambda: self.showDiff(x,y,xlab,ylab)
 
         diffSnaps = self.getDiffSnaps(curName)
-        diffSnapsMenu = QtGui.QMenu("Diff current editor")
+        diffSnapsMenu = QtWidgets.QMenu("Diff current editor")
         diffSnapActions = []
         diffSnapLambdas = [makeDiffLambda(snap['name'],ii) for ii,snap in enumerate(diffSnaps)]
         for ii,snap in enumerate(diffSnaps):
-            diffSnapActions.append(QtGui.QAction(f"Diff {snap['reason']}", mw))
+            diffSnapActions.append(QtWidgets.QAction(f"Diff {snap['reason']}", mw))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         for edName in self.editorDict.keys():
             if edName == curName:
                 continue
-            diffSnapActions.append(QtGui.QAction(f"Diff {edName}", mw))
+            diffSnapActions.append(QtWidgets.QAction(f"Diff {edName}", mw))
             diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), curName, edName))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         clipText = QtGui.QClipboard().text()
 
-        diffSnapActions.append(QtGui.QAction(f"Diff clipboard text", mw))
+        diffSnapActions.append(QtWidgets.QAction(f"Diff clipboard text", mw))
         diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),curName, "Clipboard text"))
         diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
         diffSnapsMenu.addAction(diffSnapActions[-1])
@@ -1983,11 +2005,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         def makeEditReasonLambda(name,reason,idx): return lambda: self.editReason(name,reason,idx)
 
         editReasons = self.getEditReasons(curName)
-        editReasonsMenu = QtGui.QMenu("Edit reason")
+        editReasonsMenu = QtWidgets.QMenu("Edit reason")
         editReasonActions = []
         editReasonLambdas = [makeEditReasonLambda(tup[0],tup[1],ii) for ii,tup in enumerate(editReasons)]
         for ii,tup in enumerate(editReasons):
-            editReasonActions.append(QtGui.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
+            editReasonActions.append(QtWidgets.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
             editReasonActions[-1].triggered.connect(editReasonLambdas[ii])
             editReasonsMenu.addAction(editReasonActions[-1])
         snapsMenu.addMenu(editReasonsMenu)
@@ -2003,7 +2025,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
     def editReason(self, name, reason, idx):
         snap = self.snaps[idx]
-        new_reason,ok = QtGui.QInputDialog.getText(mw,"Edit reason",f"Enter a new reason in place of:\n\
+        new_reason,ok = QtWidgets.QInputDialog.getText(mw,"Edit reason",f"Enter a new reason in place of:\n\
 {reason}\n", text=reason)
         if not ok:
             return
@@ -2033,7 +2055,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             return
         if curName != name:
             items = ["Oops, wrong document -- cancel",f"I confirm: overwrite {curName} with this snap"]
-            item,ok = QtGui.QInputDialog.getItem(mw,f"Restore",f"You are about to restore:{name}: {reason} to a different document: {curName}.\n",items)
+            item,ok = QtWidgets.QInputDialog.getItem(mw,f"Restore",f"You are about to restore:{name}: {reason} to a different document: {curName}.\n",items)
             if not bool (ok and item == items[1]):
                 return
         old_text = self.getText(curName)
@@ -2051,18 +2073,48 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
 
     def saveSnapsToJSON(self):
         """save all snaps to a JSON text file"""
-        fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save all snaps to a JSON file",filter='*.*')[0]
+        global setPathLatestDirectory
+
+        if platform.node() == "mint":
+            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
+            filter = filter[filter.find("."):filter.find(")")]
+            if filter[-2:] == ".*":
+                 filter = filter[:-2]
+            fname = fname + filter
+        else:
+            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+
         if not fname:
             return
+
+        pathFile = os.path.dirname(fname) + "/"  #1# = C:/Tmp/
+        setPathLatestDirectory = pathFile
+        pg.SetString("setPathLatestDirectory",setPathLatestDirectory)
+
         with open(fname, "w") as outfile:
             json.dump(self.snaps, outfile)
         self.toast(f"All snaps saved to {outfile}", "Information")
 
     def loadSnapsFromJSON(self):
         """load previously saved snaps from a JSON file"""
-        fname = QtGui.QFileDialog.getOpenFileName(FreeCADGui.getMainWindow(),"Open a JSON file",filter='*.*')[0]
+        global setPathLatestDirectory
+
+        if platform.node() == "mint":
+            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
+            filter = filter[filter.find("."):filter.find(")")]
+            if filter[-2:] == ".*":
+                 filter = filter[:-2]
+            fname = fname + filter
+        else:
+            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+
         if not fname:
             return
+
+        pathFile = os.path.dirname(fname) + "/"  #1# = C:/Tmp/
+        setPathLatestDirectory = pathFile
+        pg.SetString("setPathLatestDirectory",setPathLatestDirectory)
+
         try:
             f = open(fname)
         except Exception as ex:
@@ -2103,43 +2155,43 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         ds.setWindowFlag(QtCore.Qt.WindowMaximizeButtonHint, True)
         ds.resizeEvent = ds.onResize
         self.mdi.addSubWindow(ds)
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         ds.setLayout(layout)
         ds.setWindowIcon(QIconFromXPMString(__icon__))
         from PySide2 import QtWebEngineWidgets as Web
         ds.webView = Web.QWebEngineView()
         #ds.webView.setHtml(ds.diff)
-        saveBtn = QtGui.QPushButton("Save to html...")
+        saveBtn = QtWidgets.QPushButton("Save to html...")
         saveBtn.clicked.connect(ds.saveDiffToHtml)
-        sliderLayout=QtGui.QHBoxLayout()
+        sliderLayout=QtWidgets.QHBoxLayout()
         sliderLayout.addWidget(saveBtn)
-        ds.numlinesSpinBox = QtGui.QSpinBox()
+        ds.numlinesSpinBox = QtWidgets.QSpinBox()
         ds.numlinesSpinBox.setValue(5)
-        ds.contextCheckBox = QtGui.QCheckBox()
+        ds.contextCheckBox = QtWidgets.QCheckBox()
         ds.contextCheckBox.setCheckState(QtCore.Qt.Checked)
-        sliderLayout.addWidget(QtGui.QLabel("Context:"))
+        sliderLayout.addWidget(QtWidgets.QLabel("Context:"))
         sliderLayout.addWidget(ds.contextCheckBox)
-        sliderLayout.addWidget(QtGui.QLabel("Context lines:"))
+        sliderLayout.addWidget(QtWidgets.QLabel("Context lines:"))
         sliderLayout.addWidget(ds.numlinesSpinBox)
         ds.contextCheckBox.stateChanged.connect(ds.onContextCheckBoxStateChanged)
         ds.numlinesSpinBox.valueChanged.connect(ds.onNumlinesSpinBoxValueChanged)
-        sliderLayout.addWidget(QtGui.QLabel("Zoom:"))
-        ds.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        sliderLayout.addWidget(QtWidgets.QLabel("Zoom:"))
+        ds.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         ds.slider.setRange(25, 500)
         ds.slider.valueChanged.connect(ds.onSliderValueChanged)
         ds.slider.setMinimum(25)
         ds.slider.setMaximum(500)
-        ds.slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        ds.slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
         ds.slider.setTickInterval(25)
         ds.slider.setValue(100)
         sliderLayout.addWidget(ds.slider)
-        sliderLayout.addWidget(QtGui.QLabel("Col width:"))
-        ds.widthSlider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        sliderLayout.addWidget(QtWidgets.QLabel("Col width:"))
+        ds.widthSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         ds.widthSlider.setRange(25, 2000)
         ds.widthSlider.valueChanged.connect(ds.onWidthSliderValueChanged)
         ds.widthSlider.setMinimum(25)
         ds.widthSlider.setMaximum(2000)
-        ds.widthSlider.setTickPosition(QtGui.QSlider.TicksBelow)
+        ds.widthSlider.setTickPosition(QtWidgets.QSlider.TicksBelow)
         ds.widthSlider.setTickInterval(25)
         ds.widthSlider.setValue(500)
         sliderLayout.addWidget(ds.widthSlider)
@@ -2152,6 +2204,8 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         #self.toast(f"make diff of snap = {idx}","Message")
 
     def doSaveSnapshotAs(self):
+        global setPathLatestDirectory
+
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text()
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
@@ -2160,10 +2214,23 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             self.updateSnapBtns()
             return
         else:
-            fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),\
-                "Save snapshot to text file",filter='Macro (*.FCmacro *.py);;Text file (*.txt);;Any (*.*)')[0]
+
+            if platform.node() == "mint":
+                fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide2 Mint
+                filter = filter[filter.find("."):filter.find(")")]
+                if filter[-2:] == ".*":
+                     filter = filter[:-2]
+                fname = fname + filter
+            else:
+                fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
+
             if not fname:
                 return
+    
+            pathFile = os.path.dirname(fname) + "/"  #1# = C:/Tmp/
+            setPathLatestDirectory = pathFile
+            pg.SetString("setPathLatestDirectory",setPathLatestDirectory)
+
             with open(fname,"w") as outfile:
                 outfile.write(snaps[0]['old_text'])
             self.toast(f"Snapshot: {snaps[0]['reason']} saved to {fname}","Message")
@@ -2227,7 +2294,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if curName == queue["name"]:
                 undo = {"name":curName, "reason":queue["reason"], "old_text":self.getText(curName), "tc":self.getTC(self.currentEditor.textCursor())}
                 self.currentEditor.setPlainText(queue["old_text"])
-                #self.currentEditor.setTextCursor(queue['tc'])
                 self.setTextCursor(curName, queue['tc'])
                 self.undoQueue.append(undo)
                 self.redoQueue.pop()
@@ -2263,7 +2329,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
         txt = self.findEdit.text()
-        modifiers = QtGui.QApplication.keyboardModifiers()
+        modifiers = QtWidgets.QApplication.keyboardModifiers()
         if modifiers == QtCore.Qt.AltModifier:
             selText = self.currentEditor.textCursor().selectedText()
             self.findEdit.setText(selText if selText else txt)
@@ -2434,7 +2500,6 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.editorDict = {}
         for zz in zip(self.editors, self.parents, self.grandparents):
             self.editorDict [zz[2].windowTitle()] = zz[0]
-            #self.print(f"ed = {ed}")
         self.populateList()
         self.setCurrentEditor()
 
@@ -2483,40 +2548,39 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         self.gotoLineDict[name] = arg1
 
     def makeGotoMenu(self):
-        gotoMenu = QtGui.QMenu("Goto")
+        gotoMenu = QtWidgets.QMenu("Goto")
         self.onRefreshBtnClicked(True)
         curName = self.editorList.currentItem().text() if self.editorList.count() else ""
         if not curName:
             self.toast("No current editor","Error")
 
-        lineNumsMenu = QtGui.QMenu("Line numbers")
+        lineNumsMenu = QtWidgets.QMenu("Line numbers")
         lineNums = self.getGotoLines()
         def makeLambda(x): return lambda: self.gotoLine(x)
         gotoLineLambdas = [makeLambda(lineNum) for lineNum in lineNums]
         gotoLineActions = []
         for ii,lineNum in enumerate(lineNums):
-            gotoLineActions.append(QtGui.QAction(f"Go to line {lineNum}", mw))
+            gotoLineActions.append(QtWidgets.QAction(f"Go to line {lineNum}", mw))
             gotoLineActions[-1].triggered.connect(gotoLineLambdas[ii])
             gotoLineActions[-1].setEnabled(len(self.gotoLineEdit.text()) > 0)
-            #gotoMenu.addAction(gotoLineActions[-1])
             lineNumsMenu.addAction(gotoLineActions[-1])
         gotoMenu.addMenu(lineNumsMenu)
         if not gotoLineLambdas:
             lineNumsMenu.setEnabled(False)
 
         #classDefLines = (class name, def/class text, line number)
-        classDefLinesMenu = QtGui.QMenu("Class/Def lines")
+        classDefLinesMenu = QtWidgets.QMenu("Class/Def lines")
         classDefLines = sorted(self.getClassDefLines())
         classDefLineActions = []
         classDefSubmenus = []
         classDefLineLambdas = [makeLambda(cl[2]) for cl in classDefLines]
         for ii,classDefLine in enumerate(classDefLines):
             if ii % 25 == 0:
-                classDefSubmenus.append(QtGui.QMenu(f"Start from -- {classDefLine[2]}"))
+                classDefSubmenus.append(QtWidgets.QMenu(f"Start from -- {classDefLine[2]}"))
             if "class" in classDefLine[1]:
-                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..{classDefLine[1]}", mw))
+                classDefLineActions.append(QtWidgets.QAction(f"{classDefLine[2]}..{classDefLine[1]}", mw))
             else: #def line
-                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..({classDefLine[0]}) {classDefLine[1]}", mw))
+                classDefLineActions.append(QtWidgets.QAction(f"{classDefLine[2]}..({classDefLine[0]}) {classDefLine[1]}", mw))
             classDefLineActions[-1].triggered.connect(classDefLineLambdas[ii])
             classDefSubmenus[-1].addAction(classDefLineActions[-1])
         for sub in classDefSubmenus:
@@ -2526,23 +2590,23 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             classDefLinesMenu.setEnabled(False)
 
         bookmarks = sorted(self.getBookmarks())
-        bookmarksMenu = QtGui.QMenu("Bookmarks")
-        toggleBookmarkAction = QtGui.QAction("Toggle Bookmark current line", mw)
+        bookmarksMenu = QtWidgets.QMenu("Bookmarks")
+        toggleBookmarkAction = QtWidgets.QAction("Toggle Bookmark current line", mw)
         toggleBookmarkAction.triggered.connect(self.toggleBookmark)
         toggleBookmarkAction.setEnabled(curName != "")
         bookmarksMenu.addAction(toggleBookmarkAction)
 
-        removeAllBookmarksAction = QtGui.QAction("Remove all bookmarks", mw)
+        removeAllBookmarksAction = QtWidgets.QAction("Remove all bookmarks", mw)
         removeAllBookmarksAction.triggered.connect(self.removeAllBookmarks)
         removeAllBookmarksAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(removeAllBookmarksAction)
 
-        nextBookmarkAction = QtGui.QAction("Goto next bookmark", mw)
+        nextBookmarkAction = QtWidgets.QAction("Goto next bookmark", mw)
         nextBookmarkAction.triggered.connect(self.nextBookmark)
         nextBookmarkAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(nextBookmarkAction)
 
-        previousBookmarkAction = QtGui.QAction("Goto previous bookmark", mw)
+        previousBookmarkAction = QtWidgets.QAction("Goto previous bookmark", mw)
         previousBookmarkAction.triggered.connect(self.previousBookmark)
         previousBookmarkAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(previousBookmarkAction)
@@ -2551,20 +2615,20 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         bookmarkActions = []
         bookmarkLambdas = [makeLambda(bm[1]) for bm in bookmarks]
         for ii,bm in enumerate(bookmarks):
-            bookmarkActions.append(QtGui.QAction(f"{bm[0]} ({bm[1]})", mw))
+            bookmarkActions.append(QtWidgets.QAction(f"{bm[0]} ({bm[1]})", mw))
             bookmarkActions[-1].triggered.connect(bookmarkLambdas[ii])
             bookmarksMenu.addAction(bookmarkActions[-1])
         gotoMenu.addMenu(bookmarksMenu)
 
         findResults = sorted(self.getFindResults())
-        findResultsMenu = QtGui.QMenu("Find results")
+        findResultsMenu = QtWidgets.QMenu("Find results")
         findResultsSubmenus = []
         findResultActions = []
         findResultLambdas = [makeLambda(fr[0]) for fr in findResults]
         for ii,fr in enumerate(findResults):
             if ii % 25 == 0:
-                findResultsSubmenus.append(QtGui.QMenu(f"Start from -- {fr[0]}"))
-            findResultActions.append(QtGui.QAction(f"{fr[0]}..{fr[1]}{fr[2]}{fr[3]}..", mw))
+                findResultsSubmenus.append(QtWidgets.QMenu(f"Start from -- {fr[0]}"))
+            findResultActions.append(QtWidgets.QAction(f"{fr[0]}..{fr[1]}{fr[2]}{fr[3]}..", mw))
             findResultActions[-1].triggered.connect(findResultLambdas[ii])
             findResultsSubmenus[-1].addAction(findResultActions[-1])
         for sub in findResultsSubmenus:
@@ -2577,14 +2641,14 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 self.toast("Whole words checkbox ignored in Find results menu","Warning")
 
         findSelResults = sorted(self.getFindResults(useSelection=True))
-        findSelResultsMenu = QtGui.QMenu("Find selection results")
+        findSelResultsMenu = QtWidgets.QMenu("Find selection results")
         findSelResultsSubmenus = []
         findSelResultActions = []
         findSelResultLambdas = [makeLambda(fsr[0]) for fsr in findSelResults]
         for ii,fsr in enumerate(findSelResults):
             if ii % 25 == 0:
-                findSelResultsSubmenus.append(QtGui.QMenu(f"Start from --{fsr[0]}"))
-            findSelResultActions.append(QtGui.QAction(f"{fsr[0]}..{fsr[1]}{fsr[2]}{fsr[3]}..", mw))
+                findSelResultsSubmenus.append(QtWidgets.QMenu(f"Start from --{fsr[0]}"))
+            findSelResultActions.append(QtWidgets.QAction(f"{fsr[0]}..{fsr[1]}{fsr[2]}{fsr[3]}..", mw))
             findSelResultActions[-1].triggered.connect(findSelResultLambdas[ii])
             findSelResultsSubmenus[-1].addAction(findSelResultActions[-1])
         for sub in findSelResultsSubmenus:
@@ -2596,12 +2660,12 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             if self.matchWholeCheckBox.checkState():
                 self.toast("Whole words checkbox ignored in Find selection results menu","Warning")
 
-        gotoHomeAction = QtGui.QAction("Home", mw)
+        gotoHomeAction = QtWidgets.QAction("Home", mw)
         gotoHomeAction.triggered.connect(lambda: self.onGotoHomeBtnClicked(True))
         gotoHomeAction.setEnabled(curName != "")
         gotoMenu.addAction(gotoHomeAction)
 
-        gotoEndAction = QtGui.QAction("End", mw)
+        gotoEndAction = QtWidgets.QAction("End", mw)
         gotoEndAction.triggered.connect(lambda: self.onGotoEndBtnClicked(True))
         gotoEndAction.setEnabled(curName != "")
         gotoMenu.addAction(gotoEndAction)
@@ -2819,11 +2883,11 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         if "[*]" in filename:
             filename = filename[:filename.find("[*]")]
         path = os.path.join(macroDir, filename)
-        dlg = QtGui.QFileDialog(mw)
+        dlg = QtWidgets.QFileDialog(mw)
         dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        dlg.setOption(QtGui.QFileDialog.DontUseNativeDialog)
+        dlg.setOption(QtWidgets.QFileDialog.DontUseNativeDialog)
         dlg.setWindowTitle("Drag file to forum")
-        dlg.setFileMode(QtGui.QFileDialog.ExistingFile)
+        dlg.setFileMode(QtWidgets.QFileDialog.ExistingFile)
         dlg.setNameFilter(os.path.basename(path))
         model = FileFilterProxyModel(path)
         dlg.setProxyModel(model)
@@ -2862,92 +2926,129 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             FreeCAD.Console.PrintWarning(message+"\n")
 
     def getStandardButtons(self):
-        return int(QtGui.QDialogButtonBox.Close)
+        return int(QtWidgets.QDialogButtonBox.Close)
 
     def reject(self):
         FreeCADGui.Control.closeDialog()
         if FreeCADGui.activeDocument():
             FreeCADGui.activeDocument().resetEdit()
 
-class TemplateEditor(QtGui.QWidget):
+class TemplateEditor(QtWidgets.QWidget):
     def __init__(self, parent=mw, form=None):
         super(TemplateEditor, self).__init__(parent, QtCore.Qt.Tool)
         self.form=form
         self.blockSignals = False
         self.setWindowTitle(f"Template editor v{__version__}")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QtWidgets.QVBoxLayout()
         self.setLayout(self.layout)
-        self.templateList = QtGui.QListWidget()
+        self.templateList = QtWidgets.QListWidget()
         self.templateList.currentItemChanged.connect(self.onTemplateListCurrentItemChanged)
         self.templateDict = {}
-        filterLine = QtGui.QHBoxLayout()
+        filterLine = QtWidgets.QHBoxLayout()
         self.layout.addLayout(filterLine)
-        self.useFilterCheckBox = QtGui.QCheckBox("Filter")
+        self.useFilterCheckBox = QtWidgets.QCheckBox("Filter")
         self.useFilterCheckBox.setCheckState(QtCore.Qt.Checked)
         self.useFilterCheckBox.stateChanged.connect(self.onUseFilterCheckBoxStateChanged)
         filterLine.addWidget(self.useFilterCheckBox)
-        self.filterEdit = QtGui.QLineEdit()
+        self.filterEdit = QtWidgets.QLineEdit()
         filterLine.addWidget(self.filterEdit)
         self.filterEdit.setPlaceholderText("Filter text goes here")
         self.filterEdit.textChanged.connect(self.onFilterEditTextChanged)
-        self.matchCaseCheckBox = QtGui.QCheckBox()
+        self.matchCaseCheckBox = QtWidgets.QCheckBox()
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
         filterLine.addWidget(self.matchCaseCheckBox)
-        topLine = QtGui.QHBoxLayout()
+        topLine = QtWidgets.QHBoxLayout()
         topLine.addWidget(self.templateList)
-        buttonBox = QtGui.QVBoxLayout()
+        buttonBox = QtWidgets.QVBoxLayout()
         buttonBox.setAlignment(QtCore.Qt.AlignTop)
         topLine.addLayout(buttonBox)
-        self.plusBtn = QtGui.QPushButton("+")
+        self.plusBtn = QtWidgets.QPushButton()#"+"
+        self.plusBtn.setToolTip("Adding")
+        self.plusBtn.setIcon(QIconFromXPMString(plus_Template_icon))
+        self.plusBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         buttonBox.addWidget(self.plusBtn)
         self.plusBtn.clicked.connect(self.onPlusBtnClicked)
 
-        self.minusBtn = QtGui.QPushButton("-")
+        self.minusBtn = QtWidgets.QPushButton()#"-"
+        self.minusBtn.setToolTip("Delete")
+        self.minusBtn.setIcon(QIconFromXPMString(moins_Template_icon))
+        self.minusBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         buttonBox.addWidget(self.minusBtn)
         self.minusBtn.clicked.connect(self.onMinusBtnClicked)
 
-        self.renameBtn = QtGui.QPushButton("Rename")
+        self.renameBtn = QtWidgets.QPushButton()#"Rename"
+        self.renameBtn.setToolTip("Rename")
+        self.renameBtn.setIcon(QIconFromXPMString(rename_Template_icon))
+        self.renameBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         buttonBox.addWidget(self.renameBtn)
         self.renameBtn.clicked.connect(self.onRenameBtnClicked)
 
-        editLine = QtGui.QHBoxLayout()
-        self.edit = QtGui.QPlainTextEdit()
+        editLine = QtWidgets.QHBoxLayout()
+        self.edit = QtWidgets.QPlainTextEdit()
         editLine.addWidget(self.edit)
-        bottomButtonBox = QtGui.QVBoxLayout()
+        bottomButtonBox = QtWidgets.QVBoxLayout()
         bottomButtonBox.setAlignment(QtCore.Qt.AlignTop)
         editLine.addLayout(bottomButtonBox)
 
-        self.testBtn = QtGui.QPushButton("Test")
+        self.testBtn = QtWidgets.QPushButton()#"Test"
+        self.testBtn.setToolTip("Test")
+        self.testBtn.setIcon(QIconFromXPMString(test_Template_icon))
+        self.testBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.testBtn.clicked.connect(self.onTestBtnClicked)
         bottomButtonBox.addWidget(self.testBtn)
 
-        self.executeBtn = QtGui.QPushButton("Execute")
+        self.executeBtn = QtWidgets.QPushButton()#"Execute"
+        self.executeBtn.setToolTip("Execute")
+        self.executeBtn.setIcon(QIconFromXPMString(execute_Template_icon))
+        self.executeBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.executeBtn.clicked.connect(self.onExecuteBtnClicked)
         bottomButtonBox.addWidget(self.executeBtn)
 
-        self.executeToClipboardBtn = QtGui.QPushButton("Execute to\nclipboard")
+        self.executeToClipboardBtn = QtWidgets.QPushButton()#"Execute to\nclipboard"
         self.executeToClipboardBtn.setToolTip("Execute current template, but send text to clipboard")
+        self.executeToClipboardBtn.setIcon(QIconFromXPMString(execute_Clipboard_Template_icon))
+        self.executeToClipboardBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.executeToClipboardBtn.clicked.connect(self.onExecuteToClipboardBtnClicked)
         bottomButtonBox.addWidget(self.executeToClipboardBtn)
 
-        self.helpBtn = QtGui.QPushButton("Help")
+        self.helpBtn = QtWidgets.QPushButton()#"Help"
+        self.helpBtn.setToolTip("Help")
+        self.helpBtn.setIcon(QIconFromXPMString(help_Template_icon))
+        self.helpBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.helpBtn.clicked.connect(self.onHelpBtnClicked)
         bottomButtonBox.addWidget(self.helpBtn)
 
-        self.dlgButtonBox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
-        self.applyBtn = QtGui.QPushButton("Apply")
+        self.applyBtn = QtWidgets.QPushButton()#"Apply"
         self.applyBtn.setToolTip("Apply changes, saves to templates file")
+        self.applyBtn.setIcon(QIconFromXPMString(save_Template_icon))
+        self.applyBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.applyBtn.clicked.connect(self.onApplyBtnClicked)
-        self.dlgButtonBox.addButton(self.applyBtn, QtGui.QDialogButtonBox.ActionRole)
-        self.dlgButtonBox.setCenterButtons(True)
-        self.dlgButtonBox.accepted.connect(self.accept)
-        self.dlgButtonBox.rejected.connect(self.reject)
+
+        self.acceptBtn = QtWidgets.QPushButton()#"Accept"
+        self.acceptBtn.setToolTip("Accept and quit")
+        self.acceptBtn.setIcon(QIconFromXPMString(accept_Template_icon))
+        self.acceptBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.acceptBtn.clicked.connect(self.accept)
+
+        self.rejectBtn = QtWidgets.QPushButton()#"Reject"
+        self.rejectBtn.setToolTip("Reject and quit")
+        self.rejectBtn.setIcon(QIconFromXPMString(reject_Template_icon))
+        self.rejectBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.rejectBtn.clicked.connect(self.reject)
 
         self.layout.addLayout(topLine)
         self.layout.addLayout(editLine)
-        self.layout.addWidget(self.dlgButtonBox)
+        dlgButtonBox = QtWidgets.QHBoxLayout()
+        self.layout.addLayout(dlgButtonBox)
+        self.layout.setAlignment(dlgButtonBox, Qt.AlignBottom)
+        self.layout.setAlignment(dlgButtonBox, Qt.AlignCenter)
+
+        dlgButtonBox.addWidget(self.applyBtn)
+        dlgButtonBox.addWidget(self.acceptBtn)
+        dlgButtonBox.addWidget(self.rejectBtn)
+
         self.resize(800,600)
         self.updateList()
 
@@ -3022,7 +3123,7 @@ class TemplateEditor(QtGui.QWidget):
         if not txt:
             return
         testTxt = "<pre>" + self.form.testTemplateItem(curName, txt) + "</pre>"
-        QtGui.QMessageBox.information(self, f"{curName}", testTxt)
+        QtWidgets.QMessageBox.information(self, f"{curName}", testTxt)
 
     def onExecuteBtnClicked(self, arg1):
         """execute current template"""
@@ -3046,13 +3147,13 @@ class TemplateEditor(QtGui.QWidget):
         curDict = {}
         if curName:
             curDict = self.shallowCopy(self.templateDict[curName])
-        newTemplateName,ok = QtGui.QInputDialog.getText(self, "Add template","Enter name for new template:")
+        newTemplateName,ok = QtWidgets.QInputDialog.getText(self, "Add template","Enter name for new template:")
         if ok and newTemplateName:
             if newTemplateName in self.templateDict:
                 self.form.print(f"{newTemplateName} already exists","Error")
                 return
             if not curName:
-                self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label')"}
+                self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label') #QtWidgets.QPushButton('label') for PySide2"}
             else:
                 self.templateDict[newTemplateName] = curDict
             self.updateList(fetch=False)
@@ -3072,7 +3173,7 @@ class TemplateEditor(QtGui.QWidget):
             self.blockSignals = True
             self.templateList.addItem("template")
             self.edit.setPlainText("{}")
-            self.templateDict = {"template":{"label":"input","name":"input","output":"name = QtGui.QPushButton('label')"}}
+            self.templateDict = {"template":{"label":"input","name":"input","output":"name = QtGui.QPushButton('label') # QtWidgets.QPushButton('label') for PySide2"}}
             self.blockSignals = False
             self.setCurrentByRow(0)
 
@@ -3118,13 +3219,13 @@ text is inserted.  The "goto" key can have these values:
 'relative:-3' -- example, go 3 lines up from current
 </pre>
 """
-        QtGui.QMessageBox.information(self, "Help", helpText)
+        QtWidgets.QMessageBox.information(self, "", helpText)#Help
 
     def onRenameBtnClicked(self, arg1):
         curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
         if not curName:
             return
-        newName,ok = QtGui.QInputDialog.getText(self, "Editor assisant", f"Enter new name for {curName}",text=curName)
+        newName,ok = QtWidgets.QInputDialog.getText(self, "Editor assisant", f"Enter new name for {curName}",text=curName)
         if ok:
             if newName in self.templateDict:
                 self.form.toast(f"{newName} already in dictionary","Error")
@@ -3164,9 +3265,6 @@ text is inserted.  The "goto" key can have these values:
         """formats a single dictionary template, returns formatted string"""
         formatted = json.dumps(template,indent=0,separators=(','+chr(10),':'+chr(10)))
         formatted = formatted.replace('\\n',chr(10))
-        #formatted = formatted.replace("{","{\n")
-        #formatted = formatted.replace("}","\n}")
-        #formatted = formatted.replace("\",","\",\n")
         return formatted
 
     def onApplyBtnClicked(self, arg1):
@@ -3181,7 +3279,7 @@ text is inserted.  The "goto" key can have these values:
     def reject(self):
         self.close()
 
-class DiffSaver (QtGui.QDialog):
+class DiffSaver (QtWidgets.QDialog):
     def __init__(self, parent=mw, form=None, plainText=None, snapText=None, label1=None, label2=None):
         super(DiffSaver, self).__init__(parent, QtCore.Qt.Tool)
         self.form=form
@@ -3241,9 +3339,23 @@ class DiffSaver (QtGui.QDialog):
         self.updateTitle()
 
     def saveDiffToHtml(self):
-        fname = QtGui.QFileDialog.getSaveFileName(FreeCADGui.getMainWindow(),"Save diff to html file",filter='*.html')[0]
+        global setPathLatestDirectory
+        if platform.node() == "mint":
+            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")#PySide2 Mint
+            filter = filter[filter.find("."):filter.find(")")]
+            if filter[-2:] == ".*":
+                 filter = filter[:-2]
+            fname = fname + filter
+        else:
+            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")
+
         if not fname:
             return
+
+        pathFile = os.path.dirname(fname) + "/"  #1# = C:/Tmp/
+        setPathLatestDirectory = pathFile
+        pg.SetString("setPathLatestDirectory",setPathLatestDirectory)
+
         with open(fname,"w") as outfile:
             outfile.write(self.diff)
         self.form.toast(f"Diff saved to {fname}","Message")
@@ -3256,12 +3368,12 @@ class DiffSaver (QtGui.QDialog):
         self.setColWidth(value)
 
 
-class Dockable (QtGui.QDockWidget):
+class Dockable (QtWidgets.QDockWidget):
     def __init__(self, parent=mw):
         super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
         self.dlg = TaskEditorAssistant()
         self.setObjectName("Editor assistant dockwidget")
-        QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
+        QtWidgets.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
         self.setWidget(self.dlg.form)
         self.setWindowTitle(f"Editor assistant v{__version__}")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
@@ -3276,8 +3388,8 @@ def QIconFromXPMString(xpm_string):
     return icon
 
 def QIconFromStandard(name):
-    pixmap = getattr(QtGui.QStyle,name)
-    icon = QtGui.QPushButton().style().standardIcon(pixmap)
+    pixmap = getattr(QtWidgets.QStyle,name)
+    icon = QtWidgets.QPushButton().style().standardIcon(pixmap)
     return icon
 
 def showEditorAssistantAsDockWidget():
@@ -3287,13 +3399,11 @@ def showEditorAssistantAsDockWidget():
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
-    #dlg = TaskEditorAssistant()
-    #dw = Dockable(mw)
     dlg = TaskEditorAssistant()
-    comboView = mw.findChild(QtGui.QDockWidget,"Combo View")
+    comboView = mw.findChild(QtWidgets.QDockWidget,"Combo View")
     tabWidget = None
     if comboView:
-        tabWidget = comboView.findChild(QtGui.QTabWidget)
+        tabWidget = comboView.findChild(QtWidgets.QTabWidget)
     if tabWidget:
         tabWidget.addTab(dlg.form,f"Editor assistant v{__version__}")
         dlg.isTabbed = True
@@ -4784,12 +4894,887 @@ static char * Reverse3_xpm[] = {
 "                                                                "
 };"""
 
-children = mw.findChildren(QtGui.QWidget,"Editor assistant")
+execute_Template_icon = """
+/* XPM */
+static char * Ok_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 5 1",
+" 	c None",
+".	c #192A02",
+"+	c #5AA909",
+"@	c #7CD124",
+"#	c #85E033",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                  ...           ",
+"                                                 .....          ",
+"                                                ..+++..         ",
+"                                               ..+###+..        ",
+"                                              ..+#####+..       ",
+"                                             ..+###+###+..      ",
+"                                            ..+###+++###+..     ",
+"                                           ..+###+++++###+..    ",
+"                                          ..+###+++++++###+..   ",
+"                                         ..+###+++++++++###+..  ",
+"                                        ..+###+++++++++++##+..  ",
+"                                       ..+###+++++++++++##+..   ",
+"            .                         ..+###+++++++++++##+..    ",
+"           ...                       ..+###+++++++++++##+..     ",
+"          .....                     ..+###+++++++++++##+..      ",
+"         ..+++..                   ..+###+++++++++++##+..       ",
+"        ..+###+..                 ..+###+++++++++++##+..        ",
+"       ..+#####+..               ..+###+++++++++++##+..         ",
+"      ..+###++##+..             ..+###+++++++++++##+..          ",
+"     ..+###++++##+..           ..+###+++++++++++##+..           ",
+"    ..+###++++++##+..         ..+###+++++++++++##+..            ",
+"   ..+###++++++++##+..       ..+###+++++++++++##+..             ",
+"  ..+###++++++++++##+..     ..+###+++++++++++##+..              ",
+"  ..+##++++++++++++##+..   ..+###+++++++++++##+..               ",
+"   ..+##++++++++++++##+.. ..+###+++++++++++##+..                ",
+"    ..+##++++++++++++##+...+###+++++++++++##+..                 ",
+"     ..+##++++++++++++##+.+###+++++++++++##+..                  ",
+"      ..+##++++++++++++##+###+++++++++++##+..                   ",
+"       ..+##++++++++++++####+++++++++++##+..                    ",
+"        ..+##++++++++++++##+++++++++++##+..                     ",
+"         ..+##+++++++++++++++++++++++##+..                      ",
+"          ..+##+++++++++++++++++++++##+..                       ",
+"           ..+##+++++++++++++++++++##+..                        ",
+"            ..+##+++++++++++++++++##+..                         ",
+"             ..+##+++++++++++++++##+..                          ",
+"              ..+##+++++++++++++##+..                           ",
+"               ..+##+++++++++++##+..                            ",
+"                ..+##+++++++++##+..                             ",
+"                 ..+##+++++++##+..                              ",
+"                  ..+##+++++##+..                               ",
+"                   ..+##+++##+..                                ",
+"                    ..+##+##+..                                 ",
+"                     ..+###+..                                  ",
+"                      ..+#+..                                   ",
+"                       .....                                    ",
+"                        ...                                     ",
+"                         .                                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+plus_Template_icon = """
+/* XPM */
+static char * Plus_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #1B2B03",
+"+	c #365712",
+"@	c #56A506",
+"#	c #66BA15",
+"$	c #6EC21B",
+"%	c #7ACD22",
+"&	c #7DD728",
+"*	c #86E235",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                        ................                        ",
+"                        ................                        ",
+"                        ..************..                        ",
+"                        ..************..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"    ......................**@@@@@@@@**......................    ",
+"    ......................**@@@@@@@@**......................    ",
+"    ..**********************@@@@@@@@**********************..    ",
+"    ..**********************@@@@@@@@**********************..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**..    ",
+"    ..**********************@@@@@@@@**********************..    ",
+"    ..**********************@@@@@@@@**********************..    ",
+"    ......................**@@@@@@@@**......................    ",
+"    ......................**@@@@@@@@**......................    ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..**@@@@@@@@**..                        ",
+"                        ..************..                        ",
+"                        ..************..                        ",
+"                        ................                        ",
+"                        ................                        ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+moins_Template_icon = """
+/* XPM */
+static char * moins_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #290000",
+"+	c #2C0001",
+"@	c #AA0004",
+"#	c #B60008",
+"$	c #C30D0D",
+"%	c #D61819",
+"&	c #E51E22",
+"*	c #EE2A28",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"    ........................................................    ",
+"    ..++++++++++++++++++++++++++++++++++++++++++++++++++++..    ",
+"    .+****************************************************+.    ",
+"    .+****************************************************+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**+.    ",
+"    .+****************************************************+.    ",
+"    .+****************************************************+.    ",
+"    ..++++++++++++++++++++++++++++++++++++++++++++++++++++..    ",
+"    ........................................................    ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+rename_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #000000",
+"+	c #A70002",
+"@	c #154A89",
+"#	c #3167A7",
+"$	c #4B9A00",
+"%	c #499B1C",
+"&	c #898B88",
+"*	c #C3A000",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                        @@@@@@@                                 ",
+"                    @@@@@@@@@@@@@@@@                            ",
+"                 @@@@#############@@@@@                 @       ",
+"                @@####################@@@              @@       ",
+"              @@########################@@@           @@@       ",
+"             @@###########################@@@        @@#@       ",
+"            @@##############################@@@      @##@       ",
+"           @@#################################@@    @@##@       ",
+"           @###################################@@@ @@###@       ",
+"          @@####################################@@@@####@       ",
+"         @@########@@@@@@@@@######################@##@##@       ",
+"         @@#####@@@@@@@@@@@@@@@@####################@@##@       ",
+"         @####@@@@@@@@@        @@@#################@@@##@       ",
+"        @@###@@@  @@@@           @@@@#############@@@@##@       ",
+"        @@##@@    @@@               @@@##########@@@@@##@       ",
+"        @##@@     @@@                 @@@#######@@@@@@##@       ",
+"        @#@@      @@                   @@@#####@@@@@@@##@       ",
+"        @#@       @@                     @@@##@@@@@@@@##@       ",
+"        @@@      @@@                      @@#@@@@@@@@@##@       ",
+"        @@       @@@                     @@#@@@@@@@@@@##@       ",
+"        @@       @@                     @@#@@@@@@@@@@@##@       ",
+"        @@........*                    @@#@@@@@@@@@@@@##@       ",
+"        @@.++++++.*                    @#@@@@@@@@@@@@@##@       ",
+"        @@.++++++.*                   @@################@       ",
+"        @.+++++++.*                  @@#################@       ",
+"         .+++*++++.*                @@@@@@@@@@@@@@@@@@@@@       ",
+"         .+++*++++.*                                            ",
+"        .++++*+++++.*        .........                          ",
+"        .+++* .++++.*        .&&&&&&&.                          ",
+"        .+++* .++++.*        .&&&&&&&.                          ",
+"       .+++*   .++++.*       ...&&&...   .................*     ",
+"       .+++*   .++++.*         .&&&.     .$$$$$$$$$$$$$%%.*     ",
+"      .++++*   .+++++.*        .&&&.     .$$$$$$$$$$$$$$$%.*    ",
+"      .+++*     .++++.*        .&&&.     .$$$$$$$$$$$$$$$$%.*   ",
+"      .+++*     .++++.*        .&&&.     .$$$%*.......$$$$%.*   ",
+"     .+++*       .++++.*       .&&&.     .$$$%*       .$$$$%.*  ",
+"     .++++++++++++++++.*       .&&&.     .$$$%*        .$$$%.*  ",
+"    .+++++++++++++++++.*       .&&&.     .$$$%*        .$$$%.*  ",
+"    .++++++++++++++++++.*      .&&&.     .$$$%*        .$$$%.*  ",
+"    .+++***********++++.*      .&&&.     .$$$%*********$$$%.*   ",
+"   .++++*          .++++.*     .&&&.     .$$$%%%%%%%%%$$$$%.*   ",
+"   .+++*           .++++.*     .&&&.     .$$$$$$$$$$$$$$$%.*    ",
+"   .+++*           .++++.*     .&&&.     .$$$$$$$$$$$$$$$%.*    ",
+"  .+++*             .++++.*    .&&&.     .$$$$$$$$$$$$$$$$%.*   ",
+"  .+++*             .++++.*    .&&&.     .$$$%*.......$$$$$%.*  ",
+" .++++*             .+++++.*   .&&&.     .$$$%*       ..$$$%.*  ",
+" .+++*               .++++.*   .&&&.     .$$$%*         .$$$%.* ",
+" *****               ......*   .&&&.     .$$$%*         .$$$%.* ",
+"                      ******   .&&&.     .$$$%*         .$$$%.* ",
+"                               .&&&.     .$$$%*         .$$$%.* ",
+"                               .&&&.     .$$$%*         .$$$%.* ",
+"                               .&&&.     .$$$%**********$$$%.*  ",
+"                             ...&&&...   .$$$%%%%%%%%%%$$$$%.*  ",
+"                             .&&&&&&&.   .$$$$$$$$$$$$$$$$%.*   ",
+"                             .&&&&&&&.   .$$$$$$$$$$$$$$$%.*    ",
+"                             .........   .$$$$$$$$$$$$$%%.*     ",
+"                                         .%%%%%%%%%%%%%..*      ",
+"                                         ..............**       ",
+"                                         **************         ",
+"                                                                ",
+"                                                                "
+};"""
+
+test_Template_icon = """
+/* XPM */
+static char * test_Template_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #1A2A01",
+"+	c #313436",
+"@	c #184C8A",
+"#	c #565855",
+"$	c #616360",
+"%	c #5BA900",
+"&	c #84E033",
+"*	c #D3DAE2",
+"                                   +###+                        ",
+"                                  ++***#+                       ",
+"                                 ++#****+                       ",
+"                                ++####*#+                       ",
+"                               ++######++                       ",
+"                              ++######++                        ",
+"                             ++######++                         ",
+"                            ++#######++                         ",
+"                           ++#######++                          ",
+"           +++++++++++++  ++#######++                           ",
+"          +#############+++#######++                            ",
+"         +###*************########+               ...           ",
+"        +##***@@@@@@@@@****######++              .....          ",
+"       +##***@@@@@@@@@@@@***####++              ..%%%..         ",
+"      +##**@@@@@******@@@@****#++              ..%&&&%..        ",
+"     +##***@@@**********@@@***#+              ..%&&&&&%..       ",
+"     +##**@@@************@@@***#+            ..%&&&%&&&%..      ",
+"     +#**@@@*************@@@***#+           ..%&&&%%%&&&%..     ",
+"     +#**@@************@@@@@@**#+          ..%&&&%%%%%&&&%..    ",
+"     +#*@@@************@@@@@@**#+         ..%&&&%%%%%%%&&&%..   ",
+"     +#*@@@***********@@@@@@@**#+        ..%&&&%%%%%%%%%&&&%..  ",
+"     +#*@@************@@@@@@@**#+       ..%&&&%%%%%%%%%%%&&%..  ",
+"     +#*@@***********@@@@@@@@**#+      ..%&&&%%%%%%%%%%%&&%..   ",
+"     +#*@@@*********@@@@@@@@@**#+     ..%&&&%%%%%%%%%%%&&%..    ",
+"     +#*@@@*********@@@@@@@@@**#+    ..%&&&%%%%%%%%%%%&&%..     ",
+"     +#*@@@********@@@@@@@@@@**#+   ..%&&&%%%%%%%%%%%&&%..      ",
+"     +#**@@@*****@@@@@@@@@@@@**#+  ..%&&&%%%%%%%%%%%&&%..       ",
+"     +#**@@@@**@@@@@@@@@@@@@***#+ ..%&&&%%%%%%%%%%%&&%..        ",
+"     +##**@@@@@@@@@@@@@@@@@@**##+..%&&&%%%%%%%%%%%&&%..         ",
+"      +##**@@@@@@@@@@@@@@@@**##+..%&&&%%%%%%%%%%%&&%..          ",
+"     ..+##**@@@@@@@@@@@@@@**##+..%&&&%%%%%%%%%%%&&%..           ",
+"    ..%&+##**@@@@@@@@@@@@**##+..%&&&%%%%%%%%%%%&&%..            ",
+"   ..%&&&+##**@@@@@@@@@***##+..%&&&%%%%%%%%%%%&&%..             ",
+"  ..%&&&%%+##************##+..%&&&%%%%%%%%%%%&&%..              ",
+"  ..%&&%%%%+##############+..%&&&%%%%%%%%%%%&&%..               ",
+"   ..%&&%%%%++++++++++++++..%&&&%%%%%%%%%%%&&%..                ",
+"    ..%&&%%%%%%%%%%%%&&%...%&&&%%%%%%%%%%%&&%..                 ",
+"     ..%&&%%%%%%%%%%%%&&%.%&&&%%%%%%%%%%%&&%..                  ",
+"      ..%&&%%%%%%%%%%%%&&%&&&%%%%%%%%%%%&&%..                   ",
+"       ..%&&%%%%%%%%%%%%&&&&%%%%%%%%%%%&&%..                    ",
+"        ..%&&%%%%%%%%%%%%&&%%%%%%%%%%%&&%..                     ",
+"         ..%&&%%%%%%%%%%%%%%%%%%%%%%%&&%..                      ",
+"          ..%&&%%%%%%%%%%%%%%%%%%%%%&&%..                       ",
+"           ..%&&%%%%%%%%%%%%%%%%%%%&&%..                        ",
+"            ..%&&%%%%%%%%%%%%%%%%%&&%..                         ",
+"             ..%&&%%%%%%%%%%%%%%%&&%..                          ",
+"              ..%&&%%%%%%%%%%%%%&&%..                           ",
+"               ..%&&%%%%%%%%%%%&&%..                            ",
+"                ..%&&%%%%%%%%%&&%..                             ",
+"                 ..%&&%%%%%%%&&%..                              ",
+"                  ..%&&%%%%%&&%..                               ",
+"                   ..%&&%%%&&%..                                ",
+"                    ..%&&%&&%..                                 ",
+"                     ..%&&&%..                                  ",
+"                      ..%&%..                                   ",
+"                       .....                                    ",
+"                        ...                                     ",
+"                         .                                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+execute_Clipboard_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #1A2A01",
+"+	c #303436",
+"@	c #56A506",
+"#	c #898B88",
+"$	c #949693",
+"%	c #A9ABA8",
+"&	c #86E235",
+"*	c #FFFFFF",
+"                            +++++++++                           ",
+"                           +++++++%+++                          ",
+"                         ++%*****+++%++                         ",
+"                         +********+++%++                        ",
+"               ++++++++++********+++++%++                       ",
+"             ++#######++%*******++++++++++++++                  ",
+"            ++#********%*******++++++++%$%%%%$++                ",
+"            +#********+********+++++++++++++++++                ",
+"           +#********+++******+++++++++*****++++++              ",
+"           +********+++++********+++++*****++++++++             ",
+"          +#******+++++++**********++*****+++++++++             ",
+"          +#****+++$++$+%*********+++****+++++++++...           ",
+"          +*****$$%****+..*******+++++**+++++++++.....          ",
+"          +****$%******++..******+++++++++++++++..@@@..         ",
+"          +#####********++.%%%%++++++++++++++++..@&&&@..        ",
+"         +######********++%.......++++++++++++..@&&&&&@..       ",
+"      +++*****#*******+++++%+++++..%+%$.....%..@&&&@&&&@..      ",
+"      +#**************++++++****++%.$...**%%..@&&&@@@&&&@..     ",
+"     +#******##*********+++*****+++$.#*****..@&&&@@@@@&&&@..    ",
+"     +******+***********++*****+++++.#****..@&&&@@@@@@@&&&@..   ",
+"    ++*****++**********++++**+++++++.#***..@&&&@@@@@@@@@&&&@..  ",
+"    +*****++**********++++++++++++++.#**..@&&&@@@@@@@@@@@&&@..  ",
+"    ++***+++********++++++++++++++++.#*..@&&&@@@@@@@@@@@&&@..   ",
+"     +**+++********++++**+++++++++++.%..@&&&@@@@@@@@@@@&&@..    ",
+"    ++**+++*******++++**+++++++++++....@&&&@@@@@@@@@@@&&@..     ",
+"   ++*****+*****+++++**+++++++++++....@&&&@@@@@@@@@@@&&@..      ",
+"  ++******+****++++++*+++++++++++++..@&&&@@@@@@@@@@@&&@..       ",
+"  +******++***++++++++++++++++++++..@&&&@@@@@@@@@@@&&@....      ",
+"  +*****++++*++++++++++++++++++++..@&&&@@@@@@@@@@@&&@..%.       ",
+"  +****+++++++++++++++++++++++++..@&&&@@@@@@@@@@@&&@..%...      ",
+"  +#**+++++++++++++++++++++++++..@&&&@@@@@@@@@@@&&@..%%....     ",
+"  +#*+++++++++++++++++++++++++..@&&&@@@@@@@@@@@&&@..%%.%%%..    ",
+"  +.#*+++++++++++++++++++++++..@&&&@@@@@@@@@@@&&@..%%%%%%%..    ",
+"  +..#*****+++++++++++++++++..@&&&@@@@@@@@@@@&&@..%%%%%%%%..    ",
+"  ......+++++++++++++........@&&&@@@@@@@@@@@&&@..%%%%%%%%%%..   ",
+"   ..@&.....................@&&&@@@@@@@@@@@&&@..%%%%%%%%%%..    ",
+"    ..@&&@@@@@@@@@@@@&&@...@&&&@@@@@@@@@@@&&@..%%%%%%%%%%%..    ",
+"     ..@&&@@@@@@@@@@@@&&@.@&&&@@@@@@@@@@@&&@..%%%%%%%%%%%%..    ",
+"      ..@&&@@@@@@@@@@@@&&@&&&@@@@@@@@@@@&&@..%%%%%%%%%%%...     ",
+"       ..@&&@@@@@@@@@@@@&&&&@@@@@@@@@@@&&@................      ",
+"        ..@&&@@@@@@@@@@@@&&@@@@@@@@@@@&&@................       ",
+"         ..@&&@@@@@@@@@@@@@@@@@@@@@@@&&@..                      ",
+"          ..@&&@@@@@@@@@@@@@@@@@@@@@&&@..                       ",
+"           ..@&&@@@@@@@@@@@@@@@@@@@&&@..                        ",
+"            ..@&&@@@@@@@@@@@@@@@@@&&@..                         ",
+"             ..@&&@@@@@@@@@@@@@@@&&@..                          ",
+"              ..@&&@@@@@@@@@@@@@&&@..                           ",
+"               ..@&&@@@@@@@@@@@&&@..                            ",
+"                ..@&&@@@@@@@@@&&@..                             ",
+"                 ..@&&@@@@@@@&&@..                              ",
+"                  ..@&&@@@@@&&@..                               ",
+"                   ..@&&@@@&&@..                                ",
+"                    ..@&&@&&@..                                 ",
+"                     ..@&&&@..                                  ",
+"                      ..@&@..                                   ",
+"                       .....                                    ",
+"                        ...                                     ",
+"                         .                                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+annuler_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #290000",
+"+	c #1A2A01",
+"@	c #A30500",
+"#	c #C41015",
+"$	c #DE2221",
+"%	c #EE2A28",
+"&	c #5BA900",
+"*	c #84E033",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                     .                   .        +++           ",
+"                    ...                 ...      +++++          ",
+"                   ..#..               ..#..    ++&&&++         ",
+"                  ..#%#..             ..#%#..  ++&***&++        ",
+"                 ..#%%%#..           ..#%%%#..++&*****&++       ",
+"                ..#%%#%%#..         ..#%%#%%#..&***&***&++      ",
+"               ..#%%###%%#..       ..#%%###%%#..**&&&***&++     ",
+"              ..#%%#####%%#..     ..#%%#####%%#..&&&&&***&++    ",
+"             ..#%%#######%%#..   ..#%%#######%%#..&&&&&***&++   ",
+"            ..#%%#########%%#.. ..#%%#########%%#..&&&&&***&++  ",
+"             ..#%%#########%%#...#%%#########%%#..&&&&&&&**&++  ",
+"              ..#%%#########%%#.#%%#########%%#..&&&&&&&**&++   ",
+"            +  ..#%%#########%%#%%#########%%#..&&&&&&&**&++    ",
+"           +++  ..#%%#########%%%#########%%#..&&&&&&&**&++     ",
+"          +++++  ..#%%#########%#########%%#..&&&&&&&**&++      ",
+"         ++&&&++  ..#%%#################%%#..&&&&&&&**&++       ",
+"        ++&***&++  ..#%%###############%%#..&&&&&&&**&++        ",
+"       ++&*****&++  ..#%%#############%%#..&&&&&&&**&++         ",
+"      ++&***&&**&++  ..#%%###########%%#..&&&&&&&**&++          ",
+"     ++&***&&&&**&++  ..#%%#########%%#..&&&&&&&**&++           ",
+"    ++&***&&&&&&**&++..#%%###########%%#..&&&&&**&++            ",
+"   ++&***&&&&&&&&**&..#%%#############%%#..&&&**&++             ",
+"  ++&***&&&&&&&&&&*..#%%###############%%#..&**&++              ",
+"  ++&**&&&&&&&&&&&..#%%#################%%#..*&++               ",
+"   ++&**&&&&&&&&&..#%%#########%#########%%#..++                ",
+"    ++&**&&&&&&&..#%%#########%%%#########%%#..                 ",
+"     ++&**&&&&&..#%%#########%%#%%#########%%#..                ",
+"      ++&**&&&..#%%#########%%#.#%%#########%%#..               ",
+"       ++&**&..#%%#########%%#...#%%#########%%#..              ",
+"        ++&*..#%%#########%%#..&..#%%#########%%#..             ",
+"         ++&*..#%%#######%%#..&&&..#%%#######%%#..              ",
+"          ++&*..#%%#####%%#..&&&&&..#%%#####%%#..               ",
+"           ++&*..#%%###%%#..&&&&&&&..#%%###%%#..                ",
+"            ++&*..#%%#%%#..&&&&&&&**..#%%#%%#..                 ",
+"             ++&*..#%%%#..&&&&&&&**&+..#%%%#..                  ",
+"              ++&*..#%#..&&&&&&&**&++ ..#%#..                   ",
+"               ++&*..#..&&&&&&&**&++   ..#..                    ",
+"                ++&*...&&&&&&&**&++     ...                     ",
+"                 ++&*.&&&&&&&**&++       .                      ",
+"                  ++&**&&&&&**&++                               ",
+"                   ++&**&&&**&++                                ",
+"                    ++&**&**&++                                 ",
+"                     ++&***&++                                  ",
+"                      ++&*&++                                   ",
+"                       +++++                                    ",
+"                        +++                                     ",
+"                         +                                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+help_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #5D5F5C",
+"+	c #7A7C78",
+"@	c #867D44",
+"#	c #DDC91B",
+"$	c #F4E135",
+"%	c #ECDF6D",
+"&	c #FEF8C7",
+"*	c #FDFEF9",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                      #  # #     #       #                      ",
+"                             #      # ##   #  #                 ",
+"                   # #     #   #          # #                   ",
+"                #       #   #     #  # #       #   #            ",
+"                     #   #      #           # #   #             ",
+"               #   #                                            ",
+"             #  ##    # # # # # # # # # # #   #    #            ",
+"           #        #   #  ##$ $ $ $$$ # #         #            ",
+"           #  #  #   ###  ##$$$$$$$$$$$$# #      #   #          ",
+"                         # #$$$$$$$$$$$$$# #         #          ",
+"                   ## # ##$$$$$$$$$$$$$$$$###   #               ",
+"            # # # #    ###$$$$$$$$$$$$$$$$$# #     #            ",
+"                  # # #$#$$$$$$$$$$$$$$$$$$$###      #          ",
+"                    ##$$$$$$$$$%%%%%%$$$$$$$$# #                ",
+"            ##   #  ##$$$$$$$$$%&&&&&%$$$$$$$$###   #           ",
+"         #  #  #   ###$$$$$$$$%&****&%$$$$$$$$$# #    #         ",
+"                  ##$$$$$$$$%%&&****&&%%$$$$$$$$# #             ",
+"              #  ###$$$$$$$$%&&*******&&$$$$$$$$ # #            ",
+"             #  ##$$$$$$$$%%&&*********&%%$$$$$$$$$##  #        ",
+"         #  #    $$$$$$$$$%&&**********&&&%$$$$$$$$#            ",
+"            #   #$$$$$$$$$&&*************&%$$$$$$$$##  #        ",
+"           ##    $$$$$$$$$&**************&%$$$$$$$$#            ",
+"                #$$$$$$$$$&**************&%$$$$$$$$ #           ",
+"              #  $$$$$$$$$&**************&%$$$$$$$ #  #         ",
+"            #   #$$$$$$$$$&**************&%$$$$$$$$##           ",
+"          #      $$$$$$$$$&**************&%$$$$$$$$#            ",
+"              # #$$$$$$$$$%&&***********&&%$$$$$$$$##           ",
+"          # #    $$$$$$$$$%%&&*********&&%%$$$$$$$$#            ",
+"                ####$$$$$$$$%&********&&%$$$$$$$$####  #        ",
+"                 # #$$$$$$$$%&&&*****&&%$$$$$$$$ # #            ",
+"                # ###$$$$$$$$%%&****&&%$$$$$$$$$# # #           ",
+"             #     # #$$$$$$$$%%&&&&&%$$$$$$$$## #              ",
+"                    # #$$$$$$$$%%&&%%%$$$$$$$$# #               ",
+"                 #     $ $$$$$$$%%%%$$$$$$$$ #           #      ",
+"             #   ## # # ##$$$$$$$$$$$$$$$$$#### #    #          ",
+"                #        #$#$$$$$$$$$$$$$$$#      #             ",
+"                        ######$$$$$$$$#######                   ",
+"               #    #      @%##$$$$$$$##%% #    #               ",
+"                          @.@%#########%@@@ #        #          ",
+"                  #        .@@%%%%%%%%%@....                    ",
+"                          ...@@@@@@@@@@.....                    ",
+"                          ..................                    ",
+"                          ...++++++++++.....                    ",
+"                          ...+++++++++++....                    ",
+"                          ...++++++++++.....                    ",
+"                          ..................                    ",
+"                          ..................                    ",
+"                          ...++++++++++.....                    ",
+"                          ...+++++++++++....                    ",
+"                          ...++++++++++.....                    ",
+"                          ..................                    ",
+"                          .................                     ",
+"                          +++++++++++++++++                     ",
+"                            ++++++++++++++                      ",
+"                            ++++++++++++++                      ",
+"                             +++++++++++                        ",
+"                                                                ",
+"                                                                "
+};"""
+
+save_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 10 1",
+" 	c None",
+".	c #4E9A06",
+"+	c #FFFFFF",
+"@	c #345F9A",
+"#	c #7495BF",
+"$	c #545653",
+"%	c #BABDB6",
+"&	c #555754",
+"*	c #D6D8D5",
+"=	c #888A85",
+"                                                                ",
+"                                                         .      ",
+"                                                        .+.     ",
+"                                                       .+.+.    ",
+"                                                      .+...+.   ",
+"                  @@@@@@@@@                          .+.....+.  ",
+"               @@@@#######@@@@              .       .+.......+. ",
+"              @@#############@@            .+.     .+.......+.  ",
+"             @@###############@@          .+.+.   .+.......+.   ",
+"             @#################@@        .+...+. .+.......+.    ",
+"           @@###################@@      .+.....+.+.......+.     ",
+"           @###@@@@@@@###########@@    .+.......+.......+.      ",
+"          @@##@@     @@###########@@    .+.............+.       ",
+"         @@#@@        @@##########@@     .+...........+.        ",
+"         @#@           @@@#########@      .+.........+.         ",
+"         @@              @#########@       .+.......+.          ",
+"        @@     $$$$$$$$$$@#########@@$$$$$$$.+.....+.           ",
+"        @     $$%%%%%%%%%@@#########@%%%%%%%%.+...+.            ",
+"             $$$%%%%%%%%%%@#########@%%%%%%%%%.+.+.             ",
+"             $$%@@@@@@@@@@@#########@@@@@@@@@@@.+.              ",
+"             $$%@@############################@@.$              ",
+"             $%%%@@##########################@@%%$              ",
+"            $$%%%%@@#############@@@@@@@@@##@@%%%$$             ",
+"           $$%%%%%%@@##########@@@@@@@@@@##@@%%%%$$             ",
+"           $$%%%%%%%@@#######@@@@@@@@@@@##@@%%%%%%$$            ",
+"          $$%%%%%%%%%@@####@@@@@@@@@@@@##@@%%%%%%%$$            ",
+"          $$%%%%%%%%%%@@##@@@@@@@@@@@@##@@%%%%%%%%%$            ",
+"          $$%%%%%%%%%%%@@##@@@@@@@@@@##@@%%%%%%%%%%$$           ",
+"         $$%%%%%%%%%%%%%@@##@@@@@@@@##@@%%%%%%%%%%%$$           ",
+"         $$%%%%%%%%%%%%%%@@##@@@@@@##@@%%%%%%%%%%%%%$           ",
+"        $$%%%%%%%%%%%%%%%%@@##@@@@##@@%%%%%%%%%%%%%%$$          ",
+"        $$%%%%%%%%%%%%%%%%%@@##@@##@@%%%%%%%%%%%%%%%%$          ",
+"       $$%%%%%%%%%%%%%%%%%%%@@#@##@@%%%%%%%%%%%%%%%%%$$         ",
+"       $$%%%%%%%%%%%%%%%%%%%%@@##@@%%%%%%%%%%%%%%%%%%$$         ",
+"       $$%%%%%%%%%%%%%%%%%%%%%@@@@%%%%%%%%%%%%%%%%%%%%$$        ",
+"       $%%%%%%%%%%%%%%%%%%%%%%%@@%%%%%%%%%%%%%%%%%%%%%$$        ",
+"      $$%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$        ",
+"      $$%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$$       ",
+"     $$%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$$$      ",
+"     $$%%%%%%%%%%%%%%%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$%%%%%%%%%%%%%%%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&*************&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&*************&&&&&&&&&&&&&***&***&***&***&&&$$      ",
+"     $$%&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$      ",
+"     $$=**********************&&&&&&&&&&&&&&&&&&&&&&&&&$$$      ",
+"      $$&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&$$        ",
+"       $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$         ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+accept_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 5 1",
+" 	c None",
+".	c #192A02",
+"+	c #5AA909",
+"@	c #7CD124",
+"#	c #85E033",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                  ...           ",
+"                                                 .....          ",
+"                                                ..+++..         ",
+"                                               ..+###+..        ",
+"                                              ..+#####+..       ",
+"                                             ..+###+###+..      ",
+"                                            ..+###+++###+..     ",
+"                                           ..+###+++++###+..    ",
+"                                          ..+###+++++++###+..   ",
+"                                         ..+###+++++++++###+..  ",
+"                                        ..+###+++++++++++##+..  ",
+"                                       ..+###+++++++++++##+..   ",
+"            .                         ..+###+++++++++++##+..    ",
+"           ...                       ..+###+++++++++++##+..     ",
+"          .....                     ..+###+++++++++++##+..      ",
+"         ..+++..                   ..+###+++++++++++##+..       ",
+"        ..+###+..                 ..+###+++++++++++##+..        ",
+"       ..+#####+..               ..+###+++++++++++##+..         ",
+"      ..+###++##+..             ..+###+++++++++++##+..          ",
+"     ..+###++++##+..           ..+###+++++++++++##+..           ",
+"    ..+###++++++##+..         ..+###+++++++++++##+..            ",
+"   ..+###++++++++##+..       ..+###+++++++++++##+..             ",
+"  ..+###++++++++++##+..     ..+###+++++++++++##+..              ",
+"  ..+##++++++++++++##+..   ..+###+++++++++++##+..               ",
+"   ..+##++++++++++++##+.. ..+###+++++++++++##+..                ",
+"    ..+##++++++++++++##+...+###+++++++++++##+..                 ",
+"     ..+##++++++++++++##+.+###+++++++++++##+..                  ",
+"      ..+##++++++++++++##+###+++++++++++##+..                   ",
+"       ..+##++++++++++++####+++++++++++##+..                    ",
+"        ..+##++++++++++++##+++++++++++##+..                     ",
+"         ..+##+++++++++++++++++++++++##+..                      ",
+"          ..+##+++++++++++++++++++++##+..                       ",
+"           ..+##+++++++++++++++++++##+..                        ",
+"            ..+##+++++++++++++++++##+..                         ",
+"             ..+##+++++++++++++++##+..                          ",
+"              ..+##+++++++++++++##+..                           ",
+"               ..+##+++++++++++##+..                            ",
+"                ..+##+++++++++##+..                             ",
+"                 ..+##+++++++##+..                              ",
+"                  ..+##+++++##+..                               ",
+"                   ..+##+++##+..                                ",
+"                    ..+##+##+..                                 ",
+"                     ..+###+..                                  ",
+"                      ..+#+..                                   ",
+"                       .....                                    ",
+"                        ...                                     ",
+"                         .                                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+reject_Template_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #000000",
+"+	c #860002",
+"@	c #BF0001",
+"#	c #FA1F1F",
+"$	c #CA3432",
+"%	c #DF4846",
+"&	c #F99B9B",
+"*	c #EBE9E6",
+"                    @@@@@@@@@@@@@@@@@@@@@@@@                    ",
+"                   @@@@@@@@@@@@@@@@@@@@@@@@@@                   ",
+"                  @@************************@@                  ",
+"                 @@**@@@@@@@@@@@@@@@@@@@@@@**@@                 ",
+"                @@**@@@@@@@@@@@@@@@@@@@@@@@@**@@                ",
+"               @@**@@@@@@@@@@@@@@@@@@@@@@@@@@**@@               ",
+"              @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@              ",
+"             @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@             ",
+"            @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@            ",
+"           @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@           ",
+"          @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@          ",
+"         @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@         ",
+"        @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@        ",
+"       @@**@@@@@@@@@@...@@@@@@@@@@@@@@@@@@...@@@@@@@@**@@       ",
+"      @@**@@@@@@@@@@..*..@@@@@@@@@@@@@@@@..*..@@@@@@@@**@@      ",
+"     @@**@@@@@@@@@@..***..@@@@@@@@@@@@@@..***..@@@@@@@@**@@     ",
+"    @@**@@@@@@@@@@..*****..@@@@@@@@@@@@..*****..@@@@@@@@**@@    ",
+"   @@**@@@@@@@@@@..*******..@@@@@@@@@@..*******..@@@@@@@@**@@   ",
+"   @@*@@@@@@@@@@..*********..@@@@@@@@..*********..@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@.***********..@@@@@@..***********.@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@..***********..@@@@..***********..@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@..***********..@@..***********..@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@..***********....***********..@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@..***********..***********..@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@..**********************..@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@..********************..@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@..******************..@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@..****************..@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@@..**************..@@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@@@..************..@@@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@@@..************..@@@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@@..**************..@@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@@..****************..@@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@@..******************..@@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@@..********************..@@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@@..**********************..@@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@@..***********..***********..@@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@@..***********....***********..@@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@@..***********..@@..***********..@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@..***********..@@@@..***********.@@@@@@@@@*@@   ",
+"   @@*@@@@@@@@@@.***********..@@@@@@..*********..@@@@@@@@@*@@   ",
+"   @@**@@@@@@@@@..*********..@@@@@@@@..*******..@@@@@@@@@@*@@   ",
+"    @@**@@@@@@@@@..*******..@@@@@@@@@@..*****..@@@@@@@@@@**@@   ",
+"     @@**@@@@@@@@@..*****..@@@@@@@@@@@@..***..@@@@@@@@@@**@@    ",
+"      @@**@@@@@@@@@..***..@@@@@@@@@@@@@@..*..@@@@@@@@@@**@@     ",
+"       @@**@@@@@@@@@..*..@@@@@@@@@@@@@@@@...@@@@@@@@@@**@@      ",
+"        @@**@@@@@@@@@...@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@       ",
+"         @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@        ",
+"          @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@         ",
+"           @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@          ",
+"            @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@           ",
+"             @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@            ",
+"              @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@             ",
+"               @@**@@@@@@@@@@@@@@@@@@@@@@@@@@@**@@              ",
+"                @@**@@@@@@@@@@@@@@@@@@@@@@@@@**@@               ",
+"                 @@**@@@@@@@@@@@@@@@@@@@@@@@**@@                ",
+"                  @@*************************@@                 ",
+"                   @@@@@@@@@@@@@@@@@@@@@@@@@@@                  ",
+"                    @@@@@@@@@@@@@@@@@@@@@@@@@                   ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+children = mw.findChildren(QtWidgets.QWidget,"Editor assistant")
 if not children:
-    modifiers = QtGui.QApplication.keyboardModifiers()
+    modifiers = QtWidgets.QApplication.keyboardModifiers()
     if modifiers == QtCore.Qt.AltModifier:
         showEditorAssistantAsDockWidget()
     else:
         showEditorAssistantDialog()
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
+
