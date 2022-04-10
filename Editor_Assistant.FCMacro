@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.87"
+__version__ = "1.87b"
 __date__    = "2022/04/09"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
@@ -2820,6 +2820,7 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
             filename = filename[:filename.find("[*]")]
         path = os.path.join(macroDir, filename)
         dlg = QtGui.QFileDialog(mw)
+        dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         dlg.setOption(QtGui.QFileDialog.DontUseNativeDialog)
         dlg.setWindowTitle("Drag file to forum")
         dlg.setFileMode(QtGui.QFileDialog.ExistingFile)
