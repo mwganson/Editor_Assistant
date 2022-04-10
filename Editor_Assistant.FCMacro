@@ -10,8 +10,8 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.86"
-__date__    = "2022/04/07"
+__version__ = "1.87"
+__date__    = "2022/04/09"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/Editor_Assistant")
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
@@ -189,6 +189,20 @@ class CustomQWidget(QtGui.QWidget):
     def setFound(self,found):
         self.form.found = found
 
+class FileFilterProxyModel (QtCore.QSortFilterProxyModel):
+    """Used when setting up drag/drop from file browser to drag/drop macro file to forum"""
+    def __init__(self, path):
+        super(FileFilterProxyModel, self).__init__()
+        self.path = path #path is full path to macro file
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        idx0 = self.sourceModel().index(sourceRow, 0, sourceParent)
+        fileModel = self.sourceModel()
+        #idx0.data() returns a string, such as "Macros" or "C:"
+        if fileModel.isDir(idx0) and not idx0.data() in self.path:
+            return False #do not show this folder
+        else:
+            return True
+
 class TaskEditorAssistant:
     def __init__(self):
         #super(TaskEditorAssistant, self).__init__(mw, QtCore.Qt.Tool)
@@ -259,7 +273,6 @@ class TaskEditorAssistant:
         pg.SetInt("EditorListMinimumHeight", editorListMinimumHeight)
         self.editorList.setMinimumHeight(editorListMinimumHeight)
         self.editorList.currentItemChanged.connect(self.onEditorListCurrentItemChanged)
-        self.editorList.doubleClicked.connect(self.onRefreshBtnClicked)
         self.editorList.setToolTip("Open editors, press Refresh to update")
         editorLayout.addWidget(self.editorList)
         if not showEditorList:
@@ -1522,6 +1535,16 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
         mainMenu.addMenu(highlightMenu)
+
+        mainMenu.addSeparator()
+
+#drag to forum
+        dragToForumAction = QtGui.QAction("Drag to forum")
+        dragToForumEnabled = hasattr(self.editorList.currentItem(),"text")
+        dragToForumAction.setEnabled(dragToForumEnabled)
+        dragToForumAction.triggered.connect(lambda: self.dragToForum(self.editorList.currentItem()))
+        mainMenu.addAction(dragToForumAction)
+
 #close menu
         if self.isTabbed:
             closeAction = QtGui.QAction("Close")
@@ -2786,6 +2809,27 @@ dlg = Gui.getMainWindow().findChild(QtGui.QWidget,"Editor assistant").form
                 idx2 = line.find(":", idx)
                 classDefLines.append(tuple([curClass, line[idx:idx2], ii+1]))
         return classDefLines
+
+    def dragToForum(self, item):
+        """make it easier to drag/drop files to the forum"""
+        macroDir = FreeCAD.getUserMacroDir(True)
+        filename = item.text() if item else ""
+        if not filename:
+            return
+        if "[*]" in filename:
+            filename = filename[:filename.find("[*]")]
+        path = os.path.join(macroDir, filename)
+        dlg = QtGui.QFileDialog(mw)
+        dlg.setOption(QtGui.QFileDialog.DontUseNativeDialog)
+        dlg.setWindowTitle("Drag file to forum")
+        dlg.setFileMode(QtGui.QFileDialog.ExistingFile)
+        dlg.setNameFilter(os.path.basename(path))
+        model = FileFilterProxyModel(path)
+        dlg.setProxyModel(model)
+        if os.path.exists(path):
+            dlg.setDirectory(os.path.dirname(path))
+            dlg.selectFile(os.path.basename(path))
+            dlg.exec()
 
     def populateList(self):
         self.blockSignals = True
