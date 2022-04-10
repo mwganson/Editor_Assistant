@@ -271,6 +271,10 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.88 (2022.04.10)
+* PR from mario52
+* add icons for template editor
+* remember last folder when opening/saving
 ### 1.87 (2022.04.09)
 * add Drag to forum to main menu
 ### 1.86 (2022.04.07)
