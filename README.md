@@ -273,6 +273,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 ## Changelog
 ### 1.87 (2022.04.09)
 * add Drag to forum to main menu
+### 1.86 (2022.04.07)
+* keep same selection after replacing text in selection using replace all
 ### 1.85 (2022.04.07)
 * accept mario52 PR to add custom indent text
 ### 1.84e (2022.04.06)
