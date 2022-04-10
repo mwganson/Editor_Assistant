@@ -228,7 +228,10 @@ This uses the text currently selected in the current editor as the search text f
 ##### From find
 This uses the text in the Find edit as the search text for the highlight process.
 
-#### Close
+### Drag to forum
+Opens a custom file open dialog with the file selected if there is a current item in the editor list.  You can then drag/drop this file to the forum to attach to your post.
+
+### Close
 Closes the dialog and exits the macro.  If for some reason due to a bug you cannot get the Main menu to function you can also close the macro from the To console: edit or from the python console with dlg.close().
 
 ### Goto menu
@@ -268,6 +271,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.87 (2022.04.09)
+* add Drag to forum to main menu
 ### 1.85 (2022.04.07)
 * accept mario52 PR to add custom indent text
 ### 1.84e (2022.04.06)
