@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.88"
+__version__ = "1.88b"
 __date__    = "2022/04/10"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
@@ -991,7 +991,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             old_text = self.getText(name)
             old_cursor = self.editorDict[name].textCursor()
             cmd = """
-from PySide import QtGui
+from PySide import QtGui, QtWidgets
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
