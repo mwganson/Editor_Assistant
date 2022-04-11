@@ -271,6 +271,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.88b (2022.04.10)
+* bug fix -- add missing import
 ### 1.88 (2022.04.10)
 * PR from mario52
 * add icons for template editor
