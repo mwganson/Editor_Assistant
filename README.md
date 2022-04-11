@@ -272,6 +272,9 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.90 (2022.04.10)
+* bug fix -- add another missing import
+* support dir() in To console: QLineEdit
 ### 1.88b (2022.04.10)
 * bug fix -- add missing import
 ### 1.88 (2022.04.10)
