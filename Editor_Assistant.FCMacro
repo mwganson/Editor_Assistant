@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.88b"
+__version__ = "1.89"
 __date__    = "2022/04/10"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
@@ -978,6 +978,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
     def onConsoleBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         consoleCmd = self.consoleEdit.text()
+        consoleCmd = consoleCmd.replace("dir(", "dlg.dir(")
         consoleCmd = consoleCmd.replace("help(", "dlg.showHelp(")
         consoleCmd = consoleCmd.replace("menu(","dlg.makeReferenceMenu(")
         consoleCmd = consoleCmd.replace("search(", "dlg.search(")
@@ -991,7 +992,8 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             old_text = self.getText(name)
             old_cursor = self.editorDict[name].textCursor()
             cmd = """
-from PySide import QtGui, QtWidgets
+from PySide import QtGui
+from PySide2 import QtWidgets
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
@@ -1006,6 +1008,7 @@ del(__editors__, __parents__, __grandparents__)
                 return
             cmd = """
 from PySide import QtGui
+from PySide2 import QtWidgets
 dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 """
@@ -1854,7 +1857,23 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         #self.print(f.getvalue())
         self.makeWindow(name, f.getvalue())
 
-    def makeWindow(self, name, txt):
+    def dir(self, name):
+        from PySide import QtCore, QtGui
+        Qt = QtCore.Qt
+        if isinstance(name, str) and name[:3] == "Qt.":
+            name = getattr(Qt,name[3:])
+        elif isinstance(name,str):
+            try:
+                name = __import__(name.strip())
+            except ModuleNotFoundError as ex:
+                pass
+        text = f"dir({name}):"
+        text += f"{dir(name)}"
+        #self.print(f.getvalue())
+        title = f"dir({name})".replace("'","")
+        self.makeWindow(name, text, title=title)
+
+    def makeWindow(self, name, txt, title=""):
         """make a window to show some text"""
         dlg = QtWidgets.QDialog(mw)
         edit = QtWidgets.QPlainTextEdit()
@@ -1863,7 +1882,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         layout.addWidget(edit)
         dlg.setLayout(layout)
         dlg.resize(800,600)
-        dlg.setWindowTitle(f"help on {name}")
+        dlg.setWindowTitle(f"help on {name}" if not title else title)
         dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.mdi.addSubWindow(dlg)
         dlg.show()
