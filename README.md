@@ -183,6 +183,7 @@ This brings up a QInputDialog.getItem() dialog from which you can select the des
 ##### Insert (submenu)
 This does the same thing as Insert from dialog except you are presented with the templates directly as menu / submenu items, the goal being to make it a bit more streamlined.  Once the template is selected the procedure is the same for both here and using Insert from dialog.  Just use the one you prefer.
 ##### Edit templates
+<img src="Editor_Assistant_scr2.png" alt="screenshot"><br/>
 This brings up the Template editor dialog.  In that dialog you can create new templates, delete templates, edit their content, execute them, test them, execute to clipboard, and get some additional help text.
 ###### Filtering
 Filtering allows you to view only those templates that contain the given filter text.  So, for example, if you only want to see the templates for a certain project you could include the project name in the templates' names for that project, and then apply the filter to see only those templates.  Or you might have some specifically for QInputDialogs.
