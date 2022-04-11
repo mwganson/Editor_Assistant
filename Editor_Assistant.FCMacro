@@ -10,7 +10,7 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.89"
+__version__ = "1.89b"
 __date__    = "2022/04/10"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
@@ -53,7 +53,7 @@ path = path.replace(u"\\","/")                                       # convert t
 global setPathLatestDirectory   #; setPathLatestDirectory   = "C:\ ???"
 setPathLatestDirectory = pg.GetString("setPathLatestDirectory")
 if setPathLatestDirectory == "": setPathLatestDirectory = path
-FreeCAD.ParamGet(u"User parameter:BaseApp/Preferences/Macros/FCMmacros/" + __title__).SetString(u"setPathLatestDirectory", setPathLatestDirectory)    #*"C:\ ???"
+#FreeCAD.ParamGet(u"User parameter:BaseApp/Preferences/Macros/FCMmacros/" + __title__).SetString(u"setPathLatestDirectory", setPathLatestDirectory)    #*"C:\ ???"
 pg.SetString("setPathLatestDirectory", setPathLatestDirectory)
 #################################################################################
 
