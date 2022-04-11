@@ -272,6 +272,9 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.90b (2022.04.11)
+* remove line setting parameter outside Plugins/Editor_Assistant
+* bump version information to 1.90b
 ### 1.90 (2022.04.10)
 * bug fix -- add another missing import
 * support dir() in To console: QLineEdit
