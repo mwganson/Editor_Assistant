@@ -272,6 +272,10 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.91 (2022.04.19)
+* PR from mario52
+* update some icons
+* use open file dialog instead of save file dialog when opening json files
 ### 1.90b (2022.04.11)
 * remove line setting parameter outside Plugins/Editor_Assistant
 * bump version information to 1.90b
