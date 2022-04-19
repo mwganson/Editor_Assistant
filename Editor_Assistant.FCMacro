@@ -53,7 +53,6 @@ path = path.replace(u"\\","/")                                       # convert t
 global setPathLatestDirectory   #; setPathLatestDirectory   = "C:\ ???"
 setPathLatestDirectory = pg.GetString("setPathLatestDirectory")
 if setPathLatestDirectory == "": setPathLatestDirectory = path
-#FreeCAD.ParamGet(u"User parameter:BaseApp/Preferences/Macros/FCMmacros/" + __title__).SetString(u"setPathLatestDirectory", setPathLatestDirectory)    #*"C:\ ???"
 pg.SetString("setPathLatestDirectory", setPathLatestDirectory)
 #################################################################################
 
@@ -286,7 +285,7 @@ class TaskEditorAssistant:
         topLabelLayout.addWidget(self.mainMenuBtn)
         self.msgBtn = QtWidgets.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
-        self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
+        self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
         self.msgBtn.setToolTip("Toast message area, click to see most recent message")
         topLabelLayout.addWidget(self.msgBtn)
         self.layout.addLayout(topLabelLayout)
@@ -308,10 +307,10 @@ class TaskEditorAssistant:
 
         refreshLayout = QtWidgets.QHBoxLayout()
         showRefreshLine = pg.GetBool("ShowRefreshLine", True)
-        self.refreshBtn = QtWidgets.QPushButton("Refresh")
+        self.refreshBtn = QtWidgets.QPushButton()#"Refresh"
         self.refreshBtn.setToolTip("Refresh list of editors in the list widget above")
-        self.refreshBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_BrowserReload))) #
-
+        self.refreshBtn.setIcon(QIconFromXPMString(BrowserReload_icon))
+        self.refreshBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.refreshBtn.clicked.connect(self.onRefreshBtnClicked)
         refreshLayout.addWidget(self.refreshBtn)
         self.gotoLineEdit = QtWidgets.QLineEdit()
@@ -326,8 +325,7 @@ Bookmarks = lines with {BOOKMARK_MARKER} bookmark description\n\
 Find results = results of searches for text in Find line edit\n\
 ")
         self.gotoMenuBtn.clicked.connect(self.onGotoMenuBtnClicked)
-
-        self.gotoMenuBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_TitleBarUnshadeButton))) #
+        self.gotoMenuBtn.setIcon(QIconFromXPMString(snap_Menu_Btn_icon))
         self.gotoMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
@@ -396,8 +394,7 @@ Find results = results of searches for text in Find line edit\n\
         self.undoBtn.clicked.connect(self.onUndoBtnClicked)
         self.undoBtn.setIcon(QIconFromXPMString(undo_icon))
         self.undoClearBtn = QtWidgets.QPushButton()
-        #replaced self.undoClearBtn.setIcon(QIconFromStandard("SP_DialogResetButton"))
-        self.undoClearBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
+        self.undoClearBtn.setIcon(QIconFromXPMString(Reset_Button_icon))
         self.undoClearBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.undoClearBtn.setToolTip("Purge undo/redo queues.  Clears both queues.")
         self.undoClearBtn.clicked.connect(self.onUndoClearBtnClicked)
@@ -419,8 +416,8 @@ Find results = results of searches for text in Find line edit\n\
         findEditLayout = QtWidgets.QHBoxLayout()
         self.Clear_FindReplaceCB = QtWidgets.QPushButton()  #"Clear"
         self.Clear_FindReplaceCB.setToolTip("Clear the fields Find / Replace")
+        self.Clear_FindReplaceCB.setIcon(QIconFromXPMString(Reset_Button_icon))
         self.Clear_FindReplaceCB.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
-        self.Clear_FindReplaceCB.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
 
@@ -582,15 +579,13 @@ Find results = results of searches for text in Find line edit\n\
         self.snapCenterBtn.setLayout(snapCenterBtnLayout)
         self.snapCenterBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH *2)
         self.discardSnapBtn = QtWidgets.QPushButton()
-
-        self.discardSnapBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_DialogResetButton))) #
+        self.discardSnapBtn.setIcon(QIconFromXPMString(Reset_Button_icon))
         self.discardSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.discardSnapBtn.clicked.connect(self.discardSnap)
         self.discardSnapBtn.setToolTip("Discard the latest snap")
         snapCenterBtnLayout.addWidget(self.discardSnapBtn)
         snapCenterBtnLayout.addWidget(self.snapMenuBtn)
-
-        self.snapMenuBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_TitleBarUnshadeButton))) #
+        self.snapMenuBtn.setIcon(QIconFromXPMString(snap_Menu_Btn_icon))
         self.snapMenuBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.snapMenuBtn.setToolTip("\
 Snapshots menu\n\
@@ -950,16 +945,16 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.toastsLog.append(tuple([msg, msgType]))
         if msgType == 'Error':
             self.msgBtn.setStyleSheet("color: red")
-            self.msgBtn.setIcon(QIconFromStandard("SP_MessageBoxCritical"))
+            self.msgBtn.setIcon(QIconFromXPMString(msgBtn_Critical_icon))
+
         elif msgType == 'Message':
             self.msgBtn.setStyleSheet("color:black")
         elif msgType == 'Warning':
             self.msgBtn.setStyleSheet("color:yellow;background-color:navy;font-weight:bold")
-            self.msgBtn.setIcon(QIconFromStandard("SP_MessageBoxWarning"))
+            self.msgBtn.setIcon(QIconFromXPMString(msgBtn_Warning_icon))
         elif msgType == 'Information':
             self.msgBtn.setStyleSheet("color:blue")
-            #replaced self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
-            self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
+        self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
         QtCore.QTimer().singleShot(length,self.clearToast)
 
     def clearToast(self):
@@ -969,8 +964,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         if len(self.timers) == 1:
             self.msgBtn.setText("")
             self.msgBtn.setStyleSheet("color:black")
-            #replaced self.msgBtn.setIcon(QIconFromStandard("SP_FileDialogInfoView"))
-            self.msgBtn.setIcon(QIcon(QApplication.style().standardIcon(QStyle.SP_FileDialogInfoView))) #
+            self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
             self.timers.pop()
         elif len(self.timers) > 1:
             self.timers.pop()
@@ -2119,13 +2113,9 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         global setPathLatestDirectory
 
         if platform.node() == "mint":
-            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
-            filter = filter[filter.find("."):filter.find(")")]
-            if filter[-2:] == ".*":
-                 filter = filter[:-2]
-            fname = fname + filter
+            fname, filter = PySide2.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
         else:
-            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+            fname, filter =  PySide2.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
 
         if not fname:
             return
@@ -2983,6 +2973,7 @@ class TemplateEditor(QtWidgets.QWidget):
         buttonBox = QtWidgets.QVBoxLayout()
         buttonBox.setAlignment(QtCore.Qt.AlignTop)
         topLine.addLayout(buttonBox)
+
         self.plusBtn = QtWidgets.QPushButton()#"+"
         self.plusBtn.setToolTip("Adding")
         self.plusBtn.setIcon(QIconFromXPMString(plus_Template_icon))
@@ -3034,7 +3025,7 @@ class TemplateEditor(QtWidgets.QWidget):
 
         self.helpBtn = QtWidgets.QPushButton()#"Help"
         self.helpBtn.setToolTip("Help")
-        self.helpBtn.setIcon(QIconFromXPMString(help_Template_icon))
+        self.helpBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
         self.helpBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.helpBtn.clicked.connect(self.onHelpBtnClicked)
         bottomButtonBox.addWidget(self.helpBtn)
@@ -3407,6 +3398,7 @@ def QIconFromXPMString(xpm_string):
     return icon
 
 def QIconFromStandard(name):
+    ##self.xxxx.setIcon(QIconFromStandard("xxxx"))
     pixmap = getattr(QtWidgets.QStyle,name)
     icon = QtWidgets.QPushButton().style().standardIcon(pixmap)
     return icon
@@ -4239,74 +4231,79 @@ snapshot_icon = """
 /* XPM */
 static char *_647898900207[] = {
 /* columns rows colors chars-per-pixel */
-"64 64 3 1 ",
-"  c gray4",
-". c gray85",
-"X c None",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX....................                 .....................XXXX",
-"XX....................                 .....................XXXX",
-"XX....................                 .....................XXXX",
-"XX..................                     ...................XXXX",
-"XX..................                     ...................XXXX",
-"XX.........                                       ..........XXXX",
-"XX.......                                            .......XXXX",
-"XX.....                                               ......XXXX",
-"XX....                                                 .....XXXX",
-"XX....                                                  ....XXXX",
-"XX...                                                   ....XXXX",
-"XX...                                                    ...XXXX",
-"XX...                       ......                       ...XXXX",
-"XX...                     ..........                     ...XXXX",
-"XX...                   ..............                   ...XXXX",
-"XX...                  ................                  ...XXXX",
-"XX...                 ..................                 ...XXXX",
-"XX...                 ...................                ...XXXX",
-"XX...                .........   ........                ...XXXX",
-"XX...                .......       ......                ...XXXX",
-"XX...               ........       .......               ...XXXX",
-"XX...               .......         ......               ...XXXX",
-"XX...               .......         ......               ...XXXX",
-"XX...               .......         ......               ...XXXX",
-"XX...               ........       .......               ...XXXX",
-"XX...                .......       .......               ...XXXX",
-"XX...                .........   ........                ...XXXX",
-"XX...                 ...................                ...XXXX",
-"XX...                 ..................                 ...XXXX",
-"XX...                  ................                  ...XXXX",
-"XX...                   ..............                   ...XXXX",
-"XX...                     ..........                     ...XXXX",
-"XX...                       ......                       ...XXXX",
-"XX...                                                    ...XXXX",
-"XX...                                                   ....XXXX",
-"XX...                                                   ....XXXX",
-"XX....                                                  ....XXXX",
-"XX.....                                                .....XXXX",
-"XX......                                              ......XXXX",
-"XX.......                                           ........XXXX",
-"XX...........                                    ...........XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XX..........................................................XXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+"64 64 8 1",
+" 	c None",
+".	c #000000",
+"+	c #0A0A0A",
+"@	c #302B01",
+"#	c #CC0000",
+"$	c #888A85",
+"%	c #FCE94F",
+"&	c #FFFFFF",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                         ............                           ",
+"                        ..##########..                          ",
+"                       ..############..                         ",
+"                       .###........###.                         ",
+"                      ..##..........##..                        ",
+"                     +.##..%%%%%%%%..##.+                       ",
+"           ......   ..###.%%%%%%%%%%.###..                      ",
+"           .&&&&.  ..###+.%%%&&&&%%%.+###..                     ",
+"           .&&&&. ..###++.%%%&&&&%%%.++###..                    ",
+"          .........###+++.%%%%%%%%%%.+++###.........            ",
+"        ...##########++++++%%%%%%%%++++++##########....         ",
+"      ...###########++++++++++++++++++++++############..        ",
+"     ..#####++++++++++++++++++++++++++++++++++++++#####..       ",
+"    ..####+++++++++++++++++++++++++++++++++++++++++++###..      ",
+"    .###++++++++++++++++++++++++++++++++++++++++++++++###..     ",
+"   ..##++++++++++++++++++++++++++++++++++++++++++++++++###.     ",
+"   .###+++++++++++++++++++++++++++++++++++++++++++++++++##..    ",
+"   .##++++++++++++++++++++++++++++++++++++++++++++++++++###.    ",
+"   .##++++++++++++++++++++++#######+++++++++++$$$+$$$++++##.    ",
+"   .##++++++++++++++++++++###@@@@@###+++++++++$$$+$$+++++##.    ",
+"   .##++++++++++++++++++###@@@@@@@@@###+++++++$$$+$++++++##.    ",
+"   .##+++++++++++++++++##@@@@@@@@@@@@@##+++++++++++++++++##.    ",
+"   .##++++++++++++++++##@@@@@@@@@@@@@@@##++++++++++++++++##.    ",
+"   .##++++++++++++++++#@@@@@@@@@@@@@@@@@##+++++++++++++++##.    ",
+"   .##+++++++++++++++##@@@@@@@@@@@@@@@@@@#+++++++++++++++##.    ",
+"   .##+++++++++++++++#@@@@@@@@+++@@@@@@@@#+++++++++++++++##.    ",
+"   .##++++++++++++++##@@@@@@+++++++@@@@@@##++++++++++++++##.    ",
+"   .##++++++++++++++#@@@@@@@+++++++@@@@@@@#++++++++++++++##.    ",
+"   .##++++++++++++++#@@@@@@+++++++++@@@@@@#++++++++++++++##.    ",
+"   .##++++++++++++++#@@@@@@+++++++++@@@@@@#++++++++++++++##.    ",
+"   .##++++++++++++++#@@@@@@+++++++++@@@@@@#++++++++++++++##.    ",
+"   .##++++++++++++++##@@@@@@+++++++@@@@@@@#++++++++++++++##.    ",
+"   .##+++++++++++++++#@@@@@@+++++++@@@@@@##++++++++++++++##.    ",
+"   .##+++++++++++++++##@@@@@@@+++@@@@@@@@#+++++++++++++++##.    ",
+"   .##++++++++++++++++#@@@@@@@@@@@@@@@@@##+++++++++++++++##.    ",
+"   .##++++++++++++++++##@@@@@@@@@@@@@@@##++++++++++++++++##.    ",
+"   .##+++++++++++++++++##@@@@@@@@@@@@@##+++++++++++++++++##.    ",
+"   .##++++++++++++++++++###@@@@@@@@@###++++++++++++++++++##.    ",
+"   .##++++++++++++++++++++###@@@@@###++++++++++++++++++++##.    ",
+"   .##++++++++++++++++++++++#######++++++++++++++++++++++##.    ",
+"   .##++++++++++++++++++++++++++++++++++++++++++++++++++###.    ",
+"   .##++++++++++++++++++++++++++++++++++++++++++++++++++##..    ",
+"   .###+++++++++++++++++++++++++++++++++++++++++++++++++##.     ",
+"   ..###+++++++++++++++++++++++++++++++++++++++++++++++###.     ",
+"    ..###+++++++++++++++++++++++++++++++++++++++++++++###..     ",
+"     ..###++++++++++++++++++++++++++++++++++++++++++####..      ",
+"      ..######+++++++++++++++++++++++++++++++++++######..       ",
+"       ..############################################...        ",
+"        .....#####################################....          ",
+"            .......................................             ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
 };"""
 
 match_case_icon = """
@@ -4839,7 +4836,7 @@ static char *_649039201346[] = {
 
 reverse_find_replace_icon = """
 /* XPM */
-static char * Reverse3_xpm[] = {
+static char * reverse_find_replace_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
 "   c None",
@@ -4915,7 +4912,7 @@ static char * Reverse3_xpm[] = {
 
 execute_Template_icon = """
 /* XPM */
-static char * Ok_xpm[] = {
+static char * execute_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
 " 	c None",
@@ -4991,7 +4988,7 @@ static char * Ok_xpm[] = {
 
 plus_Template_icon = """
 /* XPM */
-static char * Plus_xpm[] = {
+static char * plus_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5071,7 +5068,7 @@ static char * Plus_xpm[] = {
 
 moins_Template_icon = """
 /* XPM */
-static char * moins_xpm[] = {
+static char * moins_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5151,7 +5148,7 @@ static char * moins_xpm[] = {
 
 rename_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * rename_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5231,7 +5228,7 @@ static char * rename_xpm[] = {
 
 test_Template_icon = """
 /* XPM */
-static char * test_Template_xpm[] = {
+static char * test_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5311,7 +5308,7 @@ static char * test_Template_xpm[] = {
 
 execute_Clipboard_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * execute_Clipboard_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5391,7 +5388,7 @@ static char * rename_xpm[] = {
 
 annuler_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * annuler_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5471,7 +5468,7 @@ static char * rename_xpm[] = {
 
 help_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * help_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5551,7 +5548,7 @@ static char * rename_xpm[] = {
 
 save_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * save_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 10 1",
 " 	c None",
@@ -5632,7 +5629,7 @@ static char * rename_xpm[] = {
 
 accept_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * accept_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
 " 	c None",
@@ -5708,7 +5705,7 @@ static char * rename_xpm[] = {
 
 reject_Template_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * reject_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
 " 	c None",
@@ -5779,6 +5776,467 @@ static char * rename_xpm[] = {
 "                  @@*************************@@                 ",
 "                   @@@@@@@@@@@@@@@@@@@@@@@@@@@                  ",
 "                    @@@@@@@@@@@@@@@@@@@@@@@@@                   ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+Reset_Button_icon = """
+/* XPM */
+static char * Reset_Button_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 7 1",
+" 	c None",
+".	c #6E4600",
+"+	c #957311",
+"@	c #E6CB34",
+"#	c #C2AC17",
+"$	c #710808",
+"%	c #D31515",
+"                                                                ",
+"         ...                                                    ",
+"        .......                                                 ",
+"       ..+@+@@..                                                ",
+"       .++...+@..                                               ",
+"      ..@.. ..@+.                                               ",
+"      ..@.. ..+@.                                               ",
+"      ..@....++@+.                                              ",
+"      ..+++.+++++..                                             ",
+"       ..@++++++@..                                             ",
+"        .+@+++++++.                                             ",
+"         .++++++++..                                            ",
+"         ..@+++++++..                                           ",
+"          ..+++++++..                                           ",
+"          ..+++...+..                                           ",
+"           ..++.......   ++                                     ",
+"            ..++...... ++#+                                     ",
+"             ..+.....+++@@#+                                    ",
+"              .....+++@@@@#+                                    ",
+"               ..+++#@@@@@#+                                    ",
+"               .++#@@@@@@@@.$$$                                 ",
+"               ++#@@@@@@@@$$$$$                                 ",
+"            +++#@@@@@@@@.$$%%%$$                                ",
+"           ++######@@@.$$%%%%%$$+                               ",
+"           ++#######+$$$%%%%%$$$++                              ",
+"             +####+$$$%%%%%%$$$++++                             ",
+"              ++#.$$%%%%%%$$$@@@@#++                            ",
+"               .$$$%%%%%$$$.@###@@#++                           ",
+"              $$$%%%%%%$$.@@######@#+++                         ",
+"              $$%%%%%$$$@@@########@@#+                         ",
+"              $$$%%$$$@@@@###########@#++                       ",
+"               $$$$$.@################@#++                      ",
+"                $$$+#@#################@@++                     ",
+"                  ++@###################@@++                    ",
+"                  ++@####################@@++                   ",
+"                  ++@@####################@@++                  ",
+"                   +#@#####################@@#+                 ",
+"                   +#@######################@@@+                ",
+"                   +#@#######################@@@+               ",
+"                   +#@########################@@@+              ",
+"                    +@###########.##########.###@@#++           ",
+"                    +@#######################.###@@@++          ",
+"                    +#@###########.###.#######..##@@@#++        ",
+"                    +#@############.###.#######..##@@@++        ",
+"                    ++@############.####.########.#@@++         ",
+"                     +#@##########@..####.#######@.+++          ",
+"                      #@######.###@#.####..#####@@.++           ",
+"                      +@#############.####.####@@#.+            ",
+"                      +#@######.######.####.#@@#++.             ",
+"                      ++@######.######.####.+##++               ",
+"                      .+#@#.####.######.#@@@.++                 ",
+"                      .++@@######.#####.#@@++.                  ",
+"                        +#@#.#####.##@@.+++                     ",
+"                         +#@#.###@.#@@#.++                      ",
+"                          +@@.@@@@.++++.                        ",
+"                           +@.@##+.+                            ",
+"                           ++.++++.                             ",
+"                             .+                                 ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+BrowserReload_icon = """
+/* XPM */
+static char * BrowserReload_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+" 	c None",
+".	c #2B5B93",
+"+	c #3368A7",
+"@	c #5082BD",
+"#	c #6196CA",
+"$	c #7499C5",
+"%	c #80A9D3",
+"&	c #A1BEDE",
+"*	c #B9CFE7",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                        .......                                 ",
+"                    ....+@@@@@+.....                            ",
+"                 ...@%&&&&&&&&&&%%@+...                 .       ",
+"                ..#&&&&&&&&&&&&&&&&&%#+..              ..       ",
+"              ..#&&&&&&&&&&&&&&&&&&&&&&%@..           ...       ",
+"             ..%&&&&&&&&&&&&&&&&&&%%%%&&&%@..        ..#.       ",
+"            .+&&&&&&&&&&&&&&&&&&&&%%%%%%&&&%+..      .#&.       ",
+"           .+&&&&&&&&&&&&&&&&&&&&&%%%%%%%%%&&%..    .@%&.       ",
+"           .%&&&&&&&&&&&&&&&&&&&&%%%%%%%%%%%&&&@.. .@%%&.       ",
+"          .@&&&&&&&&&&&&&&&&&&&&&%%%%%%%%%%%%%%%@..@%##&.       ",
+"         ..&&&&&&%#@......+@%%&&&&%%%%%%%%%%@@@@%%@%#@#&.       ",
+"         .@&&&&#+..............@%&&&%%%%%%@@@@@@@%%%@@#&.       ",
+"         .&&&%+........        ...#&&&%%@@@@@@@@@@@@@@#&.       ",
+"        .+&&%...&&&..            ...@#%%@@@@@@@@@@@@@@#&.       ",
+"        .@&#..&&&&..                ..@%%@@@@@@@@@@@@@#&.       ",
+"        .%%..&&&&&.                   ..@%%@@@@@@@@@@@#&.       ",
+"        .%+.&&&&&&.                    ..+%%@@@@@@@@@@#&.       ",
+"        .#.+@&&&&&.                      ..@%%@@@@@@@@#&.       ",
+"        .+.@@@&&&..                       .+%%@@@@@@@@#&.       ",
+"        ..+@@@@&&.                       ..%%@@@@@@@@@#&.       ",
+"        ..+@     .                      ..%%@@@@@@@@@@#&.       ",
+"        ..@                            ..#%@@@@@@@@@@@#&.       ",
+"        ..                             .#%@@@@@@@@@@@@#&.       ",
+"        ..                            .@%%@@@@@@@@@@@@#&.       ",
+"        ..                           .@&&&&&&&&&&&&&&&&&.       ",
+"                                    .....................       ",
+"        .....................                                   ",
+"        .+@@@@@@@@@@@@@@@@+..                                   ",
+"        .%&&&&&&&&&&&&&&&&..                            .       ",
+"        .%&%%%%%%%%%%%%&&+.                             .       ",
+"        .%&%%%%%%%%%%%%&@.                             ..       ",
+"        .%&%%%%%%%%%%%&@.                              ...      ",
+"        .%&%%%%%%%%%%&#.                      @        ...      ",
+"        .%&%%%%%%%%%&%..                      @&       ...      ",
+"        .%&%%%%%%%%&&@..                      @&      ....      ",
+"        .%&%%%%%%%%%%&#..                     @&&&    .@..      ",
+"        .%&%%%%%%%%%%%&%+..                   @&&&&  ..@.       ",
+"        .%&%%%%%%%%%%%%&&#..                 +#&&&&&..@@.       ",
+"        .%&%%%%%%%%%%%%%%%#+...             .+&&&&%..@@@.       ",
+"        .%&%%%%%%%%%%%%#@@###+...          ..%&&&@..@@@@.       ",
+"        .%&%%%&%%%%%%#@@@@@@###@.....   ...+%%@+...@@@@.        ",
+"        .%&%%&&&&%%%#@@@@@@@@@###@++............++@@@@@.        ",
+"        .%&%%&++%&%#@@@@@@@@@@@@@@##@@@@@@@@@@@@@@@@@@..        ",
+"        .%&%&@...#&#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.         ",
+"        .%&&#.  ..+#%#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.          ",
+"        .%&%..    ..@##@@@@@@@@@@@@@@@@@@@@@@@@@@@@@..          ",
+"        .%%..      ..+@##@@@@@@@@@@@@@@@@@@@@@@@@@@..           ",
+"        .@..         ..+@##@@@@@@@@@@@@@@@@@@@@@@@..            ",
+"        ...           ....@###@@@@@@@@@@@@@@@@@@...             ",
+"        ..               ...+@@@@@@@@@@@@@@@@@...               ",
+"        .                  .....@@@@@@@@@@@....                 ",
+"                              ..............                    ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+snap_Menu_Btn_icon = """
+/* XPM */
+static char * snap_Menu_Btn_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 4 1",
+" 	c None",
+".	c #060706",
+"+	c #011515",
+"@	c #CB0808",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                 +++++++++++++++++++++++++++++                  ",
+"                 +@@@@@@@@@@@@@@@@@@@@@@@@@@@+                  ",
+"                 +@@@@@@@@@@@@@@@@@@@@@@@@@@@+                  ",
+"                 +@@+++++++++++++++++++++++@@+                  ",
+"                 +@@+++++++++++++++++++++++@@+                  ",
+"                 +@@+++++++++++++++++++++++@@+                  ",
+"                 +@@+++++++++++++++++++++++@@+                  ",
+"                 +@@+++++++++++++++++++++++@@+                  ",
+"       +++++++++++@@+++++++++++++++++++++++@@+++++++++.+        ",
+"       +@@@@@@@@@@@@+++++++++++++++++++++++@@@@@@@@@@@@+        ",
+"       +@@@@@@@@@@@@+++++++++++++++++++++++@@@@@@@@@@@@+        ",
+"       ++@@@+++++++++++++++++++++++++++++++++++++++@@@++        ",
+"        ++@@@+++++++++++++++++++++++++++++++++++++@@@++         ",
+"         ++@@@+++++++++++++++++++++++++++++++++++@@@++          ",
+"          ++@@@+++++++++++++++++++++++++++++++++@@@++           ",
+"           ++@@@+++++++++++++++++++++++++++++++@@@++            ",
+"            ++@@@+++++++++++++++++++++++++++++@@@++             ",
+"             ++@@@+++++++++++++++++++++++++++@@@++              ",
+"              ++@@@+++++++++++++++++++++++++@@@++               ",
+"               ++@@@+++++++++++++++++++++++@@@++                ",
+"                ++@@@+++++++++++++++++++++@@@++                 ",
+"                 ++@@@+++++++++++++++++++@@@++                  ",
+"                  ++@@@+++++++++++++++++@@@++                   ",
+"                   ++@@@+++++++++++++++@@@++                    ",
+"                    ++@@@+++++++++++++@@@++                     ",
+"                     ++@@@+++++++++++@@@++                      ",
+"                      ++@@@+++++++++@@@++                       ",
+"                       ++@@@+++++++@@@++                        ",
+"                        ++@@@+++++@@@++                         ",
+"                         ++@@@+++@@@++                          ",
+"                          ++@@@+@@@++                           ",
+"                           ++@@@@@++                            ",
+"                            ++@@@++                             ",
+"                             ++@++                              ",
+"                              +++                               ",
+"                               +                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+File_Dialog_Info_View_icon = """
+/* XPM */
+static char * rename_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 3 1",
+" 	c None",
+".	c #1E4C89",
+"+	c #F1F6F8",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                         ..............                         ",
+"                       ..................                       ",
+"                     ......................                     ",
+"                    ......++++++++++++......                    ",
+"                  .....++++++++++++++++++.....                  ",
+"                .....++++++++++++++++++++++.....                ",
+"               ....++++++..............++++++....               ",
+"              ...++++++..................++++++...              ",
+"             ...+++++......................+++++...             ",
+"            ...++++..........................++++...            ",
+"           ...++++...........++++++...........++++...           ",
+"          ...++++...........++++++++...........++++...          ",
+"         ...++++...........++++++++++...........++++...         ",
+"        ...++++............++++++++++............++++...        ",
+"       ...++++.............++++++++++.............++++...       ",
+"      ...++++..............++++++++++..............++++...      ",
+"      ...+++...............++++++++++...............+++...      ",
+"      ..++++................++++++++................++++..      ",
+"     ...+++..................++++++..................+++...     ",
+"    ...++++..........................................++++...    ",
+"    ...+++............................................+++...    ",
+"    ...+++............................................+++...    ",
+"   ....+++............................................+++....   ",
+"   ...+++................++++++++++++..................+++...   ",
+"   ...+++................++++++++++++..................+++...   ",
+"   ...+++................++++++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ...+++....................++++++++..................+++...   ",
+"   ....+++...................++++++++.................+++....   ",
+"    ...+++...................++++++++.................+++...    ",
+"    ...+++...................++++++++.................+++...    ",
+"    ...++++..................++++++++................++++...    ",
+"     ...+++..................++++++++................+++...     ",
+"      ..++++.................++++++++...............++++..      ",
+"      ...+++.................++++++++...............+++...      ",
+"      ...++++................++++++++..............++++...      ",
+"       ...++++...............++++++++.............++++...       ",
+"        ...++++..............++++++++............++++...        ",
+"         ...++++..........++++++++++++++........++++...         ",
+"          ...++++.........++++++++++++++.......++++...          ",
+"           ...++++........++++++++++++++......++++...           ",
+"            ...++++..........................++++...            ",
+"             ...+++++......................+++++...             ",
+"              ...++++++..................++++++...              ",
+"               ....++++++..............++++++....               ",
+"                .....++++++++++++++++++++++.....                ",
+"                  .....++++++++++++++++++.....                  ",
+"                    ......++++++++++++......                    ",
+"                     ......................                     ",
+"                       ..................                       ",
+"                         ..............                         ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+msgBtn_Critical_icon = """
+/* XPM */
+static char * msgBtn_Critical_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 6 1",
+" 	c None",
+".	c #000000",
+"+	c #BF0001",
+"@	c #BE0209",
+"#	c #EBE9E6",
+"$	c #F1F6F8",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                         @@@@@@@@@@@@@@                         ",
+"                       @@@@@@@@@@@@@@@@@@                       ",
+"                     @@@@@@@@@@@@@@@@@@@@@@                     ",
+"                    @@@@@@$$$$$$$$$$$$@@@@@@                    ",
+"                  @@@@@$$$$$$$$$$$$$$$$$$@@@@@                  ",
+"                @@@@@$$$$$$$$$$$$$$$$$$$$$$@@@@@                ",
+"               @@@@$$$$$$++++++++++++++$$$$$$@@@@               ",
+"              @@@$$$$$$++++++++++++++++++$$$$$$@@@              ",
+"             @@@$$$$$++++++++++++++++++++++$$$$$@@@             ",
+"            @@@$$$$++++++++++++++++++++++++++$$$$@@@            ",
+"           @@@$$$$++++++++++++++++++++++++++++$$$$@@@           ",
+"          @@@$$$$++++++++++++++++++++++++++++++$$$$@@@          ",
+"         @@@$$$$+++++...++++++++++++++++++...+++$$$$@@@         ",
+"        @@@$$$$+++++..#..++++++++++++++++..#..+++$$$$@@@        ",
+"       @@@$$$$+++++..###..++++++++++++++..###..+++$$$$@@@       ",
+"      @@@$$$$+++++..#####..++++++++++++..#####..+++$$$$@@@      ",
+"      @@@$$$+++++..#######..++++++++++..#######..+++$$$@@@      ",
+"      @@$$$$++++..#########..++++++++..#########..++$$$$@@      ",
+"     @@@$$$+++++.###########..++++++..###########.+++$$$@@@     ",
+"    @@@$$$$+++++..###########..++++..###########..+++$$$$@@@    ",
+"    @@@$$$+++++++..###########..++..###########..+++++$$$@@@    ",
+"    @@@$$$++++++++..###########....###########..++++++$$$@@@    ",
+"   @@@@$$$+++++++++..###########..###########..+++++++$$$@@@@   ",
+"   @@@$$$+++++++++++..######################..+++++++++$$$@@@   ",
+"   @@@$$$++++++++++++..####################..++++++++++$$$@@@   ",
+"   @@@$$$+++++++++++++..##################..+++++++++++$$$@@@   ",
+"   @@@$$$++++++++++++++..################..++++++++++++$$$@@@   ",
+"   @@@$$$+++++++++++++++..##############..+++++++++++++$$$@@@   ",
+"   @@@$$$++++++++++++++++..############..++++++++++++++$$$@@@   ",
+"   @@@$$$++++++++++++++++..############..++++++++++++++$$$@@@   ",
+"   @@@$$$+++++++++++++++..##############..+++++++++++++$$$@@@   ",
+"   @@@$$$++++++++++++++..################..++++++++++++$$$@@@   ",
+"   @@@$$$+++++++++++++..##################..+++++++++++$$$@@@   ",
+"   @@@$$$++++++++++++..####################..++++++++++$$$@@@   ",
+"   @@@$$$+++++++++++..######################..+++++++++$$$@@@   ",
+"   @@@@$$$+++++++++..###########..###########..+++++++$$$@@@@   ",
+"    @@@$$$++++++++..###########....###########..++++++$$$@@@    ",
+"    @@@$$$+++++++..###########..++..###########..+++++$$$@@@    ",
+"    @@@$$$$+++++..###########..++++..###########.++++$$$$@@@    ",
+"     @@@$$$+++++.###########..++++++..#########..++++$$$@@@     ",
+"      @@$$$$++++..#########..++++++++..#######..++++$$$$@@      ",
+"      @@@$$$+++++..#######..++++++++++..#####..+++++$$$@@@      ",
+"      @@@$$$$+++++..#####..++++++++++++..###..+++++$$$$@@@      ",
+"       @@@$$$$+++++..###..++++++++++++++..#..+++++$$$$@@@       ",
+"        @@@$$$$+++++..#..++++++++++++++++...+++++$$$$@@@        ",
+"         @@@$$$$+++++...++++++++++++++++++++++++$$$$@@@         ",
+"          @@@$$$$++++++++++++++++++++++++++++++$$$$@@@          ",
+"           @@@$$$$++++++++++++++++++++++++++++$$$$@@@           ",
+"            @@@$$$$++++++++++++++++++++++++++$$$$@@@            ",
+"             @@@$$$$$++++++++++++++++++++++$$$$$@@@             ",
+"              @@@$$$$$$++++++++++++++++++$$$$$$@@@              ",
+"               @@@@$$$$$$++++++++++++++$$$$$$@@@@               ",
+"                @@@@@$$$$$$$$$$$$$$$$$$$$$$@@@@@                ",
+"                  @@@@@$$$$$$$$$$$$$$$$$$@@@@@                  ",
+"                    @@@@@@$$$$$$$$$$$$@@@@@@                    ",
+"                     @@@@@@@@@@@@@@@@@@@@@@                     ",
+"                       @@@@@@@@@@@@@@@@@@                       ",
+"                         @@@@@@@@@@@@@@                         ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+msgBtn_Warning_icon = """
+/* XPM */
+static char * msgBtn_Critical_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 6 1",
+" 	c None",
+".	c #000000",
+"+	c #BC9100",
+"@	c #FBE500",
+"#	c #FCE500",
+"$	c #FCE600",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                             ++++++                             ",
+"                            ++++++++                            ",
+"                            +++$$+++                            ",
+"                           +++$$$$+++                           ",
+"                           ++$$$$$$++                           ",
+"                          ++$$$$$$$+++                          ",
+"                          ++$$@$$$$$++                          ",
+"                         ++$$@@@$$$$+++                         ",
+"                        +++$$@@@$$$$$+++                        ",
+"                        ++$$@@@@@$$$$+++                        ",
+"                       +++$$@@@$$$$$$$+++                       ",
+"                       ++$$@@@$$#$$$$$$++                       ",
+"                      ++$$$@@@$$#$$$$$$+++                      ",
+"                      ++$$@@@$$$$$$@$$$$++                      ",
+"                     ++$$$@$@......@$$$$+++                     ",
+"                    +++$$@@$@......@$$$$$+++                    ",
+"                    ++$$$@@$@......@$$$$$+++                    ",
+"                   +++$$@@$$@......@$$$$$$+++                   ",
+"                   ++$$$@@$$@......@$$$$$$$++                   ",
+"                  ++$$$@$$$$$......$$$$$$$$+++                  ",
+"                  ++$$$@$$$$$......$$$$$$$$$++                  ",
+"                 ++$$$@@$$$$$......$$$$$$$$$+++                 ",
+"                +++$$$@@$$$$$......$$$$$$$$$$+++                ",
+"                ++$$$@@$$$#$$......$$$$$$$$$$$++                ",
+"               +++$$$@@$$$#$$......$$$$$$$$$$$+++               ",
+"               ++$$$@$$$$$$$$......$$$$$$$$$$$$++               ",
+"              ++$$$@@$$$$$$$$......$$$$$$$$$$$$+++              ",
+"              ++$$$@$$$$$$$$$......$$$$$$$$$$$$$++              ",
+"             ++$$$@@@$$$###$$......$$$$$$$$$$$$$+++             ",
+"            +++$$$$$$$$$$$$$$......$$$$$$$$$$$$$$+++            ",
+"            ++$$$@@$$#$#####$......$$$$$$$$$$$$$$$++            ",
+"           +++$$$@@$$$$$$$$$$......$$$$$$$$$$$$$$$+++           ",
+"           ++$$$@@$$$$$$$$$$$$@@@@$$$$$$$$$$$$$$$$$++           ",
+"          ++$$$$@$$$$$$$$$$$$@@@@@@$$$$$$$$$$$$$$$$+++          ",
+"          ++$$$@$$$$$$$$$$$$$@@@@@@$$$$$$$$$$$$$$$$$++          ",
+"         ++$$$$@$$$$$$$$$$$$$$....$$$$$$$$$$$$$$$$$$+++         ",
+"        +++$$$@@$$$$$$$$$$$$$......$$$$$$$$$$$$$$$$$$+++        ",
+"        ++$$$$@@$$$$$$$$$$$$$......$$$$$$$$$$$$$$$$$$$++        ",
+"       +++$$$@@$$$$$$$$$$$$$$......$$$$$$$$$$$$$$$$$$$+++       ",
+"       ++$$$$$@$$$$$$$$$$$$$$......$$$$$$$$$####$$$$$$$++       ",
+"      +++$$$$$$$###$$$$####$$......$$####$$$$$$$$$$$$$$+++      ",
+"      ++$$$$$$$$$$$$$$$$$$$$$$....$$$$$$$$$$$$$$$$$$$$$$++      ",
+"     +++$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+++     ",
+"     ++$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++     ",
+"     ++$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++     ",
+"     ++$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++     ",
+"     ++++++++++++++++++++++++++++++++++++++++++++++++++++++     ",
+"     ++++++++++++++++++++++++++++++++++++++++++++++++++++++     ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
 "                                                                ",
 "                                                                ",
 "                                                                ",
