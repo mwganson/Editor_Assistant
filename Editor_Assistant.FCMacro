@@ -10,8 +10,8 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.90b"
-__date__    = "2022/04/10"
+__version__ = "1.91"
+__date__    = "2022/04/19"
 #
 pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
