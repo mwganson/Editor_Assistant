@@ -272,6 +272,12 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.92 (2023.09.15)
+* PR from mario52
+* add icons to menus
+* save and execute macro button
+* backup management
+* highlight active tab
 ### 1.91 (2022.04.19)
 * PR from mario52
 * update some icons
