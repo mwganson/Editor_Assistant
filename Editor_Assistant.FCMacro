@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+##from __future__ import unicode_literals
+#
 #Editor Assistant
 #Adds some capabilities to the python editor
 #as a new task panel dialog
@@ -10,35 +13,12 @@ __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
-__version__ = "1.91"
-__date__    = "2022/04/19"
+
+__version__ = "1.92"
+__date__    = "2023/09/15"
 #
-pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
-UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize",100)
-pg.SetInt("UndoQueueMaxSize",UNDO_QUEUE_MAX_SIZE)
+##
 
-BOOKMARK_MARKER = pg.GetString("BookmarkMarker","#"+"#:") #+ is so we don't toggle this accidentally
-pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
-
-MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
-pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
-
-#from PySide import QtGui,QtCore
-import PySide2
-from PySide2 import QtGui ,QtCore, QtWidgets
-from PySide2.QtGui import *
-from PySide2.QtCore import *
-from PySide2.QtWidgets import * #QApplication, QStyle, QHBoxLayout, QVBoxLayout, QPlainTextEdit    #QSlider, QGraphicsView, QGraphicsScene, 
-
-import difflib
-import json
-import re
-import random
-import os
-import platform
-
-## used for help -> reference menus
-#import PySide2
 ####path#########################################################################
 global path          ; path          = ""                            #
 #path  = FreeCAD.ConfigGet(u"AppHomePath")                           # path FreeCAD installation
@@ -50,11 +30,79 @@ path = path.replace(u"\\","/")                                       # convert t
 #print( u"Path for the icons : " , path )                            #
 #################################################################################
 ##
+pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
+
+pg.SetString("Version", __version__ + " (" + __date__ + ")")
+
+COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab", "#B3F88C")    #  "0"= color system , "#B3F88C"= color code html 
+pg.SetString(u"ColorActiveTab", "#B3F88C") 
+
+COLOR_ERROR_DETECTED = pg.GetString("COLOR_ERROR_DETECTED", "#a40000")  #  "0"= color system , "#a40000"= color code html 
+pg.SetString(u"COLOR_ERROR_DETECTED", "#a40000") 
+
+switch_Unicode_Read_File = pg.GetBool("switch_Unicode_Read_File", 0)
+pg.SetBool("switch_Unicode_Read_File",switch_Unicode_Read_File)
+
+setPathFileBackup = pg.GetString("setPathFileBackup", path)
+pg.SetString("setPathFileBackup", setPathFileBackup)
+
+setFormatBackupDateTime = "yyyy-MM-dd_HH-mm-ss"
+#setFormatBackupDateTime = pg.GetString("setFormatBackupDateTime", "yyyy-MM-dd_HH-mm-ss")
+#pg.SetString(u"setFormatBackupDateTime",  setFormatBackupDateTime)
+
+switchReplaceInterrogationFFFD = pg.GetBool("switchReplaceInterrogationFFFD", False)
+pg.SetBool("switchReplaceInterrogationFFFD", switchReplaceInterrogationFFFD)
+
+switchDisplayConsolePrintError = pg.GetBool("switchDisplayConsolePrintError", True)
+pg.SetBool("switchDisplayConsolePrintError", switchDisplayConsolePrintError)
+
+switchFrameInfoBackUpOnFile = pg.GetBool("switchFrameInfoBackUpOnFile", False)
+pg.SetBool("switchFrameInfoBackUpOnFile", switchFrameInfoBackUpOnFile)
+
+switchFrameInfoOnBeginOrEnd = pg.GetBool("switchFrameInfoOnBeginOrEnd", False)
+pg.SetBool("switchFrameInfoOnBeginOrEnd", switchFrameInfoOnBeginOrEnd)
+
+UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize", 100)
+pg.SetInt("UndoQueueMaxSize",UNDO_QUEUE_MAX_SIZE)
+
+BOOKMARK_MARKER = pg.GetString("BookmarkMarker","#"+"#:") #+ is so we don't toggle this accidentally
+pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
+
+MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
+pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
+
+import PySide2
+from PySide2 import QtGui ,QtCore, QtWidgets
+from PySide2.QtGui import *
+from PySide2.QtCore import *
+from PySide2.QtWidgets import *
+import FreeCAD, FreeCADGui
+
+import difflib
+import json
+import re, itertools
+import random
+import operator
+from operator import itemgetter, attrgetter, methodcaller    # pour sort dans un tableau
+import os, platform, sys, shutil
+
+import importlib
+import modulefinder
+from modulefinder import ModuleFinder
+import logging
+import traceback
+
+## used for help -> reference menus
 global setPathLatestDirectory   #; setPathLatestDirectory   = "C:\ ???"
 setPathLatestDirectory = pg.GetString("setPathLatestDirectory")
 if setPathLatestDirectory == "": setPathLatestDirectory = path
 pg.SetString("setPathLatestDirectory", setPathLatestDirectory)
-#################################################################################
+
+global duplicate_Find   ; duplicate_Find    = []
+global duplicate_Replace; duplicate_Replace = []
+global duplicate_Indent_Memo; duplicate_Indent_Memo = []
+global fileNameBAK      ; fileNameBAK = ""
+global takenBakFiles    ; takenBakFiles = []
 
 hasQtXmlPatterns = False
 try:
@@ -133,17 +181,13 @@ try:
 except ImportError:
     pass
 
-global duplicate_Find   ; duplicate_Find    = []
-global duplicate_Replace; duplicate_Replace = []
-global duplicate_Indent_Memo   ; duplicate_Indent_Memo    = []
-
 try:
     import shiboken2 as shiboken
 except:
     shiboken = None
 mw = FreeCADGui.getMainWindow()
 
-class FindEdit (QtWidgets.QLineEdit):
+class FindEdit(QtWidgets.QLineEdit):
     def __init__(self, parent=None, form=None):
         super(FindEdit, self).__init__()
         self.form = form
@@ -283,15 +327,18 @@ class TaskEditorAssistant:
         self.mainMenuBtn.setToolTip("Main menu")
         self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
         topLabelLayout.addWidget(self.mainMenuBtn)
+
         self.msgBtn = QtWidgets.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
         self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
-        self.msgBtn.setToolTip("Toast message area, click to see most recent message")
+        self.msgBtn.setToolTip("Toast message area," + "\n" +
+                               "click to see most recent message displayed in the report view")
         topLabelLayout.addWidget(self.msgBtn)
         self.layout.addLayout(topLabelLayout)
 
         editorLayout = QtWidgets.QHBoxLayout()
         showEditorList = pg.GetBool("ShowEditorList",True)
+
         self.editorList = QtWidgets.QListWidget()
         editorListMinimumHeight = pg.GetInt("EditorListMinimumHeight",32)
         pg.SetInt("EditorListMinimumHeight", editorListMinimumHeight)
@@ -307,16 +354,23 @@ class TaskEditorAssistant:
 
         refreshLayout = QtWidgets.QHBoxLayout()
         showRefreshLine = pg.GetBool("ShowRefreshLine", True)
+
+        ShowRunMacroBtn = pg.GetBool("ShowRunMacroBtn", True)
+        ShowRunBackUpAction = pg.GetBool("ShowRunBackUpAction", True)
+        ShowRunShowFilesBak = pg.GetBool("ShowRunShowFilesBak", True)
+
         self.refreshBtn = QtWidgets.QPushButton()#"Refresh"
         self.refreshBtn.setToolTip("Refresh list of editors in the list widget above")
         self.refreshBtn.setIcon(QIconFromXPMString(BrowserReload_icon))
         self.refreshBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.refreshBtn.clicked.connect(self.onRefreshBtnClicked)
         refreshLayout.addWidget(self.refreshBtn)
+
         self.gotoLineEdit = QtWidgets.QLineEdit()
         self.gotoLineEdit.returnPressed.connect(self.onGotoLineEditReturnPressed)
         self.gotoLineEdit.textChanged.connect(self.onGotoLineEditTextChanged)
         self.gotoLineEdit.setPlaceholderText("Goto Line numbers")
+
         self.gotoMenuBtn = QtWidgets.QPushButton()
         self.gotoMenuBtn.setToolTip(f"\
 Goto menu\n\
@@ -330,10 +384,68 @@ Find results = results of searches for text in Find line edit\n\
         refreshLayout.addWidget(self.gotoMenuBtn)
         refreshLayout.addWidget(self.gotoLineEdit)
         self.layout.addLayout(refreshLayout)
+
+
         if not showRefreshLine:
             self.refreshBtn.setVisible(showRefreshLine)
             self.gotoMenuBtn.setVisible(showRefreshLine)
             self.gotoLineEdit.setVisible(showRefreshLine)
+
+
+        self.runMacroBtn = QtWidgets.QPushButton()
+        self.runMacroBtn.setIcon(QIconFromXPMString(runSave_icon))
+        self.runMacroBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.runMacroBtn.setToolTip("<html><body>"
+                                    "<b>Save and Run the macro.</b>" + "<br />"
+                                    "The executed code has the extension <b>.FCMacro</b> and <b>.py</b> other extensions are ignored" + "<br />" 
+                                    "It is possible <font color='#ef2929'> the macro may not work</font> with this button" + "<br />" 
+                                    "ex: macro search data in another macro or" + "<br />" 
+                                    "the macro depends on another macro with one error or..." + "<br />"
+                                    "Then try run with the conventional method." + "<br />"
+                                    "<br />"
+                                    "Options: (Tools > Parameters > Plugins > Editor_Assistant)" + "<br />" 
+                                    "<b>switch_Unicode_Read_File</b>" + "<br />" 
+                                    "True : only in read file, detect 'UnicodeDecodeError' display Toast, stop the run" + "<br />"
+                                    "False: only in read file, skip error detection not display Toast, skip or not the run (by default)" + "<br />"
+                                    "Actual : <b>" + str(switch_Unicode_Read_File) + "</b>"
+                                    "<br /><br />"
+                                    "Save one backup file in desidered directory" + "<br />"
+                                    "The button display and give the number of backup file" + "<br />"
+                                    "Press the button for delette the complete file(s) and directory" + "<br />"
+                                    "<br />"
+                                    "<b>setPathFileBackup</b>" + "<br />"
+                                    "Path for the backup files (Default: the macro directory)" + "<br />"
+                                    "Actual : <b>'" + setPathFileBackup + "'</b><br />"
+                                    "<br />"
+                                    "<b>switchDisplayConsolePrintError</b>" + "<br />"
+                                    "Display or not the complete error info in the reportView" + "<br />"
+                                    "Actual : <b>" + str(switchDisplayConsolePrintError) + "</b><br />"
+                                    "<br />"
+                                    "</body></html>")
+        if not ShowRunMacroBtn:
+            self.runMacroBtn.setVisible(ShowRunMacroBtn)
+        self.runMacroBtn.clicked.connect(self.runMacroBtnClicked)
+
+        self.fileBackupDelBtn = QtWidgets.QPushButton()
+        self.fileBackupDelBtn.setIcon(QIconFromXPMString(directory_Backup_Empty_icon))
+        self.fileBackupDelBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH * 2)    # enlarge button
+        if not ShowRunBackUpAction:
+            self.fileBackupDelBtn.setVisible(ShowRunBackUpAction)
+        self.fileBackupDelBtn.clicked.connect(self.fileBackupDelBtnClicked)
+
+
+        self.ComboBox_Bak_Files = QtWidgets.QComboBox()
+        self.ComboBox_Bak_Files.setMaxVisibleItems(16)
+        #self.ComboBox_Bak_Files.setEditable(True)              # editable
+        if not ShowRunShowFilesBak:
+            self.ComboBox_Bak_Files.setVisible(ShowRunShowFilesBak)
+        QtCore.QObject.connect(self.ComboBox_Bak_Files, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Bak_Files_Clicked)
+
+        runMacroLayout = QtWidgets.QHBoxLayout()
+        runMacroLayout.addWidget(self.runMacroBtn)
+        runMacroLayout.addWidget(self.fileBackupDelBtn)
+        runMacroLayout.addWidget(self.ComboBox_Bak_Files)
+        self.layout.addLayout(runMacroLayout)
 
         gotoLayout = QtWidgets.QHBoxLayout()
         showGotoLine = pg.GetBool("ShowGotoLine", True)
@@ -346,11 +458,11 @@ Find results = results of searches for text in Find line edit\n\
         self.gotoEndBtn = QtWidgets.QPushButton()
         self.gotoEndBtn.setIcon(QIconFromXPMString(end_icon))
         self.gotoEndBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+
+        self.gotoEndBtn.setToolTip("Go to last line")
         self.gotoEndBtn.clicked.connect(self.onGotoEndBtnClicked)
         gotoLayout.addWidget(self.gotoEndBtn)
-
         gotoLayout.addStretch()
-
         self.previousBookmarkBtn = QtWidgets.QPushButton("")
         nextIcon = QIconFromXPMString(next_bookmark_icon)
         prevIcon = QtGui.QPixmap(nextIcon.pixmap(64,64)).transformed(QtGui.QTransform().scale(-1,1), QtCore.Qt.SmoothTransformation)
@@ -421,16 +533,26 @@ Find results = results of searches for text in Find line edit\n\
         self.Clear_FindReplaceCB.clicked.connect(self.on_Clear_FindReplaceCB_Clicked)
         findEditLayout.addWidget(self.Clear_FindReplaceCB)
 
+
+        self.Refresh_Aqua_HighlightS = QtWidgets.QPushButton()  #"Refresh_Aqua_Highlight Search"
+        self.Refresh_Aqua_HighlightS.setToolTip("Refresh / Restaure Highlight Selection (Find)")
+        self.Refresh_Aqua_HighlightS.setIcon(QIconFromXPMString(Btn_Refresh_Aqua_Highlight_icon))
+        self.Refresh_Aqua_HighlightS.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.Refresh_Aqua_HighlightS.clicked.connect(self.on_Refresh_Aqua_HighlightS_clicked)
+        findEditLayout.addWidget(self.Refresh_Aqua_HighlightS)
+
         self.findEdit = FindEdit(form=self)
         self.findEdit.setPlaceholderText("Find:")
         self.findEdit.returnPressed.connect(self.onFindEditReturnPressed)
         self.findEdit.textChanged.connect(self.onFindEditTextChanged)
         findEditLayout.addWidget(self.findEdit)
+
         self.findBtn = QtWidgets.QPushButton()
         self.findBtn.setIcon(QIconFromXPMString(find_next_icon))
         self.findBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.findBtn.setToolTip("Find next\nCtrl+Click = Find from start\nAlt+Click = Find from selection")
         self.findBtn.clicked.connect(self.onFindBtnClicked)
+
         self.findBackBtn = QtWidgets.QPushButton()
         self.findBackBtn.setIcon(QIconFromXPMString(find_previous_icon))
         self.findBackBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
@@ -445,7 +567,9 @@ Find results = results of searches for text in Find line edit\n\
         self.ComboBox_Find.setMaxVisibleItems(16)
         self.ComboBox_Find.setDuplicatesEnabled(False)    # not work ?
         self.ComboBox_Find.setEditable(True)              # editable
-        QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Find_Clicked)
+
+        #QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Find_Clicked)
+        QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Find_Clicked)
         findEditLayout2.addWidget(self.ComboBox_Find)
 
         if not showFindLine:
@@ -453,6 +577,8 @@ Find results = results of searches for text in Find line edit\n\
             self.findBtn.setVisible(showFindLine)
             self.findBackBtn.setVisible(showFindLine)
             self.Clear_FindReplaceCB.setVisible(showFindLine)
+
+            self.Refresh_Aqua_HighlightS.setVisible(showFindLine)
 
         if not showFindLine2:
             self.ComboBox_Find.setVisible(showFindLine2)
@@ -468,6 +594,14 @@ Find results = results of searches for text in Find line edit\n\
         self.Reverse_FindReplaceCB.setIcon(QIconFromXPMString(reverse_find_replace_icon))
         self.Reverse_FindReplaceCB.clicked.connect(self.on_Reverse_FindReplaceCB_Clicked)
         replaceEditLayout.addWidget(self.Reverse_FindReplaceCB)
+
+        self.Refresh_Aqua_HighlightR = QtWidgets.QPushButton()  #"Refresh_Aqua_Highlight Search"
+        self.Refresh_Aqua_HighlightR.setToolTip("Refresh / Restaure Highlight Selection (Replace)")
+        self.Refresh_Aqua_HighlightR.setIcon(QIconFromXPMString(Btn_Refresh_Aqua_Highlight_icon))
+        self.Refresh_Aqua_HighlightR.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
+        self.Refresh_Aqua_HighlightR.clicked.connect(self.on_Refresh_Aqua_HighlightR_clicked)
+        replaceEditLayout.addWidget(self.Refresh_Aqua_HighlightR)
+
         self.replaceEdit = FindEdit(form=self)
         self.replaceEdit.setPlaceholderText("Replace:")
         replaceEditLayout.addWidget(self.replaceEdit)
@@ -490,14 +624,20 @@ Find results = results of searches for text in Find line edit\n\
         self.ComboBox_replace.setMaxVisibleItems(16)
         self.ComboBox_replace.setDuplicatesEnabled(False)    # not work ?
         self.ComboBox_replace.setEditable(True)              # editable
-        QtCore.QObject.connect(self.ComboBox_replace, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Replace_Clicked)
+
+        #QtCore.QObject.connect(self.ComboBox_replace, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Replace_Clicked)
+        QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Find_Clicked)
         replaceEditLayout2.addWidget(self.ComboBox_replace)
 
         if not showReplaceLine:
             self.replaceEdit.setVisible(showReplaceLine)
+
+            self.Refresh_Aqua_HighlightR.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
             self.Reverse_FindReplaceCB.setVisible(showReplaceLine)
+
+            self.Clear_FindReplaceCB.setVisible(showReplaceLine)
 
         if not showReplaceLine2:
             self.ComboBox_replace.setVisible(showReplaceLine2)
@@ -522,7 +662,7 @@ Find results = results of searches for text in Find line edit\n\
 
         self.ComboBox_Indent_Memo = QtWidgets.QComboBox()
         self.ComboBox_Indent_Memo.setMaxVisibleItems(16)
-        self.ComboBox_Indent_Memo.setToolTip("Insert the text in front instead of the indentation " + "\n"
+        self.ComboBox_Indent_Memo.setToolTip("Insert the text in front on line(s) selected instead of the indentation " + "\n"
                                              "(the button indentation icon change)" + "\n"
                                              "Ex: '#ori'" + "\n"
                                              "Validate by Enter" + "\n"
@@ -533,26 +673,37 @@ Find results = results of searches for text in Find line edit\n\
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("editTextChanged (QString)"), self.on_ComboBox_Indent_Memo_Changed_Clicked)
         indentLayout.addWidget(self.ComboBox_Indent_Memo)
 
-        indentLayout.addStretch()
+
+        #indentLayout.addStretch()
         self.matchWholeCheckBox = QtWidgets.QCheckBox()
         self.matchWholeCheckBox.setIcon(QIconFromXPMString(match_whole_word_icon))
+
+        self.matchWholeCheckBox.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH + 5)
         self.matchWholeCheckBox.setToolTip("Match whole words")
         self.matchWholeCheckBox.stateChanged.connect(self.onMatchWholeCheckBoxStateChanged)
+
         self.matchCaseCheckBox = QtWidgets.QCheckBox()
         self.matchCaseCheckBox.stateChanged.connect(self.onMatchCaseCheckBoxStateChanged)
+
+        self.matchCaseCheckBox.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH + 5)
         self.matchCaseCheckBox.setIcon(QIconFromXPMString(match_case_icon))
         self.matchCaseCheckBox.setToolTip("Match case")
+
         self.loopCheckBox = QtWidgets.QCheckBox()
         loop_icon = reverse_find_replace_icon.replace("#EF2B29","#3F48CC").replace("#8AE138","#3F48CC")
         loop_icon = loop_icon.replace("#4E990D","black").replace("#A70002","black")
+
+        self.loopCheckBox.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH + 5)
         self.loopCheckBox.setIcon(QIconFromXPMString(loop_icon))
         self.loopCheckBox.setCheckState(QtCore.Qt.Checked)
         self.loopCheckBox.setToolTip ("Loop to start/end if text not found")
+
         indentLayout.addWidget(self.matchCaseCheckBox)
         indentLayout.addWidget(self.matchWholeCheckBox)
         indentLayout.addWidget(self.loopCheckBox)
         self.matchCaseCheckBox.stateChanged.connect(self.onFindEditTextChanged)
         if not showIndentLine:
+
             self.indentBackBtn.setVisible(showIndentLine)
             self.indentBackBtn.setVisible(showIndentLine)
             self.indentBackBtn.setVisible(showIndentLine)
@@ -564,7 +715,6 @@ Find results = results of searches for text in Find line edit\n\
         showSnapsLine = pg.GetBool("ShowSnapLine",True)
         snapLayout = QtWidgets.QHBoxLayout()
         self.takeSnapBtn = QtWidgets.QPushButton()
-
         self.takeSnapBtn.setIcon(QIconFromXPMString(snapshot_icon))
         self.takeSnapBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.takeSnapBtn.setToolTip("Take a snapshot of the text")
@@ -656,6 +806,13 @@ Type 'help(editor)' in the console for help.\n\
                 cursor = self.editors[ii].textCursor()
                 self.takeSnap(title, cursor, "Auto snapshot",self.editors[ii].toPlainText())
 
+##https://doc.qt.io/qt-6/stylesheet-examples.html
+        if (COLOR_ACTIVE_TAB == "0") or (COLOR_ACTIVE_TAB == ""):
+            mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: QPalette.Base;}")
+        else:
+            #mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: " + COLOR_ACTIVE_TAB + ";}")
+            mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:only-one {background-color: " + COLOR_ACTIVE_TAB + ";}")
+
     def highlightFromSelection(self):
         editor = self.currentEditor
         if not editor:
@@ -699,7 +856,46 @@ Type 'help(editor)' in the console for help.\n\
         self.currentEditor.setExtraSelections(extraSelections)
         self.toast(f"Highlighted {count} occurrences of {txt}","Message")
 
+    def setIconCurrentEditor(self, fileNameBAK = ""):   # change icon in backUp button
+        try:
+            lenBackUpFile = 0
+            lenBackUpFile = len(os.listdir(fileNameBAK))
+            self.fileBackupDelBtn.setText(str(lenBackUpFile))
+            self.fileBackupDelBtn.setIcon(QIconFromXPMString(directory_Backup_Taken_icon))
+            self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" + 
+                                             "Actual : " + str(lenBackUpFile) + " file(s)" + "\n" 
+                                             "Push the button for delette complete file(s) and directory" + "\n"
+                                             "If the button is not visible the feature not run")
+        except Exception:
+            try:
+                self.fileBackupDelBtn.setText("")
+                self.fileBackupDelBtn.setIcon(QIconFromXPMString(directory_Backup_Empty_icon))
+                self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" + 
+                                                 "Push the button for delette complete file(s) and directory" + "\n"
+                                                 "If the button is not visible the feature not run")
+            except Exception:
+                None
+        try:
+            self.ComboBox_Bak_Files.setToolTip("<html><body>"
+                                               "Click the backup file for reload the .BAK file" + "<br />"
+                                               "One new text document is created" + "<br /><br />"
+                                               "<b>" + fileNameBAK + "</b><br /><br />" 
+                                               "<u>Option hidden : </u>" + "<br /><br />"
+                                               "<b>switchFrameInfoBackUpOnFile</b><br />"
+                                               "Write info of backup file loaded<br />"
+                                               "actual : " + "<b>" + str(switchFrameInfoBackUpOnFile) + "</b><br /><br />"
+                                               "<b>switchFrameInfoOnBeginOrEnd</b><br />"
+                                               "Choice the position of the info : <b>Begin (True)</b>/<b>End (False)</b> of the file<br />"
+                                               "actual : " + "<b>" + str(switchFrameInfoOnBeginOrEnd) + "</b><br />"
+                                               "If the ComboBox is not visible the feature not run"
+                                               "</body></html>")
+        except Exception:
+            None
+
     def setCurrentEditor(self, name="", focus=True):
+
+        global fileNameBAK
+
         if not shiboken.isValid(self.editorList):
             return
         if name:
@@ -720,6 +916,15 @@ Type 'help(editor)' in the console for help.\n\
                 self.currentEditor.setFocus()
                 self.form.parent().show()
 
+        if (name.find("\\") == -1) and (name.find("/") == -1):  ## for case drag/drop the complete path is already given
+            nameBAK = name
+        else:
+            nameBAK = name.split("[")[0].split("/")[-1] # case drag/drop !?
+        nameBAK = nameBAK.replace("[*]","")             # case drag/drop !?
+        fileNameBAK = setPathFileBackup + nameBAK + ".BAK"
+        self.setIconCurrentEditor(fileNameBAK)
+        self.setListFilesBak(fileNameBAK)
+
     def onSubWindowActivated(self, arg1):
         if not shiboken.isValid(self.editorList):
             return
@@ -731,6 +936,301 @@ Type 'help(editor)' in the console for help.\n\
             name = gp.windowTitle()
             if not name in self.editorDict:
                 QtCore.QTimer().singleShot(50, self.refresh)
+
+    def fileBackupDelBtnClicked(self):
+        global fileNameBAK
+
+        if (fileNameBAK != "") and (os.path.exists(fileNameBAK)):
+            lenBackUpFile = 0
+            lenBackUpFile = len(os.listdir(fileNameBAK))
+            diag = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, "Warning Delete BAK", "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br /><br />" +
+                                                                         "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br /><br />" +
+                                                                         "Name of .BAK directory : " + "<br /><br />" + 
+                                                                         "<b>" + fileNameBAK + "</b>")
+            diag.addButton("Ok Delete", QtWidgets.QMessageBox.AcceptRole) #0
+            diag.addButton("  Abort  ", QtWidgets.QMessageBox.RejectRole) #1 "<html><body>" +   + "</body></html>"
+            diag.setWindowModality(QtCore.Qt.ApplicationModal)
+            button = diag.exec_()
+            if button == QtWidgets.QMessageBox.AcceptRole:                #0
+                try:
+                    shutil.rmtree(fileNameBAK)  # del the complete directory and files
+                    self.ComboBox_Bak_Files.clear()
+                except OSError:
+                    None
+                self.setIconCurrentEditor(fileNameBAK)
+
+    def FreeCAD_Console_PrintError(self, txt):
+        switchDisplayConsolePrintError = pg.GetBool("switchDisplayConsolePrintError")
+        if switchDisplayConsolePrintError:
+            FreeCAD.Console.PrintMessage("_____Info Editor assistant_____Begin" + "\n")
+            FreeCAD.Console.PrintError(txt + "\n")
+            FreeCAD.Console.PrintMessage("_____Info Editor assistant_____End" + "\n")
+
+    def colorError(self, text_cursor=""):
+        lenTextDetected = len(text_cursor.selectedText())
+        extraSelection = QtWidgets.QTextEdit.ExtraSelection()
+        extraSelection.cursor = self.currentEditor.textCursor()
+        text_cursor.clearSelection()
+        extraSelection.format.setBackground(QtGui.QColor(COLOR_ERROR_DETECTED))
+        self.currentEditor.setExtraSelections([extraSelection])
+
+    def runMacroBtnClicked(self):
+        global path
+        global fileNameBAK
+
+
+
+
+
+
+        try:
+            FreeCAD.ActiveDocument.openTransaction("EdAss")    # memorise les actions (avec annuler restore)
+        except Exception:
+            None
+        self.refresh() 
+        try:
+            windowTitleName0 = Gui.getMainWindow().findChild(QtWidgets.QMdiArea).currentSubWindow().windowTitle()
+            windowName0 = self.editorList.currentItem().text()
+            windowName = windowName0.split("[")[0]        #Air_Foild_00_PY.py #Air_Foild_00.FCMacro
+            macroName  = windowName.split(".")[0]         #Air_Foild_00_PY    #Air_Foild_00
+            dummy = windowName.split(".")[1].upper()
+            dummy = dummyPy = dummy.split("[")[0].upper() #PY   #FCMACRO
+        except Exception:
+            dummy = dummyPy = ""
+
+        if (dummy == "FCMACRO" or dummyPy == "PY"):
+            filename = windowName
+            if (windowName.find("\\") == -1) and (windowName.find("/") == -1):  ## for case drag/drop the complete path is already given
+                filename = path + windowName
+            plainText = self.getText()
+            switchAllIsGood = True
+            if self.fileBackupDelBtn.isVisible():  # save Bak file
+                now = QDateTime.currentDateTime().toString(setFormatBackupDateTime)
+                windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !?
+                windowName2 = windowName2.replace("[*]","")
+                fileNameBAK = setPathFileBackup + windowName2 + ".BAK"
+                os.makedirs(fileNameBAK, exist_ok=True) #11:59:18  OSError: [WinError 123] La syntaxe du nom de fichier, de repertoire ou de volume est incorrecte ex: 'C:/Users/xxxx/AppData/Roaming/FreeCAD/Macro/C:' add "C:"
+                completeBakName = fileNameBAK + "/" + windowName2 + ".BAK_" + now
+                fileSave = open(completeBakName, 'w') # .BAK_ + setFormatBackupDateTime default: "yyyy-MM-dd_hhmmss"
+                try:
+                    fileSave.write(plainText)   # .Bak file
+                    self.setListFilesBak(fileNameBAK) # upgrade
+                                                # .py .FCMacro file
+                except (UnicodeEncodeError):    # character '\ufffd'  RuntimeError, TypeError, NameError): # only in write file switch True detect "UnicodeDecodeError, UnicodeEncodeError" display toast
+                    switchAllIsGood = False     # not .Bak file
+                    fileSave.close()
+                    try:
+                        os.remove(completeBakName)
+                    except Exception:
+                        None
+                    #### search formule for positioned the cursor example in position point 49710
+                    erreur = str(traceback.format_exc())    # error detected in executed macro and position the cursor in a eroneous line 
+                    erreur = errorSave = str(erreur.split("UnicodeEncodeError:")[1])
+                    lineErrorStr = erreur.split("position")[1].split(":")[0]
+                    lineError = int(lineErrorStr)   # position error ex: 49710
+                    
+                    #### begin calcul position X and Y of text ex: position 49710
+                    numberCR = plainText.count('\n', 0, lineError)   # line error (number of "\n" Carriage return) 
+                    text_cursor = self.currentEditor.textCursor()
+
+                    text_cursor.setPosition(lineError)
+                    pos01 = text_cursor.blockNumber()        #  767
+                    text_cursor.setPosition(lineError - numberCR)
+                    pos02 = text_cursor.blockNumber()        #  752
+                    pos03 = pos01 - pos02                    #  15
+                    text_cursor.setPosition(lineError - numberCR + pos03)   #   48958 ( = 752, 106)
+                    text_cursor.positionInBlock()
+                    self.currentEditor.setTextCursor(text_cursor)
+                    line_y = text_cursor.blockNumber() + 1   #  753
+                    colon_x = text_cursor.columnNumber() + 1 #  107
+
+                    self.gotoLineEdit.setText(str(line_y))
+                    self.currentEditor.centerCursor()
+                    #
+                    text_cursor.setPosition(lineError - numberCR + pos03 + 1, QtGui.QTextCursor.KeepAnchor) # for select 1 character
+                    self.currentEditor.setTextCursor(text_cursor)
+                    #### end calcul position X and Y of text
+
+                    self.colorError(text_cursor)
+
+                    classErr = str(sys.exc_info()[0]) # <class 'SyntaxError'>    # error detected in editor_assistant_dlg.FCMacro
+                    self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + " : " + classErr + "\n" + " " + errorSave + " (Bak not saved)")
+                    self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + ")" + "\n" + " : " + classErr + "\n" + " (Bak not saved)", "Python")
+                    self.FreeCAD_Console_PrintError(erreur)
+                finally:
+                    fileSave.close()
+                    self.setIconCurrentEditor(fileNameBAK)
+                    None
+
+            if switchAllIsGood:
+
+                if windowName0 == windowTitleName0:
+                    Gui.SendMsgToActiveView("Save")   # save without display the window Yes/No (if it is in a 3D View, the 3D View is saved in a .FCstd file)
+                else:
+                    try:
+                        fileSave = open(filename,'w') # save and display the window Yes/No (case execute macro with EditorAss and work in a 3D window)
+                        fileSave.write(plainText)
+                    except (UnicodeEncodeError):      # character '\ufffd'  RuntimeError, TypeError, NameError): # only in write file switch True detect "UnicodeDecodeError, UnicodeEncodeError" display toast
+                        None
+                    finally:
+                        fileSave.close()
+                try:
+                    switch_Unicode_Read_File = pg.GetBool("switch_Unicode_Read_File")
+                    if switch_Unicode_Read_File == 0:
+                        with open(filename, 'r',errors='ignore') as file:        # only in read file switch False not error detection not display toast skip or not run
+                            data = file.read()
+                    else:
+                        with open(filename, 'r') as file:
+                            data = file.read()
+                except (UnicodeDecodeError, RuntimeError, TypeError, NameError): # only in read file switch True detect "UnicodeDecodeError" display toast stop the run
+                    self.toast(str(sys.exc_info()[0]),"Python")
+                finally:    #except OSError:
+                    file.close()
+
+                my_name = 'my_macro'
+                my_spec = importlib.util.spec_from_loader(my_name, loader=None)
+                my_macro = importlib.util.module_from_spec(my_spec)
+                my_macro.FreeCAD = FreeCAD
+                my_macro.App = FreeCAD
+                my_macro.Gui = FreeCADGui
+                my_macro.FreeCADGui = FreeCADGui
+
+                try:
+                    exec(data, my_macro.__dict__)
+                except Exception as err:
+                    erreur = str(traceback.format_exc())      # !! error detected in executed macro and position the cursor in a eroneous line 
+                    counterCirconflex = erreur.count("^")
+                    counterCirconflexPos = erreur.find("^")
+                    numberCRCirconflex = erreur.count('\n')   # line error (number of "\n" Carriage return) 
+
+                    argument = str(err.args)
+                    lineError = colError = lineColError = switchSelectCompleteLine = 0
+                    text_cursor = self.currentEditor.textCursor()
+                    try:
+                        lineError = err.lineno
+                    except Exception:
+                        lineError = 0
+                        None
+                    if str(type(err)) == "<class 'UnboundLocalError'>":
+                        wordError = (str(err.args).replace("'","").split(",")[0].split(" "))[2]
+                        lineError = None
+                        self.findEdit.setText(wordError)
+                        self.onFindBtnClicked(True)     # change every run
+                        ##
+                        errS = str(erreur).split("\n")
+                        lineError = errS[-3].split()
+                        lineError = lineError[3].split(",")
+                        lineError = int(lineError[0])
+                        ##
+                        self.gotoLine(lineError)
+                        self.gotoLineEdit.setText(str(lineError))
+                        try:
+                            text_cursor = self.currentEditor.textCursor()
+                            pos01 = text_cursor.blockNumber()
+                            pos02 = text_cursor.position()
+                            numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return) 
+                            curPos = pos03 = pos01 + pos02 - numberCR + colError
+                            text_cursor.setPosition(pos03)
+                            text_cursor.select(QtGui.QTextCursor.WordUnderCursor)       # select the word
+                            if not text_cursor.hasSelection() or switchSelectCompleteLine == True:
+                                text_cursor.select(QtGui.QTextCursor.LineUnderCursor)   # select the complete line text (case not line number)
+                            self.currentEditor.centerCursor()
+                            self.currentEditor.setTextCursor(text_cursor)
+                            self.colorError(text_cursor)
+                        except Exception:
+                            None
+                    else:
+                        if str(type(err)) == "<class 'NameError'>":
+                            errS = str(erreur).split("\n")
+                            lineError = errS[-3].split()
+                            lineError = lineError[3].split(",")
+                            lineError = int(lineError[0])
+
+                        elif str(type(err)) == "<class 'SyntaxError'>":
+                            lineError = err.lineno
+                            colError = err.offset
+                        elif str(type(err)) == "<class 'IndentationError'>":
+                            lineError = err.lineno
+                            colError = err.offset
+                        elif str(type(err)) == "<class 'TabError'>":
+                            lineError = err.lineno
+                            colError = err.offset
+                        ####
+                        elif str(type(err)) == "<class 'IndexError'>":
+                            lineColError = erreur.replace("'"," ")
+                            lineError = int(lineColError.split('"<string>",')[-1].split("line")[1].split(",")[0])
+                            switchSelectCompleteLine = True
+                        elif str(type(err)) == "<class 'TypeError'>":
+                            lineColError = erreur.replace("'"," ")
+                            lineError = int(lineColError.split('"<string>",')[-1].split("line")[1].split(",")[0])
+                            switchSelectCompleteLine = True
+                        else:
+                            lineError = erreur.split("\n")
+#ori                            for i00 in reversed(lineError): 
+                            for i00 in lineError:
+                                if "line" in i00:
+                                    i01 = i00.replace(",","").split()
+                                    for i02 in i01:
+                                        try:
+                                            lineError = int(i02)
+                                            break
+                                        except Exception:
+                                            None
+
+                        #<class 'ZeroDivisionError'> to do
+                        ####
+                        self.gotoLine(lineError)
+                        self.gotoLineEdit.setText(str(lineError))
+                        text_cursor = self.currentEditor.textCursor()
+                        pos01 = text_cursor.blockNumber()
+                        pos02 = text_cursor.position()
+                        numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return) 
+                        curPos = pos03 = pos01 + pos02 - numberCR + colError
+                        text_cursor.setPosition(pos03)
+                        ####
+#                        if str(type(err)) == "<class 'NameError'>":
+#                            erreurSplit = erreur.split("NameError: name")[1]
+#                            erreurSplit = erreurSplit.split()[0]
+#                            text_cursor.setPosition(pos03 + len(erreurSplit)-2)
+#                            if len(erreurSplit) == 3:
+#                                text_cursor.setPosition(pos03 + len(erreurSplit)-2)
+#                                curPos = pos03 + len(erreurSplit)-2
+#                            else:
+#                                text_cursor.setPosition(pos03 + len(erreurSplit))
+#                                curPos = pos03 + len(erreurSplit)
+                        ####
+                        if str(type(err)) == "<class 'SyntaxError'>":
+                            text_cursor.setPosition(pos03-1)
+                            curPos = pos03 - 1
+                            argument = argument[:50] + " ..."
+                        text_cursor.select(QtGui.QTextCursor.WordUnderCursor)       # select the word
+                        if not text_cursor.hasSelection() or switchSelectCompleteLine == True:
+                            text_cursor.select(QtGui.QTextCursor.LineUnderCursor)   # select the complete line text (case not line number)
+                        self.currentEditor.centerCursor()
+                        self.currentEditor.setTextCursor(text_cursor)
+
+                        self.colorError(text_cursor)
+                        ####
+#                        lenTextDetected = len(text_cursor.selectedText())
+#                        text_cursor.clearSelection()
+#                        extraSelection = QtWidgets.QTextEdit.ExtraSelection()
+#                        extraSelection.cursor = self.currentEditor.textCursor()
+#                        #extraSelection.cursor.setPosition(pos01)
+#                        #extraSelection.cursor.setPosition(curPos - lenTextDetected, QtGui.QTextCursor.KeepAnchor)
+#                        color = QColor(COLOR_ERROR_DETECTED)   #a40000
+#                        extraSelection.format.setBackground(QtGui.QColor(color))
+#                        self.currentEditor.setExtraSelections([extraSelection])
+                        ####
+
+##                        self.highlight(text_cursor.selectedText(),color="red")
+
+                        self.currentEditor.centerCursor()
+                        self.currentEditor.setTextCursor(text_cursor)
+
+                    classErr = str(sys.exc_info()[0]) # <class 'SyntaxError'>       # error detected in editor_assistant_dlg.FCMacro
+                    self.toast(erreur)
+                    self.toast("Error on line : " + str(lineError) + "\n" + argument + "\n" + " : " + str(classErr), "Python")
+                    self.FreeCAD_Console_PrintError(erreur)
 
     def refresh(self):
         self.onRefreshBtnClicked(True)
@@ -745,8 +1245,24 @@ Type 'help(editor)' in the console for help.\n\
 
     def checkForTabs(self):
         txt = self.getText()
-        if txt.count("\t") > 0:
-            self.toast(f"{self.editorList.currentItem().text()}: contains tabs.","Warning")
+        counterTab = txt.count("\t")
+
+        counterInterrogation = txt.count("\ufffd")
+        counterTabStr = counterInterogationStr = CReturn = ""
+        if counterTab > 0:
+            counterTabStr = "contains (" + str(counterTab) + ") tabs."
+            CReturn = "\n" + "    "
+
+        if counterInterrogation > 0:
+            switchReplaceInterrogationFFFD = pg.GetBool("switchReplaceInterrogationFFFD")
+            if switchReplaceInterrogationFFFD:
+                txt = txt.replace("\ufffd", "_")
+            self.currentEditor.setPlainText(txt)
+            counterInterogationStr = "contains (" + str(counterInterrogation) + ") character ufffd '\ufffd' " + "\n" + "replaced by '_'."
+
+        if counterTab + counterInterrogation != 0:
+            self.toast(f"{self.editorList.currentItem().text()}: " + counterTabStr +
+                         CReturn + counterInterogationStr, "Warning")
 
     def onEditorListCurrentItemChanged(self, current, previous):
         if self.blockSignals:
@@ -944,9 +1460,12 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         if log:
             self.toastsLog.append(tuple([msg, msgType]))
         if msgType == 'Error':
-            self.msgBtn.setStyleSheet("color: red")
+            self.msgBtn.setStyleSheet("color:red")
             self.msgBtn.setIcon(QIconFromXPMString(msgBtn_Critical_icon))
 
+        elif msgType == 'Python':
+            self.msgBtn.setStyleSheet("color:yellow;background-color:red;font-weight:bold")
+            self.msgBtn.setIcon(QIconFromXPMString(pythonPY_icon))
         elif msgType == 'Message':
             self.msgBtn.setStyleSheet("color:black")
         elif msgType == 'Warning':
@@ -954,7 +1473,9 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.msgBtn.setIcon(QIconFromXPMString(msgBtn_Warning_icon))
         elif msgType == 'Information':
             self.msgBtn.setStyleSheet("color:blue")
-        self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
+
+
+        #self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
         QtCore.QTimer().singleShot(length,self.clearToast)
 
     def clearToast(self):
@@ -1030,6 +1551,97 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.ComboBox_Find.setCurrentText(text)
         self.findEdit.setText(text)
 
+
+    def setListFilesBak(self, text):
+        global takenBakFiles
+
+        try:
+            if ".FCMACRO" in text.upper():
+                text = text.split(".FCMacro")[0]
+                text = text + ".FCMacro.BAK"
+            elif ".PY" in text.upper():
+                text = text.split(".py")[0]
+                text = text + ".py.BAK"
+#            text = text.replace("[*]","")
+            self.ComboBox_Bak_Files.clear()
+            takenBakFiles = []
+            if os.path.exists(text):
+                for i in enumerate(os.listdir(text)):   #list of files in directory
+                    convertName = i[1].split(".")[-1]
+                    self.ComboBox_Bak_Files.addItem( str((i[0] + 1)) + " : " + convertName) # text in comboBox
+                    takenBakFiles.append([str(i[0]), convertName, text, i[1]])
+                self.setIconCurrentEditor(text)
+        except Exception:
+            None
+
+    def on_ComboBox_Bak_Files_Clicked(self, text):
+        global takenBakFiles
+        global fileNameBAK  #            lenBackUpFile = len(os.listdir(fileNameBAK))
+
+
+        try:
+            if len(takenBakFiles) != 0:
+                itemFile = int(text.split(":")[0]) -1
+                ##itemFile = takenBakFiles[itemFile][0])    # 5 # index
+                bakNickName = takenBakFiles[itemFile][1]    # BAK_2023-09-04_174848
+                pathBak  = takenBakFiles[itemFile][2]       # C:/Users/Tyty/AppData/Roaming/FreeCAD/Macro/Tyty.py.BAK
+                nameBak  = takenBakFiles[itemFile][3]       # Tyty.py.BAK_2023-09-04_174848
+                filename = pathBak + "/" + nameBak
+                doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
+                textDoc = doc.addObject("App::TextDocument", bakNickName)
+                with open(filename, 'r') as file:
+                    data = file.read()
+                file.close()
+
+                #### include info begin
+                switchFrameInfoBackUpOnFile = pg.GetBool("switchFrameInfoBackUpOnFile")
+                switchFrameInfoOnBeginOrEnd = pg.GetBool("switchFrameInfoOnBeginOrEnd")
+                if switchFrameInfoBackUpOnFile == True:
+                    lDataII = len(data)
+                    lDataI = len(str(lDataII))
+                    aI = len(bakNickName)
+                    bI = len(nameBak.split('.BAK_')[0])
+                    cI = len(nameBak.split('.BAK_')[1])
+                    d = "(Info include by Editor_Assistant " + __version__ + ")"
+                    dI = len(d)
+                    e = pathBak.split('.BAK')[0]
+                    eI = len(e)
+
+                    x = max(aI, bI, cI, dI, eI, lDataI) + 2
+                    a = bakNickName + " "*(x - aI)
+                    b = nameBak.split('.BAK_')[0] + " "*(x - bI)
+                    c = nameBak.split('.BAK_')[1] + " "*(x - cI)
+                    e = e + " "*(x - eI)
+                    lData = str(lDataII) + " byte(s)" + " "*(x - lDataI - 8)
+                    ## create frame info begin
+                    backInfo = """####""" + "#"*(x + 2) + """####
+######""" + d + '#'*(x - dI) + """####
+#### This document : """ + ' '*(x - 15) + """####
+####  """ + a + """####
+#### Length : """ + ' '*(x - 8) + """####
+####  """ + lData + """####
+#### is one backUp of the file : """ + " "*(x - 27) + """####
+####  """ + b + """####
+#### Date Time : """ + ' '*(x - 11) + """####
+####  """ + c + """####
+#### Original : """ + ' '*(x - 10) +"""####
+####  """ + e + """####
+####""" + '#'*(x + 2) + """####
+"""
+                    ## create frame info end
+                    if switchFrameInfoOnBeginOrEnd == True:
+                        data = backInfo + "\n" + data   # info en haut
+                    else:
+                        data = data + "\n" + backInfo   # info en bas
+                #### include info end
+
+                textDoc.Text = data
+                self.toast("Back file reload " + "\n" + filename,"Message")
+                textDoc.ViewObject.doubleClicked()
+                doc.recompute()
+        except Exception:
+            self.toast("Back file reload Error " + "\n" + filename,"Error")
+
     def on_Clear_FindReplaceCB_Clicked(self):
         self.findEdit.clear()
         self.ComboBox_Find.clear()
@@ -1060,6 +1672,9 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             return
         self.currentEditor.setFocus()
         name = self.editorList.currentItem().text()
+
+        self.highlight(name)
+
         txt = self.findEdit.text()
         matchCase = self.matchCaseCheckBox.checkState()
         modifiers = QtWidgets.QApplication.keyboardModifiers()
@@ -1069,7 +1684,6 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             txt = self.findEdit.text()
         elif modifiers == QtCore.Qt.ControlModifier:
             self.gotoLine(1, silent=True)
-
         self.found = False
         self.find(name, txt)
         if not self.found:
@@ -1077,6 +1691,18 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
                 self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
         self.on_ComboBox_Find_Clicked(txt)
+
+        self.highlight(txt)
+
+
+    def on_Refresh_Aqua_HighlightS_clicked(self):
+        newTxt = self.findEdit.text()
+        self.highlight(newTxt)
+
+
+    def on_Refresh_Aqua_HighlightR_clicked(self):
+        newTxt = self.replaceEdit.text()
+        self.highlight(newTxt)
 
     def updateSnapBtns(self,refresh=True):
         if refresh:
@@ -1175,10 +1801,16 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             "ShowGotoLine": [self.gotoEndBtn, self.gotoHomeBtn, self.nextBookmarkBtn, \
                                 self.previousBookmarkBtn, \
                                 self.removeAllBookmarksBtn, self.toggleBookmarkBtn],
+
+            "ShowRunMacroBtn": [self.runMacroBtn],
+            "ShowRunBackUpAction": [self.fileBackupDelBtn],
+            "ShowRunShowFilesBak": [self.ComboBox_Bak_Files],
             "ShowUndoLine": [self.undoBtn, self.undoClearBtn, self.redoBtn],
-            "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn, self.Clear_FindReplaceCB],
+
+            "ShowFindLine": [self.findEdit, self.findBtn, self.findBackBtn, self.Clear_FindReplaceCB, self.Refresh_Aqua_HighlightS],
             "ShowFindLine2": [self.ComboBox_Find],
-            "ShowReplaceLine": [self.replaceEdit, self.replaceBtn, self.replaceAllBtn, self.Reverse_FindReplaceCB],
+
+            "ShowReplaceLine": [self.replaceEdit, self.Refresh_Aqua_HighlightR, self.replaceBtn, self.replaceAllBtn, self.Reverse_FindReplaceCB],
             "ShowReplaceLine2": [self.ComboBox_replace],
             "ShowIndentLine": [self.indentBackBtn, self.indentBtn, self.ComboBox_Indent_Memo, self.matchCaseCheckBox, \
                                 self.matchWholeCheckBox, self.loopCheckBox],
@@ -1202,6 +1834,10 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         showEditorList = pg.GetBool("ShowEditorList", True)
         showRefreshLine = pg.GetBool("ShowRefreshLine", True)
         showGotoLine = pg.GetBool("ShowGotoLine", True)
+
+        ShowRunMacroBtn = pg.GetBool("ShowRunMacroBtn", True)
+        ShowRunBackUpAction = pg.GetBool("ShowRunBackUpAction", True)
+        ShowRunShowFilesBak = pg.GetBool("ShowRunShowFilesBak", True)
         showUndoLine = pg.GetBool("ShowUndoLine", True)
         showFindLine = pg.GetBool("ShowFindLine", True)
         showFindLine2 = pg.GetBool("ShowFindLine2", False)
@@ -1212,6 +1848,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         showConsoleLine = pg.GetBool("ShowConsoleLine", True)
 
         allLines = ["ShowEditorList","ShowRefreshLine","ShowGotoLine","ShowUndoLine",\
+                    "ShowRunMacroBtn","ShowRunBackUpAction","ShowRunShowFilesBak",\
                     "ShowFindLine","ShowFindLine2","ShowReplaceLine","ShowReplaceLine2",\
                     "ShowIndentLine","ShowSnapsLine","ShowConsoleLine"]
 
@@ -1229,11 +1866,11 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
         mainMenu = QtWidgets.QMenu("Main menu")
         settingsMenu = QtWidgets.QMenu("Settings")
+
+        settingsMenu.setIcon(QIconFromXPMString(tools_icon))
         layoutMenu = QtWidgets.QMenu("Layout lines")
         settingsMenu.addMenu(layoutMenu)
-
         togglers = []
-
 #settings -> layout
         editorListAction = QtWidgets.QAction("Editor list", layoutMenu, checkable=True)
         editorListAction.setChecked(showEditorList)
@@ -1241,17 +1878,37 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         editorListAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(editorListAction)
 
-        refreshLineAction = QtWidgets.QAction("Refresh line",layoutMenu, checkable=True)
+        refreshLineAction = QtWidgets.QAction("Refresh line/Run",layoutMenu, checkable=True)
         refreshLineAction.setChecked(showRefreshLine)
         togglers.append(makeToggler("ShowRefreshLine", not refreshLineAction.isChecked()))
         refreshLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(refreshLineAction)
 
-        gotoLineAction = QtWidgets.QAction("Goto line",layoutMenu, checkable=True)
+        gotoLineAction = QtWidgets.QAction("Goto/Bookmark line",layoutMenu, checkable=True)
         gotoLineAction.setChecked(showGotoLine)
         togglers.append(makeToggler("ShowGotoLine", not gotoLineAction.isChecked()))
         gotoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(gotoLineAction)
+
+        runMacroAction = QtWidgets.QAction("Run Macro",layoutMenu, checkable=True)
+        runMacroAction.setChecked(ShowRunMacroBtn)
+        togglers.append(makeToggler("ShowRunMacroBtn", not runMacroAction.isChecked()))
+        runMacroAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(runMacroAction)
+
+#        runBackUpAction = QtWidgets.QAction("Backup",layoutMenu, checkable=True)
+        runBackUpAction = QtWidgets.QAction("Run Backup",layoutMenu, checkable=True)
+        runBackUpAction.setChecked(ShowRunBackUpAction)
+        togglers.append(makeToggler("ShowRunBackUpAction", not runBackUpAction.isChecked()))
+        runBackUpAction.toggled.connect(togglers[-1])
+        layoutMenu.addAction(runBackUpAction)
+
+#        runShowFilesBak = QtWidgets.QAction("Show Bak files",layoutMenu, checkable=True)
+        runShowFilesBak = QtWidgets.QAction("Run Show Bak files",layoutMenu, checkable=True)
+        runShowFilesBak.setChecked(ShowRunShowFilesBak)
+        togglers.append(makeToggler("ShowRunShowFilesBak", not runShowFilesBak.isChecked()))
+        runShowFilesBak.toggled.connect(togglers[-1])
+        layoutMenu.addAction(runShowFilesBak)
 
         undoLineAction = QtWidgets.QAction("Undo line", layoutMenu, checkable=True)
         undoLineAction.setChecked(showUndoLine)
@@ -1321,12 +1978,18 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
 #start goto menu
         gotoMenu = self.makeGotoMenu()
+
+        gotoMenu.setIcon(QIconFromXPMString(goto_To_Menu_icon))
         mainMenu.addMenu(gotoMenu)
 #start snaps menu
         snapsMenu = self.makeSnapsMenu()
+
+        snapsMenu.setIcon(QIconFromXPMString(snapshot_icon))
         mainMenu.addMenu(snapsMenu)
 #start templates menu
         templatesMenu = QtWidgets.QMenu("Templates")
+
+        templatesMenu.setIcon(QIconFromXPMString(template_icon))
         insertFromTemplateAction = QtWidgets.QAction("Insert from dialog")
         insertFromTemplateAction.triggered.connect(self.setupInsertFromTemplate)
         templatesMenu.addAction(insertFromTemplateAction)
@@ -1357,6 +2020,8 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
 #start help menu
         helpMenu = QtWidgets.QMenu("Help")
+
+        helpMenu.setIcon(QIconFromXPMString(help_To_Web_icon))
         mainMenu.addMenu(helpMenu)
 
 #start help -> reference menu
@@ -1545,8 +2210,11 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         wSearchMenu.addAction(wSearchAskAction)
 
         helpMenu.addMenu(wSearchMenu)
+
 #highlight menu
         highlightMenu = QtWidgets.QMenu("Highlight", mw)
+
+        highlightMenu.setIcon(QIconFromXPMString(high_Light_icon))
         highlightFromSelectionAction = QtWidgets.QAction("From selection")
         highlightFromSelectionAction.triggered.connect(self.highlightFromSelection)
         highlightMenu.addAction(highlightFromSelectionAction)
@@ -1556,10 +2224,16 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         highlightMenu.addAction(highlightFromFindAction)
         mainMenu.addMenu(highlightMenu)
 
+        highlightFromReplaceAction = QtWidgets.QAction("From replace")
+        highlightFromReplaceAction.triggered.connect(self.on_Refresh_Aqua_HighlightR_clicked)
+        highlightMenu.addAction(highlightFromReplaceAction)
+        mainMenu.addMenu(highlightMenu)
         mainMenu.addSeparator()
 
 #drag to forum
         dragToForumAction = QtWidgets.QAction("Drag to forum")
+
+        dragToForumAction.setIcon(QIconFromXPMString(pythonToForum_icon))
         dragToForumEnabled = hasattr(self.editorList.currentItem(),"text")
         dragToForumAction.setEnabled(dragToForumEnabled)
         dragToForumAction.triggered.connect(lambda: self.dragToForum(self.editorList.currentItem()))
@@ -1568,6 +2242,8 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 #close menu
         if self.isTabbed:
             closeAction = QtWidgets.QAction("Close")
+
+            closeAction.setIcon(QIconFromXPMString(Btn_Quit_icon))
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
@@ -1882,6 +2558,8 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         dlg.show()
 
     def close(self):
+
+        mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: QPalette.Base;}")
         self.mdi.subWindowActivated.disconnect(self.onSubWindowActivated)
         self.form.close()
 
@@ -2355,6 +3033,8 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             else:
                 self.toast(f"{txt} not found backwards in {name}","Message")
         self.on_ComboBox_Find_Clicked(txt)
+
+        self.highlight(txt)
 
     def setModified(self, name, old_text, reason, tc):
         self.undoQueue.append({"name":name, "old_text": old_text, "reason":reason, "tc":tc})
@@ -2914,7 +3594,15 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             current = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
         self.editorList.clear()
         for k in sorted(self.editorDict.keys()):
-            self.editorList.addItem(k)
+
+            # line original self.editorList.addItem(k)   # commented for display icon : .py, .FCMacro, .txt file
+            if (k[-8:].upper() == ".FCMACRO") or (k[-11:].upper() == ".FCMACRO[*]") or (".FCMACRO[*] -" in k.upper()):
+                iconItem = pythonFC_icon    # Icon FreeCAD (.FCMacro)
+            elif (k[-3:].upper() == ".PY") or (k[-6:].upper() == ".PY[*]") or (".PY[*] -" in k.upper()):
+                iconItem = pythonPY_icon    # Icon Python  (.py)
+            else:
+                iconItem = file_Txt_icon    # Icon file_Txt() or other
+            self.editorList.addItem(QtWidgets.QListWidgetItem(QtGui.QIcon(QIconFromXPMString(iconItem)),k))
 
         if current and current in self.editorDict:
             items = self.editorList.findItems(current, QtCore.Qt.MatchExactly)
@@ -3123,7 +3811,6 @@ class TemplateEditor(QtWidgets.QWidget):
         QtGui.QClipboard().setText(clipTxt)
         self.form.toast(f"{curName} to clipboard","Message")
 
-
     def onTestBtnClicked(self,arg1):
         """test current template"""
         curName = self.templateList.currentItem().text() if self.templateList.currentItem() else ""
@@ -3305,7 +3992,6 @@ class DiffSaver (QtWidgets.QDialog):
         self.diff = ""
         self.makeDiff()
         self.blockSignals = False
-
 
     def setMaxWidthString(self, width=None):
         if not self.webView:
@@ -3507,6 +4193,88 @@ static char *_647719150564[] = {
 "                                                                ",
 "                                                                "
 };"""
+
+
+runSave_icon = """
+/* XPM */
+static char *runSave_icon_XPM[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"   c None",
+".  c #1A2A01",
+"+  c #2E6C9F",
+"@  c #3A76AA",
+"#  c #3E84B7",
+"$  c #5BA900",
+"%  c #84E033",
+"&  c #FFD63E",
+"*  c #FFDF58",
+"                                                                ",
+"                        ##############@@                        ",
+"                     ##################@@@                      ",
+"                    ################@#@@@@@                     ",
+"                   ###############@@@##@@@@@                    ",
+"                  ###################@@@@@@@@                   ",
+"                  ####   ###########@@@@@@@@@+                  ",
+"                 ####     #########@@@@@@@@@@+                  ",
+"                 ####     ########@@@@@@@@@@++                  ",
+"                 ####     #######@@@@@@@@@@++++                 ",
+"                 #####   ####@@@@#@@@@@@@@+++++   ...           ",
+"                 ###########@#@##@@@@@@@@++++++  .....          ",
+"                 ##############@@@@@@@@@+++++++ ..$$$..         ",
+"                  ############@@@@@@@@@@+++++++..$%%%$..        ",
+"                   ############@@@@@@@@+++++++..$%%%%%$..       ",
+"                                @@@@@@+++++++..$%%%$%%%$..      ",
+"             ##################@@@@@@+++++++..$%%%$$$%%%$..     ",
+"       ################@@@@#@@@@@@@@+++++++..$%%%$$$$$%%%$..    ",
+"      ################@###@@@@@@@@@+++++++..$%%%$$$$$$$%%%$..   ",
+"     ####################@@@@@@@@@+++++++..$%%%$$$$$$$$$%%%$..  ",
+"     ###################@@@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..  ",
+"    ###################@@@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..   ",
+"   #########.#########@@@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..    ",
+"   ########...#####@@@#@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..**   ",
+"   #######.....##@#@##@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..***   ",
+"  #######..$$$..####@@@@@@@@@++++++..$%%%$$$$$$$$$$$%%$..****   ",
+"  ######..$%%%$..##@@@@@@@@@@+++++..$%%%$$$$$$$$$$$%%$..******  ",
+"  #####..$%%%%%$..@@@@@@@@@@+++++..$%%%$$$$$$$$$$$%%$..*******  ",
+"  ####..$%%%$$%%$..@@@@@@@@+++++..$%%%$$$$$$$$$$$%%$..********  ",
+"  ###..$%%%$$$$%%$..@@@@@@+++++..$%%%$$$$$$$$$$$%%$..*********  ",
+"  ##..$%%%$$$$$$%%$..@@@@+++++..$%%%$$$$$$$$$$$%%$..********&&  ",
+"  #..$%%%$$$$$$$$%%$..       ..$%%%$$$$$$$$$$$%%$..********&&&  ",
+"  ..$%%%$$$$$$$$$$%%$..*****..$%%%$$$$$$$$$$$%%$..********&&&&  ",
+"  ..$%%$$$$$$$$$$$$%%$..***..$%%%$$$$$$$$$$$%%$..*******&&&&&&  ",
+"  #..$%%$$$$$$$$$$$$%%$..*..$%%%$$$$$$$$$$$%%$..*******&&&&&&&  ",
+"  ##..$%%$$$$$$$$$$$$%%$...$%%%$$$$$$$$$$$%%$..******&&&&&&&&&  ",
+"  ###..$%%$$$$$$$$$$$$%%$.$%%%$$$$$$$$$$$%%$..******&&&&&&&&&&  ",
+"  ####..$%%$$$$$$$$$$$$%%$%%%$$$$$$$$$$$%%$..******&&&&&&&&&&&  ",
+"   ####..$%%$$$$$$$$$$$$%%%%$$$$$$$$$$$%%$..*****&&&&&&&&&&&&&  ",
+"   #####..$%%$$$$$$$$$$$$%%$$$$$$$$$$$%%$..*****&&&&&&&&&&&&&   ",
+"    ###@@..$%%$$$$$$$$$$$$$$$$$$$$$$$%%$..****&&&&&&&&&&&&&&&   ",
+"    ##@@@@..$%%$$$$$$$$$$$$$$$$$$$$$%%$..****&&&&&&&&&&&&&&&&   ",
+"     @@@@@@..$%%$$$$$$$$$$$$$$$$$$$%%$..****&&&&&&&&&&&&&&&&    ",
+"     #@@@@@@..$%%$$$$$$$$$$$$$$$$$%%$..***&&&&&&&&&&&&&&&&&     ",
+"       @@@@@@..$%%$$$$$$$$$$$$$$$%%$..***&&&&&&&&&&&&&&&&&      ",
+"        @@@@++..$%%$$$$$$$$$$$$$%%$..**&&&&&&&&&&&&&&&&&&       ",
+"               ..$%%$$$$$$$$$$$%%$..                            ",
+"                ..$%%$$$$$$$$$%%$..                             ",
+"                 ..$%%$$$$$$$%%$..*&&&&&&&&&&                   ",
+"                 *..$%%$$$$$%%$..*&&&&&&&&&&&&                  ",
+"                 **..$%%$$$%%$..&&&&&&&&&&&&&&&                 ",
+"                 ***..$%%$%%$..&&&&&&&&&&&&&&&&                 ",
+"                 ****..$%%%$..&&&&&&&&&   &&&&&                 ",
+"                 *****..$%$..&&&&&&&&&     &&&&                 ",
+"                 ******.....&&&&&&&&&&     &&&&                 ",
+"                 *******...&&&&&&&&&&&     &&&                  ",
+"                  ******&.&&&&&&&&&&&&&   &&&&                  ",
+"                  *****&&&&&&&&&&&&&&&&&&&&&&                   ",
+"                    *&&&&&&&&&&&&&&&&&&&&&&&                    ",
+"                      &&&&&&&&&&&&&&&&&&&&&                     ",
+"                        &&&&&&&&&&&&&&&&&                       ",
+"                          &&&&&&&&&&&&&                         ",
+"                                                                ",
+"                                                                "}
+
+"""
 
 undo_icon = """
 /* XPM */
@@ -4232,14 +5000,14 @@ snapshot_icon = """
 static char *_647898900207[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 8 1",
-" 	c None",
-".	c #000000",
-"+	c #0A0A0A",
-"@	c #302B01",
-"#	c #CC0000",
-"$	c #888A85",
-"%	c #FCE94F",
-"&	c #FFFFFF",
+"   c None",
+".  c #000000",
+"+  c #0A0A0A",
+"@  c #302B01",
+"#  c #CC0000",
+"$  c #888A85",
+"%  c #FCE94F",
+"&  c #FFFFFF",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -4915,11 +5683,11 @@ execute_Template_icon = """
 static char * execute_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
-" 	c None",
-".	c #192A02",
-"+	c #5AA909",
-"@	c #7CD124",
-"#	c #85E033",
+"   c None",
+".  c #192A02",
+"+  c #5AA909",
+"@  c #7CD124",
+"#  c #85E033",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -4991,15 +5759,15 @@ plus_Template_icon = """
 static char * plus_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #1B2B03",
-"+	c #365712",
-"@	c #56A506",
-"#	c #66BA15",
-"$	c #6EC21B",
-"%	c #7ACD22",
-"&	c #7DD728",
-"*	c #86E235",
+"   c None",
+".  c #1B2B03",
+"+  c #365712",
+"@  c #56A506",
+"#  c #66BA15",
+"$  c #6EC21B",
+"%  c #7ACD22",
+"&  c #7DD728",
+"*  c #86E235",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5071,15 +5839,15 @@ moins_Template_icon = """
 static char * moins_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #290000",
-"+	c #2C0001",
-"@	c #AA0004",
-"#	c #B60008",
-"$	c #C30D0D",
-"%	c #D61819",
-"&	c #E51E22",
-"*	c #EE2A28",
+"   c None",
+".  c #290000",
+"+  c #2C0001",
+"@  c #AA0004",
+"#  c #B60008",
+"$  c #C30D0D",
+"%  c #D61819",
+"&  c #E51E22",
+"*  c #EE2A28",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5151,15 +5919,15 @@ rename_Template_icon = """
 static char * rename_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #000000",
-"+	c #A70002",
-"@	c #154A89",
-"#	c #3167A7",
-"$	c #4B9A00",
-"%	c #499B1C",
-"&	c #898B88",
-"*	c #C3A000",
+"   c None",
+".  c #000000",
+"+  c #A70002",
+"@  c #154A89",
+"#  c #3167A7",
+"$  c #4B9A00",
+"%  c #499B1C",
+"&  c #898B88",
+"*  c #C3A000",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5231,15 +5999,15 @@ test_Template_icon = """
 static char * test_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #1A2A01",
-"+	c #313436",
-"@	c #184C8A",
-"#	c #565855",
-"$	c #616360",
-"%	c #5BA900",
-"&	c #84E033",
-"*	c #D3DAE2",
+"   c None",
+".  c #1A2A01",
+"+  c #313436",
+"@  c #184C8A",
+"#  c #565855",
+"$  c #616360",
+"%  c #5BA900",
+"&  c #84E033",
+"*  c #D3DAE2",
 "                                   +###+                        ",
 "                                  ++***#+                       ",
 "                                 ++#****+                       ",
@@ -5311,15 +6079,15 @@ execute_Clipboard_Template_icon = """
 static char * execute_Clipboard_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #1A2A01",
-"+	c #303436",
-"@	c #56A506",
-"#	c #898B88",
-"$	c #949693",
-"%	c #A9ABA8",
-"&	c #86E235",
-"*	c #FFFFFF",
+"   c None",
+".  c #1A2A01",
+"+  c #303436",
+"@  c #56A506",
+"#  c #898B88",
+"$  c #949693",
+"%  c #A9ABA8",
+"&  c #86E235",
+"*  c #FFFFFF",
 "                            +++++++++                           ",
 "                           +++++++%+++                          ",
 "                         ++%*****+++%++                         ",
@@ -5391,15 +6159,15 @@ annuler_Template_icon = """
 static char * annuler_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #290000",
-"+	c #1A2A01",
-"@	c #A30500",
-"#	c #C41015",
-"$	c #DE2221",
-"%	c #EE2A28",
-"&	c #5BA900",
-"*	c #84E033",
+"   c None",
+".  c #290000",
+"+  c #1A2A01",
+"@  c #A30500",
+"#  c #C41015",
+"$  c #DE2221",
+"%  c #EE2A28",
+"&  c #5BA900",
+"*  c #84E033",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5471,15 +6239,15 @@ help_Template_icon = """
 static char * help_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #5D5F5C",
-"+	c #7A7C78",
-"@	c #867D44",
-"#	c #DDC91B",
-"$	c #F4E135",
-"%	c #ECDF6D",
-"&	c #FEF8C7",
-"*	c #FDFEF9",
+"   c None",
+".  c #5D5F5C",
+"+  c #7A7C78",
+"@  c #867D44",
+"#  c #DDC91B",
+"$  c #F4E135",
+"%  c #ECDF6D",
+"&  c #FEF8C7",
+"*  c #FDFEF9",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5551,16 +6319,16 @@ save_Template_icon = """
 static char * save_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 10 1",
-" 	c None",
-".	c #4E9A06",
-"+	c #FFFFFF",
-"@	c #345F9A",
-"#	c #7495BF",
-"$	c #545653",
-"%	c #BABDB6",
-"&	c #555754",
-"*	c #D6D8D5",
-"=	c #888A85",
+"   c None",
+".  c #4E9A06",
+"+  c #FFFFFF",
+"@  c #345F9A",
+"#  c #7495BF",
+"$  c #545653",
+"%  c #BABDB6",
+"&  c #555754",
+"*  c #D6D8D5",
+"=  c #888A85",
 "                                                                ",
 "                                                         .      ",
 "                                                        .+.     ",
@@ -5632,11 +6400,11 @@ accept_Template_icon = """
 static char * accept_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 5 1",
-" 	c None",
-".	c #192A02",
-"+	c #5AA909",
-"@	c #7CD124",
-"#	c #85E033",
+"   c None",
+".  c #192A02",
+"+  c #5AA909",
+"@  c #7CD124",
+"#  c #85E033",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5708,15 +6476,15 @@ reject_Template_icon = """
 static char * reject_Template_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #000000",
-"+	c #860002",
-"@	c #BF0001",
-"#	c #FA1F1F",
-"$	c #CA3432",
-"%	c #DF4846",
-"&	c #F99B9B",
-"*	c #EBE9E6",
+"   c None",
+".  c #000000",
+"+  c #860002",
+"@  c #BF0001",
+"#  c #FA1F1F",
+"$  c #CA3432",
+"%  c #DF4846",
+"&  c #F99B9B",
+"*  c #EBE9E6",
 "                    @@@@@@@@@@@@@@@@@@@@@@@@                    ",
 "                   @@@@@@@@@@@@@@@@@@@@@@@@@@                   ",
 "                  @@************************@@                  ",
@@ -5788,13 +6556,13 @@ Reset_Button_icon = """
 static char * Reset_Button_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 7 1",
-" 	c None",
-".	c #6E4600",
-"+	c #957311",
-"@	c #E6CB34",
-"#	c #C2AC17",
-"$	c #710808",
-"%	c #D31515",
+"   c None",
+".  c #6E4600",
+"+  c #957311",
+"@  c #E6CB34",
+"#  c #C2AC17",
+"$  c #710808",
+"%  c #D31515",
 "                                                                ",
 "         ...                                                    ",
 "        .......                                                 ",
@@ -5866,15 +6634,15 @@ BrowserReload_icon = """
 static char * BrowserReload_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 9 1",
-" 	c None",
-".	c #2B5B93",
-"+	c #3368A7",
-"@	c #5082BD",
-"#	c #6196CA",
-"$	c #7499C5",
-"%	c #80A9D3",
-"&	c #A1BEDE",
-"*	c #B9CFE7",
+"   c None",
+".  c #2B5B93",
+"+  c #3368A7",
+"@  c #5082BD",
+"#  c #6196CA",
+"$  c #7499C5",
+"%  c #80A9D3",
+"&  c #A1BEDE",
+"*  c #B9CFE7",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -5946,10 +6714,10 @@ snap_Menu_Btn_icon = """
 static char * snap_Menu_Btn_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 4 1",
-" 	c None",
-".	c #060706",
-"+	c #011515",
-"@	c #CB0808",
+"   c None",
+".  c #060706",
+"+  c #011515",
+"@  c #CB0808",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -6018,12 +6786,12 @@ static char * snap_Menu_Btn_icon_xpm[] = {
 
 File_Dialog_Info_View_icon = """
 /* XPM */
-static char * rename_xpm[] = {
+static char * File_Dialog_Info_View_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 3 1",
-" 	c None",
-".	c #1E4C89",
-"+	c #F1F6F8",
+"   c None",
+".  c #1E4C89",
+"+  c #F1F6F8",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -6095,12 +6863,12 @@ msgBtn_Critical_icon = """
 static char * msgBtn_Critical_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 6 1",
-" 	c None",
-".	c #000000",
-"+	c #BF0001",
-"@	c #BE0209",
-"#	c #EBE9E6",
-"$	c #F1F6F8",
+"   c None",
+".  c #000000",
+"+  c #BF0001",
+"@  c #BE0209",
+"#  c #EBE9E6",
+"$  c #F1F6F8",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -6169,15 +6937,15 @@ static char * msgBtn_Critical_icon_xpm[] = {
 
 msgBtn_Warning_icon = """
 /* XPM */
-static char * msgBtn_Critical_icon_xpm[] = {
+static char * msgBtn_Warning_icon_xpm[] = {
 /* columns rows colors chars-per-pixel */
 "64 64 6 1",
-" 	c None",
-".	c #000000",
-"+	c #BC9100",
-"@	c #FBE500",
-"#	c #FCE500",
-"$	c #FCE600",
+"   c None",
+".  c #000000",
+"+  c #BC9100",
+"@  c #FBE500",
+"#  c #FCE500",
+"$  c #FCE600",
 "                                                                ",
 "                                                                ",
 "                                                                ",
@@ -6245,6 +7013,1043 @@ static char * msgBtn_Critical_icon_xpm[] = {
 };"""
 
 
+Btn_Refresh_Aqua_Highlight_icon = """
+/* XPM */
+static char * Btn_Refresh_Aqua_Highlight_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 5 1",
+"   c None",
+".  c #191ED6",
+"+  c #19EED7",
+"@  c #1913D7",
+"#  c #0FD902",
+"                                                                ",
+"                                                                ",
+"                               .........                        ",
+"                             .............                      ",
+"                            ..+++++++++++....                   ",
+"                           ..+++++++++++++++..                  ",
+"                          ..+++++++++++++++++..                 ",
+"                         ..+++++++++++++++++++..                ",
+"                        ..+++++++++++++++++++++..               ",
+"                       ..+++++++++++++++++++++++..              ",
+"                      ..+++........++++++++++++++..             ",
+"                      ..++..      ..+++++++++++++..             ",
+"                     ..++..        ..+++++++++++++..            ",
+"                     .++..          ..+++++++++++++.            ",
+"                     .++..           ..++++++++++++..           ",
+"                     .++.             ..+++++++++++..           ",
+"                     ....             ..++++++++++++.           ",
+"                                       .++++++++++++.           ",
+"                                       .++++++++++++.           ",
+"                              ..........++++++++++++.           ",
+"                              .+++++++++++++++++++++........... ",
+"                              .+++++++++++++++++++++........... ",
+"                              ..+++++++++++++++++++++++++++++.. ",
+"                               ..+++++++++++++++++++++++++++..  ",
+"                                ..+++++++++++++++++++++++++..   ",
+"                                 ..+++++++++++++++++++++++..    ",
+"                 @@               ..+++++++++++++++++++++..     ",
+"                @@@@               ..+++++++++++++++++++..      ",
+"               @@##@@               ..+++++++++++++++++..       ",
+"              @@####@@               ..+++++++++++++++..        ",
+"             @@######@@               ..+++++++++++++..         ",
+"            @@########@                ..+++++++++++..          ",
+"           @@#########@@                ..+++++++++..           ",
+"          @@###########@@                .++++++++..            ",
+"         @@#############@@               ..++++++..             ",
+"        @@###############@@               ..++++..              ",
+"       @@#################@@               ..++..               ",
+"      @@###################@@               ....                ",
+"     @@#####################@@               ..                 ",
+"    @@#######################@@                                 ",
+"   @@#########################@@                                ",
+"  @@###########################@@                               ",
+" @@#############################@@                              ",
+" @@@@@@@@@@@#####################@                              ",
+" @@@@@@@@@@@#####################@                              ",
+"           @############@@@@@@@@@@                              ",
+"           @############@                                       ",
+"           @############@                                       ",
+"           @############@@             @@@@                     ",
+"           @@###########@@             @##@                     ",
+"           @@############@@           @@##@                     ",
+"            @#############@@          @@##@                     ",
+"            @@#############@@        @@##@@                     ",
+"             @@#############@@      @@##@@                      ",
+"             @@##############@@@@@@@@###@@                      ",
+"              @@#######################@@                       ",
+"               @@#####################@@                        ",
+"                @@###################@@                         ",
+"                 @@#################@@                          ",
+"                  @@###############@@                           ",
+"                   @@@@###########@@                            ",
+"                      @@@@@@@@@@@@@                             ",
+"                        @@@@@@@@@                               ",
+"                                                                "
+};"""
+
+Btn_Quit_icon = """
+/* XPM */
+static char * Btn_Quit_icon_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 6 1",
+"   c None",
+".  c #000000",
+"+  c #BF0001",
+"@  c #BE0209",
+"#  c #EBE9E6",
+"$  c #F1F6F8",
+"                                                                ",
+"                                                                ",
+"                          ...........                           ",
+"                      .....@@@@@@@@@.....                       ",
+"                   ....@@@@@@@@@@@@@@@@@....                    ",
+"                 ...@@@@@@@@@@@@@@@@@@@@@@@...                  ",
+"               ...@@@@@@@@@@@@@@@@@@@@@@@@@@@...                ",
+"              ..@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@..               ",
+"             ..@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@..              ",
+"            ..@@@@@@@@@@@+++++$$$++++++@@@@@@@@@@..             ",
+"          ...@@@@@@@@@@++++++$$$$$+++++++@@@@@@@@@...           ",
+"          .@@@@@@@@@@+++++++$$$$$$$++++++++@@@@@@@@@.           ",
+"         ..@@@@@@@@+++++++@$$$$$$$$$+++++++++@@@@@@@..          ",
+"        ..@@@@@@@@+++++@@+@$$$$$$$$$@+@+++++++@@@@@@@..         ",
+"       ..@@@@@@@@++++++@@@@$$$$$$$$$@@@@+++++++@@@@@@@..        ",
+"      ..@@@@@@@@+++++$$@@@@$$$$$$$$$@@@@$$++++++@@@@@@@..       ",
+"      .@@@@@@@@+++++$$$@@@@$$$$$$$$$@@@@$$$++++++@@@@@@@.       ",
+"     ..@@@@@@@++++$$$$$@@@@$$$$$$$$$@@@@$$$$$+++++@@@@@@..      ",
+"     .@@@@@@@++++$$$$$$@@+@$$$$$$$$$@+@@$$$$$$+++++@@@@@@.      ",
+"    ..@@@@@@+++++$$$$$$@@++$$$$$$$$$@+++$$$$$$++++++@@@@@..     ",
+"    .@@@@@@@++++$$$$$@@@@@+$$$$$$$$$++++++$$$$$+++++@@@@@@.     ",
+"    .@@@@@@++++$$$$$@@@@@@+$$$$$$$$$+++++++$$$$$+++++@@@@@.     ",
+"   ..@@@@@@++++$$$$$+@@@@@@$$$$$$$$$+++++@@$$$$$+++++@@@@@..    ",
+"   .@@@@@@++++$$$$$++++@@@@$$$$$$$$$++++@@@@$$$$$+++++@@@@@.    ",
+"   .@@@@@@++++$$$$++++++@@@$$$$$$$$$++@@@@@@+$$$$+++++@@@@@.    ",
+"   .@@@@@@++++$$$$+++++++@@$$$$$$$$$@@@@@@@++$$$$+++++@@@@@.    ",
+"  ..@@@@@++++$$$$+++++++++@$$$$$$$$$@@@@@@++++$$$$+++++@@@@..   ",
+"  .@@@@@@+++$$$$$++++++++++$$$$$$$$$@@@@@+++++$$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$$++++++++++$$$$$$$$$@@@@++++++$$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$+++++++++++$$$$$$$$$@@@++++++++$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$++++++++++++$$$$$$$@@@@++++++++$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$+++++++++++++$$$$$@@@@+++++++++$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$+++++++++++++@$$$@@@@@@++++++++$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$+++++++++++++@@@@@@@@@@++++++++$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$$++++++++++++@@@@@@@@@@@++++++$$$$$++++@@@@@.   ",
+"  .@@@@@@+++$$$$$++++++++++++@@@@@@@@@@@++++++$$$$$++++@@@@@.   ",
+"  ..@@@@@++++$$$$++++++++++++@@@@@@@@@@@++++++$$$$+++++@@@@..   ",
+"   .@@@@@+++++$$$$++++++++++@@@@@@@@@@@@@++++$$$$++++++@@@@.    ",
+"   .@@@@@@++++$$$$++++++++@@@@@@++++@@@@@++++$$$$+++++@@@@@.    ",
+"   .@@@@@@++++$$$$$++++@@@@@+++++++++@@@@@++$$$$$+++++@@@@@.    ",
+"   ..@@@@@+++++$$$$$++@@@@+++++++++++@@@@@@$$$$$++++++@@@@..    ",
+"    .@@@@@@++++$$$$$++@@@++++++++++++@@@@@@$$$$$+++++@@@@@.     ",
+"    .@@@@@@+++++$$$$$++@++++++++++++++++++$$$$$++++++@@@@@.     ",
+"    ..@@@@@@+++++$$$$$$+++++++++++++++++$$$$$$++++++@@@@@..     ",
+"     .@@@@@@+++++$$$$$$$+++++++++++++++$$$$$$$++++++@@@@@.      ",
+"     ..@@@@@@+++++$$$$$$$$+++++++++++$$$$$$$$++++++@@@@@..      ",
+"      .@@@@@@@++++++$$$$$$$$$+++++$$$$$$$$$+++++++@@@@@@.       ",
+"      ..@@@@@@@++++++$$$$$$$$$$$$$$$$$$$$$+++++++@@@@@@..       ",
+"       ..@@@@@@@+++++++$$$$$$$$$$$$$$$$$++++++++@@@@@@..        ",
+"        ..@@@@@@@+++++++++$$$$$$$$$$$++++++++++@@@@@@..         ",
+"         ..@@@@@@@++++++++++$$$$$$$+++++++++++@@@@@@..          ",
+"          .@@@@@@@@++++++++++++++++++++++++++@@@@@@@.           ",
+"          ...@@@@@@@@++++++++++++++++++++++@@@@@@@...           ",
+"            ..@@@@@@@@@++++++++++++++++++@@@@@@@@..             ",
+"             ..@@@@@@@@@@++++++++++++++@@@@@@@@@..              ",
+"              ..@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@..               ",
+"               ...@@@@@@@@@@@@@@@@@@@@@@@@@@@...                ",
+"                 ...@@@@@@@@@@@@@@@@@@@@@@@...                  ",
+"                   ....@@@@@@@@@@@@@@@@@....                    ",
+"                      .....@@@@@@@@@.....                       ",
+"                          ...........                           ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+pythonFC_icon = """
+/* XPM */
+static char * Python_FC_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 7 1",
+"   c None",
+".  c #390602",
+"+  c #630E02",
+"@  c #FF3302",
+"#  c #366E9E",
+"$  c #3D74CC",
+"%  c #FCE84F",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"   ...............................                              ",
+"   .+++++++++++++++++++++++++++++.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@@@@@@@@@@@@@@@@@@@@+.                              ",
+"   .+@@@@@@@@++++++++++++++++++++.                              ",
+"   .+@@@@@@@@+....................                              ",
+"   .+@@@@@@@@+.                     ########                    ",
+"   .+@@@@@@@@+.                  ##############                 ",
+"   .+@@@@@@@@+.                 ################                ",
+"   .+@@@@@@@@+.                ##################               ",
+"   .+@@@@@@@@+.               ###   ##############              ",
+"   .+@@@@@@@@+.               ###   ##############              ",
+"   .+@@@@@@@@+.               ###   ##############              ",
+"   .+@@@@@@@@+........        ####################              ",
+"   .+@@@@@@@@++++++++.        ####################              ",
+"   .+@@@@@@@@@@@@@@@+.        ####################              ",
+"   .+@@@@@@@@@@@@@@@+.                  ##########              ",
+"   .+@@@@@@@@@@@@@@@+. ########################### %%%%%%       ",
+"   .+@@@@@@@@@@@@@@@+.############################ %%%%%%%%     ",
+"   .+@@@@@@@@++++++++.############################ %%%%%%%%     ",
+"   .+@@@@@@@@+........############################ %%%%%%%%%    ",
+"   .+@@@@@@@@+.     ############################## %%%%%%%%%    ",
+"   .+@@@@@@@@+.     ############################## %%%%%%%%%    ",
+"   .+@@@@@@@@+.     ############################## %%%%%%%%%    ",
+"   .+@@@@@@@@+.    ##############################  %%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ############################## %%%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ############################  %%%%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ##############              %%%%%%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ############  %%%%%%%%%%%%%%%%%%%%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ########### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   ",
+"   .+@@@@@@@@+.    ##########  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   ",
+"   .+@@@@@@@@+.     ######### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ",
+"   .+@@@@@@@@+.     ######### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ",
+"   .+@@@@@@@@+.     ######### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    ",
+"   .+@@@@@@@@+.     ######### %%%%%%%%%%%%%%%%%%%%%%%%%%%%%     ",
+"   .+@@@@@@@@+.      ######## %%%%%%%%%%%%%%%%%%%%%%%%%%%%%     ",
+"   .+@@@@@@@@+.      ######## %%%%%%%%%%%%%%%%%%%%%%%%%%%%      ",
+"   .+@@@@@@@@+.        ###### %%%%%%%%%%%%%%%%%%%%%%%%%%%       ",
+"   .++++++++++.               %%%%%%%%%%                        ",
+"   ............               %%%%%%%%%%%%%%%%%%%%              ",
+"                              %%%%%%%%%%%%%%%%%%%%              ",
+"                              %%%%%%%%%%%%%%%%%%%%              ",
+"                              %%%%%%%%%%%%%%   %%%              ",
+"                              %%%%%%%%%%%%%%   %%%              ",
+"                              %%%%%%%%%%%%%%   %%%              ",
+"                               %%%%%%%%%%%%%%%%%%               ",
+"                                %%%%%%%%%%%%%%%%                ",
+"                                 %%%%%%%%%%%%%%                 ",
+"                                    %%%%%%%%                    ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+pythonPY_icon = """
+/* XPM */
+static char * python_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 6 1",
+"   c None",
+".  c #2E6C9F",
+"+  c #3A76AA",
+"@  c #3E84B7",
+"#  c #FFD63E",
+"$  c #FFDF58",
+"                                                                ",
+"                        @@@@@@@@@@@@@@++                        ",
+"                     @@@@@@@@@@@@@@@@@@+++                      ",
+"                    @@@@@@@@@@@@@@@@+@+++++                     ",
+"                   @@@@@@@@@@@@@@@+++@@+++++                    ",
+"                  @@@@@@@@@@@@@@@@@@@++++++++                   ",
+"                  @@@@   @@@@@@@@@@@+++++++++.                  ",
+"                 @@@@     @@@@@@@@@++++++++++.                  ",
+"                 @@@@     @@@@@@@@++++++++++..                  ",
+"                 @@@@     @@@@@@@++++++++++....                 ",
+"                 @@@@@   @@@@++++@++++++++.....                 ",
+"                 @@@@@@@@@@@+@+@@++++++++......                 ",
+"                 @@@@@@@@@@@@@@+++++++++.......                 ",
+"                  @@@@@@@@@@@@++++++++++.......                 ",
+"                   @@@@@@@@@@@@++++++++........                 ",
+"                                ++++++.........                 ",
+"             @@@@@@@@@@@@@@@@@@++++++..........                 ",
+"       @@@@@@@@@@@@@@@@++++@++++++++...........                 ",
+"      @@@@@@@@@@@@@@@@+@@@+++++++++............                 ",
+"     @@@@@@@@@@@@@@@@@@@@+++++++++.............                 ",
+"     @@@@@@@@@@@@@@@@@@@++++++++++.............                 ",
+"    @@@@@@@@@@@@@@@@@@@++++++++++..............                 ",
+"   @@@@@@@@@@@@@@@@@@@++++++++++...............  $$$$$$         ",
+"   @@@@@@@@@@@@@@@@+++@++++++++................ $$$$$$$$$       ",
+"   @@@@@@@@@@@@@@+@+@@++++++++................. $$$$$$$$$$$     ",
+"  @@@@@@@@@@@@@@@@@@@@@++++++.................. $$$$$$$$$$$$    ",
+"  @@@@@@@@@@@@@@@@@@@++++++++.................  $$$$$$$$$$$$$   ",
+"  @@@@@@@@@@@@@@@@++++++++++.................   $$$$$$$$$$$$$   ",
+"  @@@@@@@@@@@@@@@++++++++++.................    $$$$$$$$$$$$$$  ",
+"  @@@@@@@@@@@@@@++++++++++.................    $$$$$$$$$$$$$$$  ",
+"  @@@@@@@@@@@@@++++++++++................     $$$$$$$$$$$$$$##  ",
+"  @@@@@@@@@@@@@++++                          $$$$$$$$$$$$$$###  ",
+"  @@@@@@@@@@@@++++    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$####  ",
+"  @@@@@@@@@@@++++    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$######  ",
+"  @@@@@@@@@@++++    $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#######  ",
+"  @@@@@@@@@+++++   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#########  ",
+"  @@@@@@@@++++++  $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$##########  ",
+"  @@@@@@@@++++++  $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$###########  ",
+"   @@@@@@+++++++  $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#############  ",
+"   @@@@@+++++++   $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#############   ",
+"    @@@++++++++   $$$$$$$$$$$$$$$$$$$$$$$$$$$$###############   ",
+"    @@+++++++++   $$$$$$$$$$$$$$$$$$$$$$$$$$$################   ",
+"     ++++++++++  $$$$$$$$$$$$$$$$$$$$$$$$$$$################    ",
+"     @+++++++++  $$$$$$$$$$$$$$$$$$$$$$$$$#################     ",
+"       ++++++++  $$$$$$$$$$$$$$$$$$$$$$$$#################      ",
+"        ++++.+   $$$$$$$$$$$$$$$$$$$$$$##################       ",
+"                 $$$$$$$$$$$$$$$$$$$                            ",
+"                 $$$$$$$$$$$$$$$$$$                             ",
+"                 $$$$$$$$$$$$$$$$$$##########                   ",
+"                 $$$$$$$$$$$$$$$$$############                  ",
+"                 $$$$$$$$$$$$$$$###############                 ",
+"                 $$$$$$$$$$$$$$################                 ",
+"                 $$$$$$$$$$$$$#########   #####                 ",
+"                 $$$$$$$$$$$$#########     ####                 ",
+"                 $$$$$$$$$$$##########     ####                 ",
+"                 $$$$$$$$$$###########     ###                  ",
+"                  $$$$$$$$#############   ####                  ",
+"                  $$$$$######################                   ",
+"                    $#######################                    ",
+"                      #####################                     ",
+"                        #################                       ",
+"                          #############                         ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+tools_icon = """
+/* XPM */
+static char * tools_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 8 1",
+"   c None",
+".  c #000000",
+"+  c #11468A",
+"@  c #3167A7",
+"#  c #6295D2",
+"$  c #ADB2B4",
+"%  c #EDD400",
+"&  c #D7DCDF",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                   .......                                      ",
+"                  ..%%%%%%...                       ...         ",
+"                  .%%%%%%%%%..                     .$$.         ",
+"                   .%%%%%%%%%..                  ..&&$$..       ",
+"                    ..%%%%%%%%.                 ..&&&&$$..      ",
+"                     ..%%%%%%%.               ..&&&&&&&$$..     ",
+"                       .%%%%%%%.             ..&&&&&&&&&$..     ",
+"                       .%%%%%%%.            ..&&&&&&&&&&&.      ",
+"                       .%%%%%%%%.           .&&&&&&&&&&&.       ",
+"                       .%%%%%%%%.           .&&$$&&&&&&..       ",
+"         ...           .%%%%%%%%.           .&&$&&&&&&&.        ",
+"        ..%%.         ..%%%%%%%%.           .&&$&&$&&&.         ",
+"        .%%%%.        .%%%%%%%%%.          ..&&$$$$&&.          ",
+"        .%%%%%.     ..%%%%%%%%%.          ..&&$&&&&&..          ",
+"        .%%%%%%......%%%%%%%%%%.         ..&&$&&&&&&.           ",
+"        ..%%%%%%%%%%%%%%%%%%%%%..       ..&&$&&.....            ",
+"         .%%%%%%%%%%%%%%%%%%%%%%..     ..&&$&&..                ",
+"         .%%%%%%%%%%%%%%%%%%%%%%%..   ..&&$&&..                 ",
+"          .%%%%%%%%%%%%%%%%%%%%%%%.. ..&&$&&..                  ",
+"          ..%%%%%%%%%%%%%%%%%%%%%%%...&&$&&..                   ",
+"           ..%%%%%%%%%%%%%%%%%%%%%%..&&$&&..                    ",
+"            ...%%%%%%%...%%%%%%%%%..&&$&&..                     ",
+"               .......  ..%%%%%%%..&&$&&..                      ",
+"                         ..%%%%%..&&$&&..                       ",
+"                          ..%%%..&&$&&....                      ",
+"                           ..%..&&$&&..%%..                     ",
+"                         +++@..&&$&&..%%%%..                    ",
+"                        ++++++&&$&&..%%%%%%..                   ",
+"                       ++#&##++&&&..%%%%%%%%..                  ",
+"                      ++##&&##++&..%%%%%%%%%%..                 ",
+"                     ++##&&&@##++.%%%%%%%%%%%%..                ",
+"                    ++#####@@@##+@%%%%%%%%%%%%%..               ",
+"                   ++######@@@@#@+.%%%%%%%%%%%%%..              ",
+"                  ++######@@@@@#++..%%%%%%%%%%%%%..             ",
+"                 ++######@@@@@#++  ..%%%%%%%%%%%%%..            ",
+"                ++######@@@@@@#++   ..%%%%%%%%%%%%%..           ",
+"              +++######@@@@@@#++     ..%%%%%%%%%%%%%..          ",
+"             ++######&@@@@@@#++       ..%%%%%%%%%%%%%..         ",
+"            ++#####&&@@@@@@#++         ..%%%%%%%%%%%%%..        ",
+"          +++####&&#@@@@@@#++           ..%%%%%%%%%%%%%..       ",
+"         ++####&&&#@@@@@@#++             ..%%%%%%%%%%%%%.       ",
+"        ++###&&&&#@@@@@@#++               ..%%%%%%%...%%..      ",
+"       ++###&&&&#@@@@@@#++                 ..%%%%%.. ..%%.      ",
+"      ++##&&&&&#@@@@@@#++                   ..%%%%.   .%%.      ",
+"      ++##&&&#@@@@@@@@#+                     ..%%%.. ..%%.      ",
+"      ++#####@@@@@@@@#++                      ..%%%...%%..      ",
+"       +####@@@@@@@@##+                        ..%%%%%%%.       ",
+"       ++##@@@@@@@@@#++                         ..%%%%...       ",
+"        ++##@@@@@@@#++                           ......         ",
+"        +++##@@@@@##+                                           ",
+"         +++##@@@##+                                            ",
+"          ++++###+++                                            ",
+"            ++++++                                              ",
+"              +++                                               ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+high_Light_icon = """
+/* XPM */
+static char * high_Light_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"   c None",
+".  c #000000",
+"+  c #05989A",
+"@  c #888A87",
+"#  c #00EED5",
+"$  c #14EBD9",
+"%  c #30E5E2",
+"&  c #DDEFE8",
+"*  c #ECEFEB",
+"     @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@     ",
+"     @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@***##########################################*****@@     ",
+"     @@***##########################################*****@@     ",
+"     @@***##########################################*****@@     ",
+"     @@***##+++++++++++++++##+++++++++++++++++++++##*****@@     ",
+"     @@***##+++++++++++++++##+++++++++++++++++++++##*****@@     ",
+"     @@***##+++++++++++++++##+++++++++++++++++++++##*****@@     ",
+"     @@***##+++++++++++++++#########################*****@@     ",
+"     @@***##+++++++++++++++#########################*****@@     ",
+"     @@***##+++++++++++++++******************************@@     ",
+"     @@***##+++++++++++++++######################********@@     ",
+"     @@***##+++++++++++++++######################********@@     ",
+"     @@***##+++++++++++++++##++++++++++++++++++##********@@     ",
+"     @@***##+++++++++++++++##++++++++++++++++++##********@@     ",
+"     @@***##+++++++++++++++##++++++++++++++++++##********@@     ",
+"     @@***##+++++++++++++++######################********@@     ",
+"     @@***##+++++++++++++++######################********@@     ",
+"     @@***##+++++++++++++++******************************@@     ",
+"     @@***##################################*************@@     ",
+"     @@***##################################*************@@     ",
+"     @@***##++++++++++++++++++++++++++++++##*************@@     ",
+"     @@***##++++++++++++++++++++++++++++++##*************@@     ",
+"     @@***##++++++++++++++++++++++++++++++##*************@@     ",
+"     @@***##################################*************@@     ",
+"     @@***##################################*************@@     ",
+"     @@***##*********************************************@@     ",
+"     @@***########################################*******@@     ",
+"     @@***########################################*******@@     ",
+"     @@***##++++++++++++++++++++++++++++++++++++##*******@@     ",
+"     @@***##++++++++++++++++++++++++++++++++++++##*******@@     ",
+"     @@***##++++++++++++++++++++++++++++++++++++##*******@@     ",
+"     @@***########################################*******@@     ",
+"     @@***##########################....##########*******@@     ",
+"     @@***##************************....*&&&&&&&&&*******@@     ",
+"     @@***##########################*..*##$$$$######*****@@     ",
+"     @@***##########################*..*#######$$$$#*****@@     ",
+"     @@***##++++++++++++++++++++++##*..*$$++++++++%%*****@@     ",
+"     @@***##++++++++++++++++++++++##*..*$$++++++++##*****@@     ",
+"     @@***##++++++++++++++++++++++##*..*$$++++++++#%*****@@     ",
+"     @@***##########################*..*$#%%%%%%%%##*****@@     ",
+"     @@***##########################*..*$#%%%%%%%%%%*****@@     ",
+"     @@******************************..******************@@     ",
+"     @@*****************************....*****************@@     ",
+"     @@*****************************....*****************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@**************************************************@@     ",
+"     @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@     ",
+"     @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@     ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+goto_To_Menu_icon = """
+/* XPM */
+static char * goto_To_Menu_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 7 1",
+"   c None",
+".  c #000000",
+"+  c #2E3436",
+"@  c #234A88",
+"#  c #555753",
+"$  c #888A85",
+"%  c #F6F9F6",
+"                                                                ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++    ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++    ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%...........................................%%%%+++    ",
+"    +%%%%%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%+++    ",
+"    +%%%%%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%+++    ",
+"    +%%%%%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%+++    ",
+"    +%%%%%$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$%%%%+++    ",
+"    +%%%%%$$$$$$$$$$$$$$$$$..$$$$$$$$$$$$$$$$$$$$$$$$%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%.@@.%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%.@@@@.%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%.@@@@@@.%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%.@@@@@@@@.%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%.............@@@@@@@@@@....................%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%.@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%.@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%..@@@@@@@@@@@@@@@@@@@@@@@@@@@@@...........%%%%+++    ",
+"    +%%%%%..@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%%+++    ",
+"    +%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%+++    ",
+"    +%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%+++    ",
+"    +%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%+++    ",
+"    +%%%%%...........@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@..........%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@..%%%%%%%%%%%......%%%+++    ",
+"    +%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@.%%%%%%%%%%%.@@@@.%%%+++    ",
+"    +%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@.%%%%%%%%%%%.@@@@.%%%+++    ",
+"    +%%%%%...........@@@@@@@@@@@@@@@@...........@@@@@.%%%+++    ",
+"    +%%%%%%%%%%%%%%%..@@@@@@@@@@@@@@@@.%%%%%%%%.@@@@@.%%%+++    ",
+"    +%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@.%%%%%%.@@@@@@.%%%+++    ",
+"    +%%%%%%%%%%%%%%%%..@@@@@@@@@@@@@@@@@......@@@@@@..%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@@@.%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@@@.%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%.@@@@@@@@@@@@@@@@@@@.%%%%%%%%%+++    ",
+"    +%%%%%...................@@@@@@@@@@@@@@@@@.......%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%...@@@@@@@@@@@@@.%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%..@@@@@@@@@..%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.........%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    +%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%+++    ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++    ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++++    ",
+"                                                                "
+};"""
+
+
+
+pythonToForum_icon = """
+/* XPM */
+static char * pythonToForum_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"   c None",
+".  c #000000",
+"+  c #1A1B4D",
+"@  c #284F84",
+"#  c #FF3000",
+"$  c #6B8CB4",
+"%  c #94999E",
+"&  c #D2D7D9",
+"*  c #FEE849",
+"                                                                ",
+" .....................                                          ",
+" .###################.                                          ",
+" .###################.                                          ",
+" .###################.       ++++++++                           ",
+" .###################.     ++++++++++++                         ",
+" .###################.+++++$%%%&&&%%$$@++++                     ",
+" .###################.+@&&&&&&&&&&&&&&&&$@++                    ",
+" .###################.&&&&&&&&&&&&&$$$$$&&&$+++                 ",
+" .###################.&&&$%&&&&&&&%&%%$$$$$&%@++                ",
+" .###################.&&%&&&&&&&&&%&&%%$$$$$&&%++               ",
+" .######..............%@@@@@&&&%%%&&&&%$$%&&&&&&@+              ",
+" .######.     +$&&&&$@@@@@@@@@%&&&&%&&%%%&&%%&&%&%+             ",
+" .######.    +$&&%$%@@@@@@@@@@@&&&%%&&&%&&&$&&&&&&%+            ",
+" .######.   +@&&%&&@@@&@@@@@@@@@&&&&&&%%&%&$%&&&&&&%+           ",
+" .######.  ++&&&%&&@@&&&@@@@@@@@@&&&&&%%%%%$&&&&&&&&@+          ",
+" .######......&&&&&@@@&@@@@@@@@@@&&&&%&%&&&&&&&&&&&&&@+         ",
+" .###########.&&&&&@@@@@@@@@@@@@@&&&&%&&&&&&&&&&&&&&&&+         ",
+" .###########.&&&&&&&%&&&&@@@@@@@....&&&&&&&&&&&&&&&&&%+        ",
+" .###########.@@@@@@@@@@@@@@@@@@@****.&&&&&&&&&&&&&&&&&+        ",
+" .###########.@@@@@@@@@@@@@@@@@@@*****.&%%&%&&&&&&&&&&&%+       ",
+" .######......@@@@@@@@@@@@@@@@@@@******.%$%%&%&&&&&&&&&&++      ",
+" .######.&&&&@@@@@@@@@@@@@@@@@@@@******.%$$$%$%&&&&&&&&&@+      ",
+" .######.&&&@@@@@@@@@@@@@@@@@@@@@******.&&%$$$$@@&&&&&%&%+      ",
+" .######.&&&@@@@@@@@@@@@@@@@@@@@@*******.&&%&%$$%&&&&&%&&++     ",
+" .######.&&&@@@@@@@@@@@@@@@@@@@@********.&&&&&&&&&&&&%%%&@+     ",
+" .######.&&$@@@@@@@@............********.&&&&&&&&%&&&$%%&%+     ",
+" .######.&$$@@@@@@@@********************.&&&&&&&&@%&&%@@%%+     ",
+" .######.&$$@@@@@@@@********************.&&&&&&&&%$&&&%%$$+     ",
+" .######.&$$@@@@@@@********************.&&&&&&&&&&@%&%%%$$+     ",
+" .######.&&&@@@@@@@********************.&&&&&&&&&&%$&%%@@$+     ",
+" .######.%&&&@@@@@@*******************.&&&&&&&&&&&&@%%@@@$+     ",
+" .######.$$%&&@@@@@*******************.&&&&&&&&&&&&$%@@@$$+     ",
+" ........$$$$&%%&&.********...........&&&&&&&&&&&&&&%%@@$$+     ",
+"      ++&$$$$$%%&&.**************.$&&&&&&&&&&&&&&&&%%%@@$@+     ",
+"      ++&$$$$$$&&&.**********.***.$$&%%$%%&&&&&&&&&%%@@@$@+     ",
+"      ++&$$$$$$&&&.*********...**.$$$$$$$$&&&&&&&&%%%@@@$@+     ",
+"       +$%$$$$$&&&&.*********.***.$$$$$$$$&&&&&&&%%%@@@@$++     ",
+"       +@&$$$$%&&&&&.***********.$$$$$$$$$%&&&&&&%%%@@@$$++     ",
+"       ++&$$$$&&&&&&&.********..$$$$$$$$$@%&&&&&%%%@@@@$@+      ",
+"        +$$$$$%&&&&&&&..*****.$$$$$$$$$$@@$&&&&%%%%@@@@$++      ",
+"        +@&$$$$&&&&&&&&&.....$$$$$$$$$$@@@@&&&%%%%%@@@$$+       ",
+"        ++$$$$$$&&&&&&&&&&&%$$$$$$$$$@@@@@$&&%%%%%%@@@$++       ",
+"         +@%$@$$%&&&&&&&&&&$$$$$$$$$@@@@@@$%%%%%%%%@@$@+        ",
+"          +$$@@@$$&&&&&&&&&$$$$$$@@@@@@@@@$%%%%%%%@@@$++        ",
+"           +$$@@@@%&&&&&&&&@$@@@@@@@@@@@@@$%%%%%%@@@$@+         ",
+"           +@$$@@@%&&&&&&%%@@@@@@@@@@@@@@@@%%%%%%@@$@++         ",
+"            +@$$@@%&&&&&%@@@@@@@@@@@@@@@@@@%%%%%%@$$++          ",
+"            ++$$$@$&&&&&%@@@@@@@@@@@@@@@@@@@%%%%%$$++           ",
+"             ++$$$$%%%%%%@@@@@@@@@@@@@@@@@@@%%%%$$++            ",
+"              ++@$%%%%%%@@@@@@@@@@@@@@@@@@@@%%@$$++             ",
+"               ++@%&%%%@@@@@@@@@@@@@@@@@@@@@%@$@++              ",
+"                +++%&%@@@@@@@@@@@@@@@@@@@@@@$$@++               ",
+"                 ++++%$$@@@@@@@@@@@@@@@@@@$$@+++                ",
+"                    ++@$$$$@@@@@@@@@@@@$$$@++                   ",
+"                     ++++@$$$$$$$$$$$$$@ +++                    ",
+"                         +++++@@@@@++++++++                     ",
+"                         +++++++++++++++++                      ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+help_To_Web_icon = """
+/* XPM */
+static char * help_To_Web_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"   c None",
+".  c #020A4A",
+"+  c #144893",
+"@  c #4E5D73",
+"#  c #4F6EA7",
+"$  c #7A9ECE",
+"%  c #A5A9AC",
+"&  c #CBDCEA",
+"*  c #FFFFFF",
+"            +++++++++++                                         ",
+"           +++########+++                                       ",
+"          ++&**********&+++                                     ",
+"        ++$**************$++                                    ",
+"       +$***%#++++++++#%***$+........                           ",
+"      +%**&++++++++++++++&**%+.........                         ",
+"     +$**#+++++#****&#++++#**$+&&&&%$$+....                     ",
+"    +%**$+++++&********++++$**%+&&&&&&&&$+..                    ",
+"  ++$**$+++++&**********++++$**$+&&$$$$&&&&$...                 ",
+"  +$**#+++++&***********#++++#**$+%&&&&$$$$&&+..                ",
+"  +&*&++++++*****#+&*****+++++&*&+%&&&&&$$$$&&%..               ",
+" +#**+++++++****++++&****++++++**#+&&&&&&&*****&@.              ",
+"++**%+++++++$**#++++&****++++++%**+$&&&&&&*%%*&$*%.             ",
+"++**#++++++++++++++$*****++++++#**++&&&&***@&**&**%.            ",
+"+#**++++++++++++++$*****++++++++**#+&&&&&&*@%******%.           ",
+"+#**+++++++++++++%****&+++++++++**#+&&&&%%%$********@.          ",
+"+#**++++++++++++$*****++++++++++**#+&%*%&*&*******&&&..         ",
+"+#**+++++++++++%****&+++++++++++**#+&%&&***********&&&.         ",
+"+#**+++++++++++&****&+++++++++++**#+&&*************&&&@.        ",
+"+#**+++++++++++&****&+++++++++++**#+&&&************&&&&.        ",
+"+#**+++++++++++&****&+++++++++++**#+&***%%*%*******&&&&@.       ",
+"+#**++++++++++++****++++++++++++**#+***@&&$%&%*****&&&&&..      ",
+"++**#++++++++++++++++++++++++++#**++&*%&&&$$$@$****&&&&&@.      ",
+"++**%++++++++++++++++++++++++++%**+$&&&**&%$$$$+@&*&&&&&%.      ",
+"++#**+++++++++++****+++++++++++**#+&&******$&&$$%**&&&%&&..     ",
+"  +&*&+++++++++******+++++++++&*&+&&***************&&%%%&@.     ",
+"  +$**#++++++++******++++++++#**$+&*************&%*&&@@%&@.     ",
+"   +$**$+++++++******+++++++$**$+&&**************+%&&%++%@.     ",
+"    +%**$++++++******++++++$**%+&&***************%$&&&%%@@.     ",
+"     +$**#+++++#****#+++++#**$+&&&****************@%&%%%@$.     ",
+"      +%**&++++++++++++++&**%+&&&&****************@@&%%@+$.     ",
+"      .+$***%#++++++++#%***$+&&&&&***************&&+%%@++$.     ",
+"      .@++$**************$++&&&&$&***************&&@%@+++$.     ",
+"      .+$#++&**********&++#$$$$$$$&*************&&&&%%@+@@.     ",
+"      ..$$$+++########+++$$$$$$$$$$&************&&&%%%++$@.     ",
+"       .$$$$$#++++++++$$$$$$$$$$$$$$&@%@@%*****&&&&%%@++$@.     ",
+"       .$$$$$$$********%$$$$$$$$$$$$$$$$$$****&&&&%%%+++$+.     ",
+"       .$$$$$$$*********&$$$$$$$$$$$$$$$$$***&&&&&%%++++$.      ",
+"       .+$$$$$&***********&$$$$$$$$$$$$$$$%*&&&&&%%@+++@@.      ",
+"       ..$$$$$&*************%$$$$$$$$$$$++$&&&&&%%%@+++$+.      ",
+"        .$$$$$%*************%$$$$$$$$$$+++$&&&&%%%%@+++$..      ",
+"        .+$$$$$&************@$$$$$$$$$+++++&&&%%%%%@++@@.       ",
+"        ..$$+$$$***********@$$$$$$$$++++++$&&%%%%%%@++$..       ",
+"         .+$$++$%**********@$$$$$$++++++++$&%%%%%%%@+@@.        ",
+"          .$$++++$*********@$$$+++++++++++$%%%%%%%@++$..        ",
+"           .$$++++%********@++++++++++++++@%%%%%%@++$@.         ",
+"           .+$$+++%&&&&&&%@++++++++++++++++%%%%%%@+@@..         ",
+"            .+$$++%&&&&&%++++++++++++++++++@%%%%@@@@..          ",
+"            ..$$$+@&&&&&%++++++++++++++++++@%%%%@@@..           ",
+"             ..$$$$%%%%%@+++++++++++++++++++%%%@@@..            ",
+"              ..+$%%%%%%++++++++++++++++++++%@@@@..             ",
+"                .+%%%%@+++++++++++++++++++++.@@@..              ",
+"                 ..%%%@++++++++++++++++++++@@@+..               ",
+"                   ..@$$+++++++++++++++++@@@+...                ",
+"                    ..+$$$$+++++++++++@@$@+..                   ",
+"                      ...+$$$$$$$$$$$$@++...                    ",
+"                         .....+++++......                       ",
+"                           .............                        ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+template_icon = """
+/* XPM */
+static char * template_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"   c None",
+".  c #000000",
+"+  c #862122",
+"@  c #3C5A3B",
+"#  c #884E4C",
+"$  c #5D5F5C",
+"%  c #A1A09D",
+"&  c #CEC9C8",
+"*  c #FFFFFF",
+"        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$$$$$$$$$$$$$$$$$$$$   ",
+"       $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$  ",
+"       $%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$  ",
+"       $%***************************************************%$  ",
+"       $%*%%%%%%******************@%************************%$  ",
+"       $%*%%%%%%*$*$%%$&***********@%************$****&&****%$  ",
+"       $%*%%%%%%*$&$%@$@@@@@@@@@&&$@$@@@@@@&@@@%%@@$@@@@@&&*%$  ",
+"       $%*%%%%%%*&$%&@%$@@$%@@@@@$$@$@$@@@@%@@@@@@@@@@@@$$$*%$  ",
+"       $%*%%%%%%**&&*&*&&&&*&&&&&&&&&&&&&&&*&&&&&&&&&&&&&&&*%$  ",
+"       $%*%%%%%%*%%%%&***%%&****%****&*****%&**&%%%%%%%%*&%*%$  ",
+"       $%*%%%%%%*@@@@$%%%@@@%%%%@%%%$$%%%%%$@&**%$@$$@@@&%@*%$  ",
+"       $%*%%%%%%*@$@$@@@@@@..@@$@@@@@@@@@@@$@&*&$@@@@@@@@@@*%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%  %%***********&&***#++#%%&%*#&&&&&&**##&&&&&%#*%$  ",
+"       $%*%%  %%***********%%&**&&++#+##&#+#+++%**+##+++++#*%$  ",
+"       $%*%%%%%%*&&&&*************&&&&&&&&&&&&&&&&&&&&&&&&&*%$  ",
+"       $%*%%%%%%*&&&************&&**&&**********%&**********%$  ",
+"       $%*%%%%%%*%*********%%&**#+%###%%%%%%%%%%#%%%%%%%%%%*%$  ",
+"       $%*%%%%%%*$*********$$&****&##+++++++++#&%##+###+++#*%$  ",
+"       $%*%%%%%%*$****************$########+###%#+##$######*%$  ",
+"       $%*%%%%%%**$$$$%*************************************%$  ",
+"       $%*%%%%%%************&***#+#&&%&$&&&*&&&**#*#%+%&&&&*%$  ",
+"       $%*%%%%%%***********$$&**&%++++#+#++#+##&%$&#*+#++++*%$  ",
+"       $%*%%%%%%***********&&&****&&&&&&&+&&&&&&%%#&*&&&&&&*%$  ",
+"       $%*%%%%%%*************************&******&%&*&**&****%$  ",
+"       $%*%%%%%%*%*********%%&**%%%&&%%%%%%*%%%&&#*%%%%#&%%*%$  ",
+"       $%*%%%%%%*$%********$$&****+###$#$+##+##&%&%+#+##&#$*%$  ",
+"       $%*%%%%%%*$****************+#++%##++#+####*+%*+#+##+*%$  ",
+"       $%*%%%%%%**$$$$$******************%***********%&*****%$  ",
+"       $%*%%%%%%****************####%***********************%$  ",
+"       $%*%%  %%***********$$&**&%%%&***********************%$  ",
+"       $%*%%  %%***********&&&******************************%$  ",
+"       $%*%%%%%%*%&*****************************************%$  ",
+"       $%*%%%%%%*&**************%%%&**&%%%%*%&**************%$  ",
+"       $%*%%%%%%*$$$&******%$&**%#%#**&#+$#*#&**************%$  ",
+"       $%*%%%%%%*.$@%*************#+######+*****************%$  ",
+"       $%*%%%%%%****$$$$$***********************************%$  ",
+"       $%*%%%%%%****************%#&%&#&%&%#*&%&&*&*$%%*%&%#*%$  ",
+"       $%*%%%%%%***********$$&**&%#+#+###+#*#%+#++&#*###+%%*%$  ",
+"       $%*%%%%%%***********&&&****###+#####&%&#%#+#&*###%***%$  ",
+"       $%*%%%%%%*%&***************&&&&&&&&&&&*&*&&&**&&&****%$  ",
+"       $%*%%%%%%*&******************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%*$&%%$$.$.$%*&.$$$$$$$$$$..$$$$&%$%#%+#####*%$  ",
+"       $%*%%%%%%*.$..$$$..$$&%.$..$.$......$..$%%$*&&++++++*%$  ",
+"       $%*%%%%%%*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&***&&&&&&*%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%*%%%%%%********************************************%$  ",
+"       $%***************************************************%$  ",
+"       $%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%$  ",
+"       $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$  "
+};"""
+
+
+directory_Backup_Empty_icon = """
+/* XPM */
+static char * directory_Backup_Empty_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 8 1",
+"   c None",
+".  c #4F514F",
+"+  c #315E97",
+"@  c #808381",
+"#  c #5C90C6",
+"$  c #73A3D2",
+"%  c #ADB1AF",
+"&  c #A1BDDE",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"    .................................................           ",
+"    .@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%.           ",
+"    .@%%%%%++++++++++++++++++++++++++++++++++++++++++++++++     ",
+"    .@%%%%%+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&+     ",
+"    .@%%%%%+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&+     ",
+"    .@%%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+     ",
+"    .@%%%%++&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++     ",
+"    ..%%%%+&&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+      ",
+"    ..%%%++&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++      ",
+"    ..%%%++&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++      ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$++      ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#+       ",
+"     .%%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#+       ",
+"     ..%%+&&$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$#+       ",
+"     ..%%+&&############################################+       ",
+"     ..%%+&&###########################################++       ",
+"     ..%++&############################################++       ",
+"      .%++&############################################++       ",
+"      .%+##############################################++       ",
+"      .%+##############################################+        ",
+"      .+++++++++++++++++++++++++++++++++++++++++++++++++        ",
+"      .+++++++++++++++++++++++++++++++++++++++++++++++++        ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
+directory_Backup_Taken_icon = """
+/* XPM */
+static char * directory_Backup_Taken_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"     c None",
+".    c #290000",
+"+    c #C60916",
+"@    c #ED2928",
+"#    c #2C5C96",
+"$    c #5D5F5C",
+"%    c #70A2D4",
+"&    c #FEE849",
+"*    c #FFFFFF",
+"                                                                ",
+"                                     ########                   ",
+"                                  ##############                ",
+"                                 ################               ",
+"                                ##################              ",
+"                               ###   ##############             ",
+"                               ###   ##############             ",
+"                               ###   ##############             ",
+"              $$$$$$$$$$$$$$$$$####################$$$$$$$$     ",
+"              $$$$$$$$$$$$$$$$$####################$$$$$$$$     ",
+"              $$***************####################*******$     ",
+"              $$*************************##########*******$     ",
+" $$$$$$$$$$$$$$$********###########################*&&&&&&$     ",
+" $$$$$$$$$$$$$$$*******############################*&&&&&&&&    ",
+" $$************$*******############################*&&&&&&&&    ",
+" $$************$*******############################*&&&&&&&&&   ",
+"  $**$$$$$$$$$$$*****##############################*&&&&&&&&&   ",
+"  $***********$$*****##############################$&&&&&&&&&   ",
+"  $**$$$$$$$$$$******##############################*&&&&&&&&&   ",
+"  $**$$$$$$$$$$*****##############################**&&&&&&&&&&  ",
+"  $**$$$$$$$$$$*****##############################*&&&&&&&&&&&  ",
+"  $**$$$$$$$$$$*****############################**&&&&&&&&&&&&  ",
+"  $**********$******##############**************&&&&&&&&&&&&&&  ",
+"  $$*$$$$$$$$$******############**&&&&&&&&&&&&&&&&&&&&&&&&&&&&  ",
+"  $$**$$$$$$$*******###########*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&  ",
+"  $$*******$$******$##########$$&&.&&&&&&&&&&&&&&&&&&&.&&&&&&&  ",
+"  $$**$$$$$$$********#########*&&...&&&&&&&&&&&&&&&&&...&&&&&   ",
+"  $$**$$$$$$*********#########*&..+..&&&&&&&&&&&&&&&..+..&&&&   ",
+"  $$**$$$$$$*********#########*..+@+..&&&&&&&&&&&&&..+@+..&&&   ",
+"   $**$$$$$$*********#########..+@@@+..&&&&&&&&&&&..+@@@+..$$$$$",
+"   $**$$$$$****##############..+@@+@@+..#########..+@@+@@+..###$",
+"   $**$$$$$***$#%%%%%%%%%%%%..+@@+++@@+..%%%%%%%..+@@+++@@+..%#$",
+"   $$*$$$$$***$#***********..+@@+++++@@+..*****..+@@+++++@@+..#$",
+"   $$*$$$$****$#*%%%%%%%%%..+@@+++++++@@+..%%%..+@@+++++++@@+..$",
+"   $$*$$$$****##*%%%%%%%%..+@@+++++++++@@+..%..+@@+++++++++@@+..",
+"   $$*$$$$****#%*%%%%%%%%%..+@@+++++++++@@+...+@@+++++++++@@+..$",
+"   $$*$$$*****#%*%%%%%%%%%%..+@@+++++++++@@+.+@@+++++++++@@+..#$",
+"   $$*$$$*****#*%%%%%%%%%%%%..+@@+++++++++@@+@@+++++++++@@+..#$ ",
+"    $**$$*****#*%%%%%%%%%%%%%..+@@+++++++++@@@+++++++++@@+..%#$ ",
+"    $*$$$****$#*%%%%%%%%%%%%%%..+@@+++++++++@+++++++++@@+..%##$ ",
+"    $**$$****##%%%%%%%%%%%%%%%%..+@@+++++++++++++++++@@+..%%#$  ",
+"    $**$*****#%%%%%%%%%%%%%%%%%%..+@@+++++++++++++++@@+..%%%#$  ",
+"    $$$$*****#%%%%%%%%%%%%%%%%%%%..+@@+++++++++++++@@+..%%%##$  ",
+"    $$*$*****#%%%%%%%%%%%%%%%%%%%%..+@@+++++++++++@@+..%%%%#$   ",
+"    $$*$*****#%%%%%%%%%%%%%%%%%%%%%..+@@+++++++++@@+..%%%%%#$   ",
+"    $$$$****%#%%%%%%%%%%%%%%%%%%%%..+@@+++++++++++@@+..%%%%#$   ",
+"    $$*$****#%%%%%%%%%%%%%%%%%%%%..+@@+++++++++++++@@+..%%#$    ",
+"    $$*$$***#%%%%%%%%%%%%%%%%%%%..+@@+++++++++++++++@@+..%#$    ",
+"    $$*$$$$$#%%%%%%%%%%%%%%%%%%..+@@+++++++++++++++++@@+..#$    ",
+"    $$*$$$$$#%%%%%%%%%%%%%%%%%..+@@+++++++++@+++++++++@@+..$    ",
+"    $$$$$$$##%%%%%%%%%%%%%%%%..+@@+++++++++@@@+++++++++@@+..    ",
+"     $$$$$$#%%%%%%%%%%%%%%%%..+@@+++++++++@@+@@+++++++++@@+..   ",
+"     $$$$$$#%%%%%%%%%%%%%%%..+@@+++++++++@@+.+@@+++++++++@@+..  ",
+"     $$$$$##%%%%%%%%%%%%%%..+@@+++++++++@@+...+@@+++++++++@@+.. ",
+"     $$$$$#%%%%%%%%%%%%%%..+@@+++++++++@@+..%..+@@+++++++++@@+..",
+"     $$$$##%%%%%%%%%%%%%%%..+@@+++++++@@+..%%%..+@@+++++++@@+.. ",
+"     $$$##%%%%%%%%%%%%%%%%%..+@@+++++@@+..%%%%%..+@@+++++@@+..  ",
+"     $$##%%%%%%%%%%%%%%%%%%%..+@@+++@@+..%%%%%%%..+@@+++@@+..   ",
+"      $######################..+@@+@@+..#########..+@@+@@+..    ",
+"       $######################..+@@@+..###########..+@@@+..     ",
+"        $$$$$$$$$$$$$$$$$$$$$$$..+@+..$$$$$$$$$$$$$..+@+..      ",
+"                                ..+..               ..+..       ",
+"                                 ...                 ...        ",
+"                                  .                   .         "
+};"""
+
+
+file_Txt_icon = """
+/* XPM */
+static char * directory_Backup_Taken_icon[] = {
+/* columns rows colors chars-per-pixel */
+"64 64 9 1",
+"     c None",
+".    c #C92415",
+"+    c #635E51",
+"@    c #7F6411",
+"#    c #A7A8A3",
+"$    c #CCA735",
+"%    c #D0A36C",
+"&    c #D6D7D1",
+"*    c #FFFFFF",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"           @@@@ @@@@ @@@@  @@@@ @@@@ @@@@  @@@@ @@@@            ",
+"           @$$@ @$$@ @$$@  @$$@ @$$@ @$$@  @$$@ @$$@            ",
+"         #%@$$@%@$$@%@$$@%%@$$@%@$$@%@$$@%%@$$@%@$$@%%          ",
+"        ###@$$@#@$$@#@$$@##@$$@#@$$@#@$$@##@$$@#@$$@###         ",
+"       #&&#@$$@&@$$@&@$$@&&@$$@&@$$@&@$$@&&@$$@&@$$@####        ",
+"       #&#%@$$@%@$$@%@$$@%%@$$@%@$$@%@$$@%%@$$@%@$$@%%%#        ",
+"       #&##@@@@#@@@@#@@@@##@@@@#@@@@#@@@@##@@@@#@@@@####        ",
+"       #&###@@###@@###@@####@@###@@###@@####@@###@@#####        ",
+"       #&###############################################        ",
+"       #&**********************************************#        ",
+"       #***********************************************#        ",
+"       #***********************************************#        ",
+"      ##***********************************************#        ",
+"      ##****######################################&****#        ",
+"      ##****&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&****#        ",
+"      #&***********************************************#        ",
+"      #&***********************************************#        ",
+"      #&****######################################&****#        ",
+"      #&****&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&****##       ",
+"      #&***********************************************#@@@@@   ",
+"      #&*********************************************&#@@...@@  ",
+"      #*****#################&*********************&#@@......@@ ",
+"      #*****&&&&&&&&&&&&&&&&&&*******************&#@@##.......@ ",
+"      #****************************************&#@@%%###......@ ",
+"      #**************************************&+@@%%%%####.....@ ",
+"      #************************************&+@@%%%%%%%###....@  ",
+"      #**********************************&+@@%%%%%%$$$###..@@@  ",
+"     ##*****&&&&&&&&&&&&&&&&&&&&&&&&&&&#+@@%%%%%$$$$$$$##@@@    ",
+"     ##*****##########################@@@%%%%%$$$$$$$@+@@@      ",
+"     #&****************************#@@@%%%%%$$$$$$@@@@@##       ",
+"     #&**************************#@@@%%%%%$$$$$$@@@@@+&*#       ",
+"     #&*****&&&&&&&&&&&&&&&&&&&#@@@%%%%%$$$$$$@@@@@+&&&*#       ",
+"     #&*****##################@@@%%%%%$$$$$$@@@@@+#&&&&*#+      ",
+"     #&*********************&@@%%%%%$$$$$$@@@@@+&&&&&&&*#+      ",
+"     #&********************&@@%%%%$$$$$$@@@@+&&&&&&&&&&*#+      ",
+"     #&*****&&&&&&&&&&&&&&&@@%%%%$$$$$@@@@+#&&&&&&&&&&&*&+      ",
+"     #&*****##############@@%%%%%$$@@@@@+##########&&&&*&+      ",
+"     #*****&&&&&&&&&&&&&&@@%%%%%%%@@@@+#&&&&&&&&&&&&&&&*&+      ",
+"     #**&&&&&&&&&&&&&&&&@@+%%%%%%@@@+###&&&&&&&&&&&&&&&*&+      ",
+"     #**&&&&&&&&&&&&&&#++++@@@@@@++######&&&&&&&&&&&&&&*&+      ",
+"     #**&&&&##########++++#############&&&&&&&&&&&&&&&&&&+      ",
+"    +#*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*+      ",
+"    +#*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*+      ",
+"    +#*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*+      ",
+"    +#*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*+      ",
+"    +#*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*+      ",
+"    +&*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*#+     ",
+"    +&*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*#+     ",
+"    +&*&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&*#+     ",
+"    +&***************************************************#+     ",
+"    +&&#################################################&#+     ",
+"    +&##################################################&#+     ",
+"    +&##################################################&#+     ",
+"    +#&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&#+     ",
+"    ++++++++++++++++++++++++++++++++++++++++++++++++++++++      ",
+"      +++++++++++++++++++++++++++++++++++++++++++++++++++       ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                ",
+"                                                                "
+};"""
+
+
 children = mw.findChildren(QtWidgets.QWidget,"Editor assistant")
 if not children:
     modifiers = QtWidgets.QApplication.keyboardModifiers()
@@ -6254,4 +8059,3 @@ if not children:
         showEditorAssistantDialog()
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
-
