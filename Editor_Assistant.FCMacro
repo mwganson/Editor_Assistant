@@ -14,8 +14,8 @@ __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
 
-__version__ = "1.92"
-__date__    = "2023/09/15"
+__version__ = "1.93"
+__date__    = "2023/09/25"
 #
 ##
 
@@ -34,11 +34,11 @@ pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
 
 pg.SetString("Version", __version__ + " (" + __date__ + ")")
 
-COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab", "#B3F88C")    #  "0"= color system , "#B3F88C"= color code html 
-pg.SetString(u"ColorActiveTab", "#B3F88C") 
+COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab", "#B3F88C")    #  "0"= color system , "#B3F88C"= color code html
+pg.SetString(u"ColorActiveTab", "#B3F88C")
 
-COLOR_ERROR_DETECTED = pg.GetString("COLOR_ERROR_DETECTED", "#a40000")  #  "0"= color system , "#a40000"= color code html 
-pg.SetString(u"COLOR_ERROR_DETECTED", "#a40000") 
+COLOR_ERROR_DETECTED = pg.GetString("COLOR_ERROR_DETECTED", "#a40000")  #  "0"= color system , "#a40000"= color code html
+pg.SetString(u"COLOR_ERROR_DETECTED", "#a40000")
 
 switch_Unicode_Read_File = pg.GetBool("switch_Unicode_Read_File", 0)
 pg.SetBool("switch_Unicode_Read_File",switch_Unicode_Read_File)
@@ -397,14 +397,14 @@ Find results = results of searches for text in Find line edit\n\
         self.runMacroBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.runMacroBtn.setToolTip("<html><body>"
                                     "<b>Save and Run the macro.</b>" + "<br />"
-                                    "The executed code has the extension <b>.FCMacro</b> and <b>.py</b> other extensions are ignored" + "<br />" 
-                                    "It is possible <font color='#ef2929'> the macro may not work</font> with this button" + "<br />" 
-                                    "ex: macro search data in another macro or" + "<br />" 
+                                    "The executed code has the extension <b>.FCMacro</b> and <b>.py</b> other extensions are ignored" + "<br />"
+                                    "It is possible <font color='#ef2929'> the macro may not work</font> with this button" + "<br />"
+                                    "ex: macro search data in another macro or" + "<br />"
                                     "the macro depends on another macro with one error or..." + "<br />"
                                     "Then try run with the conventional method." + "<br />"
                                     "<br />"
-                                    "Options: (Tools > Parameters > Plugins > Editor_Assistant)" + "<br />" 
-                                    "<b>switch_Unicode_Read_File</b>" + "<br />" 
+                                    "Options: (Tools > Parameters > Plugins > Editor_Assistant)" + "<br />"
+                                    "<b>switch_Unicode_Read_File</b>" + "<br />"
                                     "True : only in read file, detect 'UnicodeDecodeError' display Toast, stop the run" + "<br />"
                                     "False: only in read file, skip error detection not display Toast, skip or not the run (by default)" + "<br />"
                                     "Actual : <b>" + str(switch_Unicode_Read_File) + "</b>"
@@ -436,7 +436,7 @@ Find results = results of searches for text in Find line edit\n\
 
         self.ComboBox_Bak_Files = QtWidgets.QComboBox()
         self.ComboBox_Bak_Files.setMaxVisibleItems(16)
-        #self.ComboBox_Bak_Files.setEditable(True)              # editable
+        self.ComboBox_Bak_Files.setEditable(False)              # editable
         if not ShowRunShowFilesBak:
             self.ComboBox_Bak_Files.setVisible(ShowRunShowFilesBak)
         QtCore.QObject.connect(self.ComboBox_Bak_Files, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Bak_Files_Clicked)
@@ -862,15 +862,15 @@ Type 'help(editor)' in the console for help.\n\
             lenBackUpFile = len(os.listdir(fileNameBAK))
             self.fileBackupDelBtn.setText(str(lenBackUpFile))
             self.fileBackupDelBtn.setIcon(QIconFromXPMString(directory_Backup_Taken_icon))
-            self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" + 
-                                             "Actual : " + str(lenBackUpFile) + " file(s)" + "\n" 
+            self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" +
+                                             "Actual : " + str(lenBackUpFile) + " file(s)" + "\n"
                                              "Push the button for delette complete file(s) and directory" + "\n"
                                              "If the button is not visible the feature not run")
         except Exception:
             try:
                 self.fileBackupDelBtn.setText("")
                 self.fileBackupDelBtn.setIcon(QIconFromXPMString(directory_Backup_Empty_icon))
-                self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" + 
+                self.fileBackupDelBtn.setToolTip("Number of .bak file stored" + "\n" +
                                                  "Push the button for delette complete file(s) and directory" + "\n"
                                                  "If the button is not visible the feature not run")
             except Exception:
@@ -879,7 +879,7 @@ Type 'help(editor)' in the console for help.\n\
             self.ComboBox_Bak_Files.setToolTip("<html><body>"
                                                "Click the backup file for reload the .BAK file" + "<br />"
                                                "One new text document is created" + "<br /><br />"
-                                               "<b>" + fileNameBAK + "</b><br /><br />" 
+                                               "<b>" + fileNameBAK + "</b><br /><br />"
                                                "<u>Option hidden : </u>" + "<br /><br />"
                                                "<b>switchFrameInfoBackUpOnFile</b><br />"
                                                "Write info of backup file loaded<br />"
@@ -945,7 +945,7 @@ Type 'help(editor)' in the console for help.\n\
             lenBackUpFile = len(os.listdir(fileNameBAK))
             diag = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, "Warning Delete BAK", "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br /><br />" +
                                                                          "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br /><br />" +
-                                                                         "Name of .BAK directory : " + "<br /><br />" + 
+                                                                         "Name of .BAK directory : " + "<br /><br />" +
                                                                          "<b>" + fileNameBAK + "</b>")
             diag.addButton("Ok Delete", QtWidgets.QMessageBox.AcceptRole) #0
             diag.addButton("  Abort  ", QtWidgets.QMessageBox.RejectRole) #1 "<html><body>" +   + "</body></html>"
@@ -987,7 +987,7 @@ Type 'help(editor)' in the console for help.\n\
             FreeCAD.ActiveDocument.openTransaction("EdAss")    # memorise les actions (avec annuler restore)
         except Exception:
             None
-        self.refresh() 
+        self.refresh()
         try:
             windowTitleName0 = Gui.getMainWindow().findChild(QtWidgets.QMdiArea).currentSubWindow().windowTitle()
             windowName0 = self.editorList.currentItem().text()
@@ -1024,13 +1024,13 @@ Type 'help(editor)' in the console for help.\n\
                     except Exception:
                         None
                     #### search formule for positioned the cursor example in position point 49710
-                    erreur = str(traceback.format_exc())    # error detected in executed macro and position the cursor in a eroneous line 
+                    erreur = str(traceback.format_exc())    # error detected in executed macro and position the cursor in a eroneous line
                     erreur = errorSave = str(erreur.split("UnicodeEncodeError:")[1])
                     lineErrorStr = erreur.split("position")[1].split(":")[0]
                     lineError = int(lineErrorStr)   # position error ex: 49710
-                    
+
                     #### begin calcul position X and Y of text ex: position 49710
-                    numberCR = plainText.count('\n', 0, lineError)   # line error (number of "\n" Carriage return) 
+                    numberCR = plainText.count('\n', 0, lineError)   # line error (number of "\n" Carriage return)
                     text_cursor = self.currentEditor.textCursor()
 
                     text_cursor.setPosition(lineError)
@@ -1098,10 +1098,10 @@ Type 'help(editor)' in the console for help.\n\
                 try:
                     exec(data, my_macro.__dict__)
                 except Exception as err:
-                    erreur = str(traceback.format_exc())      # !! error detected in executed macro and position the cursor in a eroneous line 
+                    erreur = str(traceback.format_exc())      # !! error detected in executed macro and position the cursor in a eroneous line
                     counterCirconflex = erreur.count("^")
                     counterCirconflexPos = erreur.find("^")
-                    numberCRCirconflex = erreur.count('\n')   # line error (number of "\n" Carriage return) 
+                    numberCRCirconflex = erreur.count('\n')   # line error (number of "\n" Carriage return)
 
                     argument = str(err.args)
                     lineError = colError = lineColError = switchSelectCompleteLine = 0
@@ -1128,7 +1128,7 @@ Type 'help(editor)' in the console for help.\n\
                             text_cursor = self.currentEditor.textCursor()
                             pos01 = text_cursor.blockNumber()
                             pos02 = text_cursor.position()
-                            numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return) 
+                            numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return)
                             curPos = pos03 = pos01 + pos02 - numberCR + colError
                             text_cursor.setPosition(pos03)
                             text_cursor.select(QtGui.QTextCursor.WordUnderCursor)       # select the word
@@ -1166,7 +1166,7 @@ Type 'help(editor)' in the console for help.\n\
                             switchSelectCompleteLine = True
                         else:
                             lineError = erreur.split("\n")
-#ori                            for i00 in reversed(lineError): 
+#ori                            for i00 in reversed(lineError):
                             for i00 in lineError:
                                 if "line" in i00:
                                     i01 = i00.replace(",","").split()
@@ -1184,7 +1184,7 @@ Type 'help(editor)' in the console for help.\n\
                         text_cursor = self.currentEditor.textCursor()
                         pos01 = text_cursor.blockNumber()
                         pos02 = text_cursor.position()
-                        numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return) 
+                        numberCR = plainText.count('\n', 0, pos02)   # line error (number of "\n" Carriage return)
                         curPos = pos03 = pos01 + pos02 - numberCR + colError
                         text_cursor.setPosition(pos03)
                         ####
@@ -2028,7 +2028,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         helpReferenceMenu = QtWidgets.QMenu("Reference")
         helpMenu.addMenu(helpReferenceMenu)
 
-#start help -> reference -> 
+#start help -> reference ->
 
         moduleMenu = QtWidgets.QMenu("FreeCAD Modules")
         helpReferenceMenu.addMenu(moduleMenu)
@@ -2913,7 +2913,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
             if not fname:
                 return
-    
+
             pathFile = os.path.dirname(fname) + "/"  #1# = C:/Tmp/
             setPathLatestDirectory = pathFile
             pg.SetString("setPathLatestDirectory",setPathLatestDirectory)
@@ -3059,7 +3059,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             return
         lines = txt.splitlines()
 
-        if len(self.ComboBox_Indent_Memo.currentText()) == 0: 
+        if len(self.ComboBox_Indent_Memo.currentText()) == 0:
             self.Indent_Memo = ""
         else:
             self.Indent_Memo = self.ComboBox_Indent_Memo.currentText()
@@ -3077,7 +3077,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         tc.movePosition(QtGui.QTextCursor.StartOfLine, QtGui.QTextCursor.KeepAnchor)
         self.currentEditor.setTextCursor(tc)
 
-    def on_ComboBox_Indent_Memo_Changed_Clicked(self, text):    # change indentBtn icon 
+    def on_ComboBox_Indent_Memo_Changed_Clicked(self, text):    # change indentBtn icon
         self.Indent_Memo = ""
         if text == "":
             self.indentBtn.setIcon(QIconFromXPMString(indent_icon))
@@ -3904,7 +3904,7 @@ on the key's value:
 'replace' -- replacement text is from the Replace QLineEdit
 Any other value means use that value as the replacement text.
 
-The "goto" key, if it exists, positions the cursor before the 
+The "goto" key, if it exists, positions the cursor before the
 text is inserted.  The "goto" key can have these values:
 
 'input' (or 'input1') -- line is from single line QInputDialog
@@ -3929,7 +3929,7 @@ text is inserted.  The "goto" key can have these values:
                 return
             self.templateDict[newName] = {}
             for k,v in self.templateDict[curName].items():
-                self.templateDict[newName][k] = v 
+                self.templateDict[newName][k] = v
             self.templateDict.pop(curName)
             self.blockSignals = True
             self.updateList(fetch=False)
@@ -4101,6 +4101,9 @@ def showEditorAssistantDialog():
     tabWidget = None
     if comboView:
         tabWidget = comboView.findChild(QtWidgets.QTabWidget)
+    else: #no combo view, so show as a dock widget
+        showEditorAssistantAsDockWidget()
+        return
     if tabWidget:
         tabWidget.addTab(dlg.form,f"Editor assistant v{__version__}")
         dlg.isTabbed = True
