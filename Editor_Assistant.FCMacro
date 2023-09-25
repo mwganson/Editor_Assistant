@@ -14,7 +14,7 @@ __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
 
-__version__ = "1.93"
+__version__ = "1.94"
 __date__    = "2023/09/25"
 #
 ##
@@ -1972,6 +1972,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         settingsMenu.addAction(showMinimalAction)
 
 #end settings->layout
+##:Bookmark line 1975
+        settingsMenu.addSeparator()
+        bHighlightActiveTab = pg.GetString("ColorActiveTab","#B3F88C") == "#B3F88C"
+        highlightActiveTabAction = QtWidgets.QAction("Highlight active tab", settingsMenu, checkable = True)
+        highlightActiveTabAction.setChecked(bHighlightActiveTab)
+        highlightActiveTabAction.triggered.connect(self.toggleActiveTabHighlighting)
+        settingsMenu.addAction(highlightActiveTabAction)
 
         mainMenu.addMenu(settingsMenu)
 #end of settings
@@ -2247,6 +2254,20 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
+##:Bookmark line 2257
+    def toggleActiveTabHighlighting(self):
+        COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab","#B3F88C")
+        bHighlightActiveTab = bool(COLOR_ACTIVE_TAB != "" and COLOR_ACTIVE_TAB != "0")
+        if bHighlightActiveTab: #is active, so toggle it false by setting parameter to "0"
+            print("deactivating tab highlighting")
+            pg.SetString("ColorActiveTab","0")
+            mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: QPalette.Base;}")
+        else:
+            print("activating tab highlighting")
+            pg.SetString("ColorActiveTab","#B3F88C")
+            COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab","#B3F88C")
+            mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:only-one {background-color: " + COLOR_ACTIVE_TAB + ";}")
+
 
     #credit Amartel at stackoverflow for this bit of code
     def getLineNumberAtCursor(self):
