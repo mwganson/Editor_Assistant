@@ -4085,12 +4085,12 @@ class DiffSaver (QtWidgets.QDialog):
         self.setColWidth(value)
 
 
-class Dockable (QtWidgets.QDockWidget):
+class Dockable (QtGui.QDockWidget):
     def __init__(self, parent=mw):
         super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
         self.dlg = TaskEditorAssistant()
         self.setObjectName("Editor assistant dockwidget")
-        QtWidgets.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
+        QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
         self.setWidget(self.dlg.form)
         self.setWindowTitle(f"Editor assistant v{__version__}")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
@@ -4111,20 +4111,39 @@ def QIconFromStandard(name):
     return icon
 
 def showEditorAssistantAsDockWidget():
-    dockWidget = Dockable(mw)
-    #dockWidget.show()
-    mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dockWidget)
+    dockWidget = mw.findChild(QtGui.QDockWidget,"Editor assistant dockwidget")
+    if not dockWidget:
+        dockWidget = QtWidgets.QDockWidget()
+        dockWidget.setWindowTitle(f"Editor assistant v{__version__}")
+        dockWidget.setObjectName("Editor assistant dockwidget")
+        edit = QtWidgets.QPlainTextEdit()
+        edit.setPlainText("Plain Text")
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(edit)
+        dockWidget.setLayout(layout)
+        mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dockWidget)
+
+    dlg = TaskEditorAssistant()
+    dockWidget.setWidget(dlg.form)
+    modelView = mw.findChild(QtGui.QDockWidget,'Model')
+    # taskspanel = mw.findChild(QtGui.QDockWidget,"Tasks")
+    if dockWidget and modelView:
+        # dock = mw.tabifyDockWidget(modelView, taskspanel)
+        dock2 = mw.tabifyDockWidget(modelView, dockWidget)
+        modelView.raise_()
+
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
     dlg = TaskEditorAssistant()
-    comboView = mw.findChild(QtWidgets.QDockWidget,"Combo View")
+    comboView = mw.findChild(QtGui.QDockWidget,"Combo View")
     tabWidget = None
     if comboView:
         tabWidget = comboView.findChild(QtWidgets.QTabWidget)
     else: #no combo view, so show as a dock widget
         showEditorAssistantAsDockWidget()
         return
+
     if tabWidget:
         tabWidget.addTab(dlg.form,f"Editor assistant v{__version__}")
         dlg.isTabbed = True
