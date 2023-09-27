@@ -71,11 +71,7 @@ pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
 MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
 pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
-import PySide2
-from PySide2 import QtGui ,QtCore, QtWidgets
-from PySide2.QtGui import *
-from PySide2.QtCore import *
-from PySide2.QtWidgets import *
+from PySide import QtCore, QtGui, QtWidgets
 import FreeCAD, FreeCADGui
 
 import difflib
@@ -106,77 +102,77 @@ global takenBakFiles    ; takenBakFiles = []
 
 hasQtXmlPatterns = False
 try:
-    from PySide2 import QtXmlPatterns
+    from PySide import QtXmlPatterns
     hasQtXmlPatterns = True
 except ImportError:
     pass
 
 hasQtXml = False
 try:
-    from PySide2 import QtXml
+    from PySide import QtXml
     hasQtXml = True
 except ImportError:
     pass
 
 hasQtWidgets = False
 try:
-    from PySide2 import QtWidgets
+    from PySide import QtWidgets
     hasQtWidgets = True
 except ImportError:
     pass
 
 hasQtHelp = False
 try:
-    from PySide2 import QtHelp
+    from PySide import QtHelp
     hasQtHelp = True
 except ImportError:
     pass
 
 hasQtNetwork = False
 try:
-    from PySide2 import QtNetwork
+    from PySide import QtNetwork
     hasQtNetwork = True
 except ImportError:
     pass
 
 hasQtMultimedia = False
 try:
-    from PySide2 import QtMultimedia
+    from PySide import QtMultimedia
     hasQtMultimedia = True
 except ImportError:
     pass
 
 hasQtOpenGL = False
 try:
-    from PySide2 import QtOpenGL
+    from PySide import QtOpenGL
     hasQtOpenGL = True
 except ImportError:
     pass
 
 hasQtPrintSupport = False
 try:
-    from PySide2 import QtPrintSupport
+    from PySide import QtPrintSupport
     hasQtPrintSupport = True
 except ImportError:
     pass
 
 hasQtSql = False
 try:
-    from PySide2 import QtSql
+    from PySide import QtSql
     hasQtSql = True
 except ImportError:
     pass
 
 hasQtSvg = False
 try:
-    from PySide2 import QtSvg
+    from PySide import QtSvg
     hasQtSvg = True
 except ImportError:
     pass
 
 hasQtTest = False
 try:
-    from PySide2 import QtTest
+    from PySide import QtTest
     hasQtTest = True
 except ImportError:
     pass
@@ -929,7 +925,7 @@ Type 'help(editor)' in the console for help.\n\
         if not shiboken.isValid(self.editorList):
             return
         sub = self.mdi.activeSubWindow()
-        ed = sub.findChild(PySide2.QtWidgets.QPlainTextEdit) if sub else None
+        ed = sub.findChild(QtWidgets.QPlainTextEdit) if sub else None
         if ed:
             p = ed.parent()
             gp = p.parent()
@@ -1405,7 +1401,7 @@ Type 'help(editor)' in the console for help.\n\
         newtxt = txt.replace('"', '\\"').replace("'","\\'")
 
         cmd = """
-from PySide2 import QtGui, QtWidgets
+from PySide import QtGui, QtWidgets
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
@@ -1508,7 +1504,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             old_cursor = self.editorDict[name].textCursor()
             cmd = """
 from PySide import QtGui
-from PySide2 import QtWidgets
+from PySide import QtWidgets
 __editors__ = [child for child in FreeCADGui.getMainWindow().findChildren(QtWidgets.QPlainTextEdit)]
 __parents__ = [ed.parent() for ed in __editors__]
 __grandparents__ = [p.parent().windowTitle() for p in __parents__]
@@ -1523,7 +1519,7 @@ del(__editors__, __parents__, __grandparents__)
                 return
             cmd = """
 from PySide import QtGui
-from PySide2 import QtWidgets
+from PySide import QtWidgets
 dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 """+ consoleCmd + """
 """
@@ -2400,7 +2396,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             if dictString == "{}": #no parameter
                 templateDict = {
 "button":{"label":"input", "name":"input","output":"name = QtWidgets.QPushButton('label')"},
-"import QtGui, QtWidgets, QtCore":{"output":"from PySide2 import QtGui, QtWidgets, QtCore"}
+"import QtGui, QtWidgets, QtCore":{"output":"from PySide import QtGui, QtWidgets, QtCore"}
 }
             else:
                 templateDict = json.loads(dictString) #preserve existing templates from parameters
@@ -2538,7 +2534,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def showHelp(self, name):
         if isinstance(name, str) and name[:3] == "Qt.":
-            name = "PySide2.QtCore." + name
+            name = "PySide.QtCore." + name
         from contextlib import redirect_stdout
         import io
         f = io.StringIO()
@@ -2566,16 +2562,17 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def makeWindow(self, name, txt, title=""):
         """make a window to show some text"""
-        dlg = QtWidgets.QDialog(mw)
+        dlg = QtWidgets.QDockWidget()
+        dlg.setObjectName("Editor assistant dockwidget")
         edit = QtWidgets.QPlainTextEdit()
         edit.setPlainText(txt)
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(edit)
         dlg.setLayout(layout)
-        dlg.resize(800,600)
+        # dlg.resize(800,600)
         dlg.setWindowTitle(f"help on {name}" if not title else title)
-        dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-        self.mdi.addSubWindow(dlg)
+        # dlg.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
+        # self.mdi.addSubWindow(dlg)
         dlg.show()
 
     def close(self):
@@ -2788,13 +2785,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         global setPathLatestDirectory
 
         if platform.node() == "mint":
-            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
+            fname, filter = PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
             filter = filter[filter.find("."):filter.find(")")]
             if filter[-2:] == ".*":
                  filter = filter[:-2]
             fname = fname + filter
         else:
-            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+            fname, filter =  PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
 
         if not fname:
             return
@@ -2812,9 +2809,9 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         global setPathLatestDirectory
 
         if platform.node() == "mint":
-            fname, filter = PySide2.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide2 Mint
+            fname, filter = PySide.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
         else:
-            fname, filter =  PySide2.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+            fname, filter =  PySide.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
 
         if not fname:
             return
@@ -2866,7 +2863,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         layout = QtWidgets.QVBoxLayout()
         ds.setLayout(layout)
         ds.setWindowIcon(QIconFromXPMString(__icon__))
-        from PySide2 import QtWebEngineWidgets as Web
+        from PySide import QtWebEngineWidgets as Web
         ds.webView = Web.QWebEngineView()
         #ds.webView.setHtml(ds.diff)
         saveBtn = QtWidgets.QPushButton("Save to html...")
@@ -2924,13 +2921,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         else:
 
             if platform.node() == "mint":
-                fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide2 Mint
+                fname, filter = PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide Mint
                 filter = filter[filter.find("."):filter.find(")")]
                 if filter[-2:] == ".*":
                      filter = filter[:-2]
                 fname = fname + filter
             else:
-                fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
+                fname, filter =  PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
 
             if not fname:
                 return
@@ -3871,7 +3868,7 @@ class TemplateEditor(QtWidgets.QWidget):
                 self.form.print(f"{newTemplateName} already exists","Error")
                 return
             if not curName:
-                self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label') #QtWidgets.QPushButton('label') for PySide2"}
+                self.templateDict[newTemplateName] = {"label" : "input","name" : "input","output" : "name = QtGui.QPushButton('label') #QtWidgets.QPushButton('label') for PySide"}
             else:
                 self.templateDict[newTemplateName] = curDict
             self.updateList(fetch=False)
@@ -3891,7 +3888,7 @@ class TemplateEditor(QtWidgets.QWidget):
             self.blockSignals = True
             self.templateList.addItem("template")
             self.edit.setPlainText("{}")
-            self.templateDict = {"template":{"label":"input","name":"input","output":"name = QtGui.QPushButton('label') # QtWidgets.QPushButton('label') for PySide2"}}
+            self.templateDict = {"template":{"label":"input","name":"input","output":"name = QtGui.QPushButton('label') # QtWidgets.QPushButton('label') for PySide"}}
             self.blockSignals = False
             self.setCurrentByRow(0)
 
@@ -4058,13 +4055,13 @@ class DiffSaver (QtWidgets.QDialog):
     def saveDiffToHtml(self):
         global setPathLatestDirectory
         if platform.node() == "mint":
-            fname, filter = PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")#PySide2 Mint
+            fname, filter = PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")#PySide Mint
             filter = filter[filter.find("."):filter.find(")")]
             if filter[-2:] == ".*":
                  filter = filter[:-2]
             fname = fname + filter
         else:
-            fname, filter =  PySide2.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")
+            fname, filter =  PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save diff to html file", setPathLatestDirectory, "*.html")
 
         if not fname:
             return
@@ -4157,6 +4154,9 @@ def showEditorAssistantDialog():
     else:
         FreeCAD.Console.PrintError("Another task dialog is active.  Showing as dockable widget instead.\n")
         showEditorAssistantAsDockWidget()
+
+
+
 
 __icon__="""
 /* XPM */
