@@ -14,8 +14,8 @@ __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
 
-__version__ = "1.95"
-__date__    = "2023/09/27"
+__version__ = "1.96"
+__date__    = "2023/09/28"
 #
 ##
 
@@ -1001,7 +1001,7 @@ Type 'help(editor)' in the console for help.\n\
             plainText = self.getText()
             switchAllIsGood = True
             if self.fileBackupDelBtn.isVisible():  # save Bak file
-                now = QDateTime.currentDateTime().toString(setFormatBackupDateTime)
+                now = QtCore.QDateTime.currentDateTime().toString(setFormatBackupDateTime)
                 windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !?
                 windowName2 = windowName2.replace("[*]","")
                 fileNameBAK = setPathFileBackup + windowName2 + ".BAK"
@@ -1413,12 +1413,11 @@ __editor__.centerCursor()
 del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
 """
-
         self.doCommand(cmd)
 
     def qSearch(self,txt):
         qText = txt.replace(" ","+")
-        queryUrl = f"https://doc-snapshots.qt.io/qtforpython/search.html?q={qText}"
+        queryUrl = f"https://wiki.qt.io/index.php?search={qText}&title=Special%3ASearch&go=Go"
         import webbrowser
         webbrowser.open_new_tab(queryUrl)
 
@@ -1489,10 +1488,12 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
     def onConsoleBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
         consoleCmd = self.consoleEdit.text()
+        consoleCmd = consoleCmd.replace("qsearch","qSearch")
         consoleCmd = consoleCmd.replace("dir(", "dlg.dir(")
         consoleCmd = consoleCmd.replace("help(", "dlg.showHelp(")
         consoleCmd = consoleCmd.replace("menu(","dlg.makeReferenceMenu(")
-        consoleCmd = consoleCmd.replace("search(", "dlg.search(")
+        if not "qSearch" in consoleCmd:
+            consoleCmd = consoleCmd.replace("search(", "dlg.search(")
         consoleCmd = consoleCmd.replace("qSearch(", "dlg.qSearch(")
         consoleCmd = consoleCmd.replace("wSearch(", "dlg.wSearch(")
         consoleCmd = consoleCmd.replace("\\n",chr(10))
