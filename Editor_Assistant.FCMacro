@@ -14,8 +14,8 @@ __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = ""
 
-__version__ = "1.94"
-__date__    = "2023/09/25"
+__version__ = "1.95"
+__date__    = "2023/09/27"
 #
 ##
 
@@ -1968,7 +1968,6 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         settingsMenu.addAction(showMinimalAction)
 
 #end settings->layout
-##:Bookmark line 1975
         settingsMenu.addSeparator()
         bHighlightActiveTab = pg.GetString("ColorActiveTab","#B3F88C") == "#B3F88C"
         highlightActiveTabAction = QtWidgets.QAction("Highlight active tab", settingsMenu, checkable = True)
@@ -2250,7 +2249,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
         mainMenu.exec_(self.mainMenuBtn.mapToGlobal(QtCore.QPoint()))
-##:Bookmark line 2257
+
     def toggleActiveTabHighlighting(self):
         COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab","#B3F88C")
         bHighlightActiveTab = bool(COLOR_ACTIVE_TAB != "" and COLOR_ACTIVE_TAB != "0")
@@ -4081,17 +4080,6 @@ class DiffSaver (QtWidgets.QDialog):
     def onWidthSliderValueChanged(self, value):
         self.setColWidth(value)
 
-
-class Dockable (QtGui.QDockWidget):
-    def __init__(self, parent=mw):
-        super(Dockable,self).__init__(parent, QtCore.Qt.Tool)
-        self.dlg = TaskEditorAssistant()
-        self.setObjectName("Editor assistant dockwidget")
-        QtGui.QDockWidget.setWindowIcon(self, QIconFromXPMString(__icon__))
-        self.setWidget(self.dlg.form)
-        self.setWindowTitle(f"Editor assistant v{__version__}")
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
-
 def QIconFromXPMString(xpm_string):
     xpm = xpm_string.replace("\"","").replace(',','').splitlines()[4:-1]
     for line in reversed(xpm):
@@ -4107,10 +4095,11 @@ def QIconFromStandard(name):
     icon = QtWidgets.QPushButton().style().standardIcon(pixmap)
     return icon
 
-def showEditorAssistantAsDockWidget():
+def showEditorAssistantAsDockWidget(floating = False):
     dockWidget = mw.findChild(QtGui.QDockWidget,"Editor assistant dockwidget")
     if not dockWidget:
         dockWidget = QtWidgets.QDockWidget()
+        dockWidget.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         dockWidget.setWindowTitle(f"Editor assistant v{__version__}")
         dockWidget.setObjectName("Editor assistant dockwidget")
         edit = QtWidgets.QPlainTextEdit()
@@ -4119,7 +4108,7 @@ def showEditorAssistantAsDockWidget():
         layout.addWidget(edit)
         dockWidget.setLayout(layout)
         mw.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dockWidget)
-
+    dockWidget.setFloating(floating)
     dlg = TaskEditorAssistant()
     dockWidget.setWidget(dlg.form)
     modelView = mw.findChild(QtGui.QDockWidget,'Model')
@@ -4128,7 +4117,7 @@ def showEditorAssistantAsDockWidget():
         # dock = mw.tabifyDockWidget(modelView, taskspanel)
         dock2 = mw.tabifyDockWidget(modelView, dockWidget)
         modelView.raise_()
-
+        dockWidget.raise_()
 
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
@@ -4137,8 +4126,8 @@ def showEditorAssistantDialog():
     tabWidget = None
     if comboView:
         tabWidget = comboView.findChild(QtWidgets.QTabWidget)
-    else: #no combo view, so show as a dock widget
-        showEditorAssistantAsDockWidget()
+    else: #no combo view, so show as a tabbed dock widget
+        showEditorAssistantAsDockWidget(floating=False)
         return
 
     if tabWidget:
@@ -8097,7 +8086,7 @@ children = mw.findChildren(QtWidgets.QWidget,"Editor assistant")
 if not children:
     modifiers = QtWidgets.QApplication.keyboardModifiers()
     if modifiers == QtCore.Qt.AltModifier:
-        showEditorAssistantAsDockWidget()
+        showEditorAssistantAsDockWidget(floating=True)
     else:
         showEditorAssistantDialog()
 else:
