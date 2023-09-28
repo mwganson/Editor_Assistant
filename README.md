@@ -272,6 +272,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.95
+* tabify with the Model view if the combo view isn't found (combo view is gone now in 0.22)
 ### 1.92 (2023.09.15)
 * PR from mario52
 * add icons to menus
