@@ -12,13 +12,12 @@ __title__   = "Editor_Assistant"
 __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
-__wiki__    = ""
-
-__version__ = "1.96"
-__date__    = "2023/09/28"
+__wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
+__forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
+__version__ = "1.97" 
+__date__    = "2024/06/22" 
 #
 ##
-
 ####path#########################################################################
 global path          ; path          = ""                            #
 #path  = FreeCAD.ConfigGet(u"AppHomePath")                           # path FreeCAD installation
@@ -46,8 +45,8 @@ pg.SetBool("switch_Unicode_Read_File",switch_Unicode_Read_File)
 setPathFileBackup = pg.GetString("setPathFileBackup", path)
 pg.SetString("setPathFileBackup", setPathFileBackup)
 
-setFormatBackupDateTime = "yyyy-MM-dd_HH-mm-ss"
-#setFormatBackupDateTime = pg.GetString("setFormatBackupDateTime", "yyyy-MM-dd_HH-mm-ss")
+setFormatBackupDateTime = "yyyy_MM_dd_HH_mm_ss"
+#setFormatBackupDateTime = pg.GetString("setFormatBackupDateTime", "yyyy_MM_dd_HH_mm_ss")
 #pg.SetString(u"setFormatBackupDateTime",  setFormatBackupDateTime)
 
 switchReplaceInterrogationFFFD = pg.GetBool("switchReplaceInterrogationFFFD", False)
@@ -61,6 +60,12 @@ pg.SetBool("switchFrameInfoBackUpOnFile", switchFrameInfoBackUpOnFile)
 
 switchFrameInfoOnBeginOrEnd = pg.GetBool("switchFrameInfoOnBeginOrEnd", False)
 pg.SetBool("switchFrameInfoOnBeginOrEnd", switchFrameInfoOnBeginOrEnd)
+
+switchMemoBakUpDisplayOnComboBox = pg.GetBool("switchMemoBakUpDisplayOnComboBox", True)
+pg.SetBool("switchMemoBakUpDisplayOnComboBox", switchMemoBakUpDisplayOnComboBox)
+
+switchMemoIncludeOnFile = pg.GetBool("switchMemoIncludeOnFile", True)
+pg.SetBool("switchMemoIncludeOnFile", switchMemoIncludeOnFile)
 
 UNDO_QUEUE_MAX_SIZE = pg.GetInt("UndoQueueMaxSize", 100)
 pg.SetInt("UndoQueueMaxSize",UNDO_QUEUE_MAX_SIZE)
@@ -323,10 +328,12 @@ class TaskEditorAssistant:
         self.mainMenuBtn.setToolTip("Main menu")
         self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
         topLabelLayout.addWidget(self.mainMenuBtn)
+        topLabelLayout.addStretch() 
 
         self.msgBtn = QtWidgets.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
         self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
+        self.msgBtn.setFixedWidth(300)  
         self.msgBtn.setToolTip("Toast message area," + "\n" +
                                "click to see most recent message displayed in the report view")
         topLabelLayout.addWidget(self.msgBtn)
@@ -392,31 +399,38 @@ Find results = results of searches for text in Find line edit\n\
         self.runMacroBtn.setIcon(QIconFromXPMString(runSave_icon))
         self.runMacroBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
         self.runMacroBtn.setToolTip("<html><body>"
-                                    "<b>Save and Run the macro.</b>" + "<br />"
-                                    "The executed code has the extension <b>.FCMacro</b> and <b>.py</b> other extensions are ignored" + "<br />"
-                                    "It is possible <font color='#ef2929'> the macro may not work</font> with this button" + "<br />"
-                                    "ex: macro search data in another macro or" + "<br />"
-                                    "the macro depends on another macro with one error or..." + "<br />"
-                                    "Then try run with the conventional method." + "<br />"
-                                    "<br />"
-                                    "Options: (Tools > Parameters > Plugins > Editor_Assistant)" + "<br />"
-                                    "<b>switch_Unicode_Read_File</b>" + "<br />"
-                                    "True : only in read file, detect 'UnicodeDecodeError' display Toast, stop the run" + "<br />"
-                                    "False: only in read file, skip error detection not display Toast, skip or not the run (by default)" + "<br />"
-                                    "Actual : <b>" + str(switch_Unicode_Read_File) + "</b>"
-                                    "<br /><br />"
-                                    "Save one backup file in desidered directory" + "<br />"
-                                    "The button display and give the number of backup file" + "<br />"
-                                    "Press the button for delette the complete file(s) and directory" + "<br />"
-                                    "<br />"
-                                    "<b>setPathFileBackup</b>" + "<br />"
-                                    "Path for the backup files (Default: the macro directory)" + "<br />"
-                                    "Actual : <b>'" + setPathFileBackup + "'</b><br />"
-                                    "<br />"
-                                    "<b>switchDisplayConsolePrintError</b>" + "<br />"
-                                    "Display or not the complete error info in the reportView" + "<br />"
-                                    "Actual : <b>" + str(switchDisplayConsolePrintError) + "</b><br />"
-                                    "<br />"
+                                    "<b>Save and Run the macro.</b>" + "<br/>"
+                                    "The executed code has the extension <b>.FCMacro</b> and <b>.py</b> other extensions are ignored" + "<br/>"
+                                    "It is possible <font color='#ef2929'> the macro may not work</font> with this button" + "<br/>"
+                                    "ex: macro search data in another macro or" + "<br/>"
+                                    "the macro depends on another macro with one error or..." + "<br/>"
+                                    "Then try run with the conventional method." + "<br/>"
+                                    "<br/>"
+                                    "<u>Options</u> : " + "<i>(Tools > Parameters > Plugins > Editor_Assistant)</i>" + "<br/>"
+                                    "<br/>"
+                                    "<b>switch_Unicode_Read_File</b>" + "<br/>"
+                                    "True : only in read file, detect 'UnicodeDecodeError' display Toast, stop the run" + "<br/>"
+                                    "False: only in read file, skip error detection not display Toast, skip or not the run (by default)" + "<br/>"
+                                    "Actual : <b>" + str(switch_Unicode_Read_File) + "</b>" + "<br/>"
+                                    "<br/>"
+                                    "<b>switchMemoIncludeOnFile</b>" + "<br/>"
+                                    "You can include one little memo, this memo is adding in the name of file" + "<br/>"
+                                    "This memo is displayed while hovering the list on ComboBox" + "<br/>"
+                                    "The maximum lenght of the path + name + memo is automatically cut off to 255 characters" + "<br/>"
+                                    "Actual : <b>'" + str(switchMemoIncludeOnFile) + "'</b>" + "<br/>"
+                                    "<br/>"
+                                    "Save one backup file in desidered directory" + "<br/>"
+                                    "The button display and give the number of backup file" + "<br/>"
+                                    "Press the button for delette the complete file(s) and directory" + "<br/>"
+                                    "<br/>"
+                                    "<b>setPathFileBackup</b>" + "<br/>"
+                                    "Path for the backup files (Default: the macro directory)" + "<br/>"
+                                    "Actual : <b>'" + setPathFileBackup + "'</b><br/>"
+                                    "<br/>"
+                                    "<b>switchDisplayConsolePrintError</b>" + "<br/>"
+                                    "Display or not the complete error info in the reportView" + "<br/>"
+                                    "Actual : <b>'" + str(switchDisplayConsolePrintError) + "'</b><br/>"
+                                    "<br/>"
                                     "</body></html>")
         if not ShowRunMacroBtn:
             self.runMacroBtn.setVisible(ShowRunMacroBtn)
@@ -429,17 +443,22 @@ Find results = results of searches for text in Find line edit\n\
             self.fileBackupDelBtn.setVisible(ShowRunBackUpAction)
         self.fileBackupDelBtn.clicked.connect(self.fileBackupDelBtnClicked)
 
-
         self.ComboBox_Bak_Files = QtWidgets.QComboBox()
-        self.ComboBox_Bak_Files.setMaxVisibleItems(16)
-        self.ComboBox_Bak_Files.setEditable(False)              # editable
+        self.ComboBox_Bak_Files.setMaxVisibleItems(25)
+        self.ComboBox_Bak_Files.setEditable(False)              # not editable
+        ## later    #self.ComboBox_Bak_Files.setEditable(True)  # editable
+        self.ComboBox_Bak_Files.setFixedWidth(270)  
+
         if not ShowRunShowFilesBak:
             self.ComboBox_Bak_Files.setVisible(ShowRunShowFilesBak)
         QtCore.QObject.connect(self.ComboBox_Bak_Files, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Bak_Files_Clicked)
+        self.ComboBox_Bak_Files.textHighlighted.connect(self.on_Header_Bak_File_Info) 
+        ## later    #self.ComboBox_Bak_Files.currentTextChanged.connect(self.on_Header_Bak_File_Info_Changed)  # avec editable
 
         runMacroLayout = QtWidgets.QHBoxLayout()
         runMacroLayout.addWidget(self.runMacroBtn)
         runMacroLayout.addWidget(self.fileBackupDelBtn)
+        runMacroLayout.addStretch()
         runMacroLayout.addWidget(self.ComboBox_Bak_Files)
         self.layout.addLayout(runMacroLayout)
 
@@ -627,7 +646,6 @@ Find results = results of searches for text in Find line edit\n\
 
         if not showReplaceLine:
             self.replaceEdit.setVisible(showReplaceLine)
-
             self.Refresh_Aqua_HighlightR.setVisible(showReplaceLine)
             self.replaceBtn.setVisible(showReplaceLine)
             self.replaceAllBtn.setVisible(showReplaceLine)
@@ -873,23 +891,53 @@ Type 'help(editor)' in the console for help.\n\
                 None
         try:
             self.ComboBox_Bak_Files.setToolTip("<html><body>"
-                                               "Click the backup file for reload the .BAK file" + "<br />"
-                                               "One new text document is created" + "<br /><br />"
-                                               "<b>" + fileNameBAK + "</b><br /><br />"
-                                               "<u>Option hidden : </u>" + "<br /><br />"
-                                               "<b>switchFrameInfoBackUpOnFile</b><br />"
-                                               "Write info of backup file loaded<br />"
-                                               "actual : " + "<b>" + str(switchFrameInfoBackUpOnFile) + "</b><br /><br />"
-                                               "<b>switchFrameInfoOnBeginOrEnd</b><br />"
-                                               "Choice the position of the info : <b>Begin (True)</b>/<b>End (False)</b> of the file<br />"
-                                               "actual : " + "<b>" + str(switchFrameInfoOnBeginOrEnd) + "</b><br />"
-                                               "If the ComboBox is not visible the feature not run"
+                                               "Click the backup file for reload the .BAK file" + "<br/>"
+                                               "One new text document is created" + "<br/>"
+                                               "<br/>"
+                                               "<b>" + fileNameBAK + "</b><br/>"
+                                               "<br/>"
+                                               "<b>Format of file saved, example:</b>" + "<br/>"
+                                               "<b>C:/MyPath/MyMacro.FCMacro.BAK_2023_11_26_19_29_34_##my_memo</b>" + "<br/>"
+                                               "<br/>"
+                                               "<b><font color='#0000AA'> C:/MyPath/</font> </b>" + "<br/>"
+                                               "\t the complete path of .Bak file <i>(modifiable by : <b>setPathFileBackup</b>)</i>" + "<br/>"
+                                               "<b><font color='#0000AA'> MyMacro.FCMacro</font> </b>" + "<br/>"
+                                               "\t the real name of the macro can be <b>FCMacro</b> or <b>py</b>" + "<br/>"
+                                               "<b><font color='#0000AA'> .BAK_2023_11_26_19_29_34</font> </b>" + "<br/>"
+                                               "\t the Bak extension with the date and time format YYYY_MM_DD_HH_MM_SS" + "<br/>"
+                                               "<b><font color='#0000AA'> _##</font></b>" + "<br/>"
+                                               "\t the key separation of file to memo <i>(not modifiable)</i>" + "<br/>"
+                                               "<b><font color='#0000AA'> my_memo</font> </b>" + "<br/>"
+                                               "\t the memo attached on file" + "<br/>"
+                                               "<br/>"
+                                               "<i><b><font color='#AA0000'>PS:</font></b> all spaces of the memo are replaced by the character underline <b>'_'</b></i>" + "<br/>"
+                                               "<br/>"
+                                               "<u>Options</u> : " + "<i>(Tools > Parameters > Plugins > Editor_Assistant)</i>"+ "<br/>"
+                                               "<br/>"
+                                               "<b>switchMemoIncludeOnFile</b>" + "<br/>"
+                                               "You can include one little memo, this memo is adding in the name of file" + "<br/>"
+                                               "This memo is displayed while hovering the list on ComboBox" + "<br/>"
+                                               "The maximum lenght of the path + name + memo is automatically cut off to 255 characters" + "<br/>"
+                                               "Actual : <b>'" + str(switchMemoIncludeOnFile) + "'</b>" + "<br/>"
+                                               "<br/>"
+                                               "<b>switchFrameInfoBackUpOnFile</b><br/>"
+                                               "Write info of backup file loaded<br/>"
+                                               "Actual : " + "<b>'" + str(switchFrameInfoBackUpOnFile) + "'</b><br/>"
+                                               "<br/>"
+                                               "<b>switchFrameInfoOnBeginOrEnd</b><br/>"
+                                               "Choice the position of the info : <b>Begin (True)</b>/<b>End (False)</b> of the file<br/>"
+                                               "Actual : " + "<b>'" + str(switchFrameInfoOnBeginOrEnd) + "'</b><br/>"
+                                               "<br/>"
+                                               "<b>switchMemoBakUpDisplayOnComboBox</b><br/>"
+                                               "Display the memo of the file in the ComboBox <br/>"
+                                               "Actual : " + "<b>'" + str(switchMemoBakUpDisplayOnComboBox) + "'</b><br/>"
+                                               "<br/>"
+                                               "If the ComboBox is not visible the feature not run" + "<br/>"
                                                "</body></html>")
         except Exception:
             None
 
     def setCurrentEditor(self, name="", focus=True):
-
         global fileNameBAK
 
         if not shiboken.isValid(self.editorList):
@@ -917,6 +965,7 @@ Type 'help(editor)' in the console for help.\n\
         else:
             nameBAK = name.split("[")[0].split("/")[-1] # case drag/drop !?
         nameBAK = nameBAK.replace("[*]","")             # case drag/drop !?
+
         fileNameBAK = setPathFileBackup + nameBAK + ".BAK"
         self.setIconCurrentEditor(fileNameBAK)
         self.setListFilesBak(fileNameBAK)
@@ -930,21 +979,28 @@ Type 'help(editor)' in the console for help.\n\
             p = ed.parent()
             gp = p.parent()
             name = gp.windowTitle()
+
+            ed.setMaximumWidth(1600)
+
             if not name in self.editorDict:
                 QtCore.QTimer().singleShot(50, self.refresh)
 
-    def fileBackupDelBtnClicked(self):
+
+    def fileBackupDelBtnClicked(self):  
         global fileNameBAK
 
         if (fileNameBAK != "") and (os.path.exists(fileNameBAK)):
+
             lenBackUpFile = 0
             lenBackUpFile = len(os.listdir(fileNameBAK))
-            diag = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, "Warning Delete BAK", "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br /><br />" +
-                                                                         "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br /><br />" +
-                                                                         "Name of .BAK directory : " + "<br /><br />" +
+            diag = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, "Warning Delete BAK", "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br/><br/>" +
+                                                                         "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br/><br/>" +
+                                                                         "Name of .BAK directory : " + "<br/><br/>" +
                                                                          "<b>" + fileNameBAK + "</b>")
+            diag.setWindowIcon(QIconFromXPMString(__icon__))
             diag.addButton("Ok Delete", QtWidgets.QMessageBox.AcceptRole) #0
-            diag.addButton("  Abort  ", QtWidgets.QMessageBox.RejectRole) #1 "<html><body>" +   + "</body></html>"
+            diag.addButton("  Abort  ", QtWidgets.QMessageBox.RejectRole) #1
+
             diag.setWindowModality(QtCore.Qt.ApplicationModal)
             button = diag.exec_()
             if button == QtWidgets.QMessageBox.AcceptRole:                #0
@@ -959,7 +1015,7 @@ Type 'help(editor)' in the console for help.\n\
         switchDisplayConsolePrintError = pg.GetBool("switchDisplayConsolePrintError")
         if switchDisplayConsolePrintError:
             FreeCAD.Console.PrintMessage("_____Info Editor assistant_____Begin" + "\n")
-            FreeCAD.Console.PrintError(txt + "\n")
+            FreeCAD.Console.PrintError(str(txt) + "\n")
             FreeCAD.Console.PrintMessage("_____Info Editor assistant_____End" + "\n")
 
     def colorError(self, text_cursor=""):
@@ -970,14 +1026,90 @@ Type 'help(editor)' in the console for help.\n\
         extraSelection.format.setBackground(QtGui.QColor(COLOR_ERROR_DETECTED))
         self.currentEditor.setExtraSelections([extraSelection])
 
+    #######################################################################
+    ########## infoBackupNewInputDialog() 
+    global memo_Testing; memo_Testing = []
+    global memo_Last_memo_Entry; memo_Last_memo_Entry = ""
+
+    def on_Dialog_accept(self):
+        global memo_Testing
+        global memo_Last_memo_Entry
+
+        self.run = False
+        if self.lineEdit_memo_Bak_Txt.text() != "":
+            memox = memo_Last_memo_Entry = self.lineEdit_memo_Bak_Txt.text() 
+            memo_Testing.append((memox, True))
+            self.ComboBox_Memo.addItem(memox)
+        else:
+            memo_Testing.append(("", True))
+        memo_Testing = memo_Testing[0]
+        self.Dialog_memo_Bak.setVisible(False)
+        self.Dialog_memo_Bak.deleteLater()
+
+    def on_Dialog_cancel(self):
+        global memo_Testing
+
+        memo_Testing.append(("", False))
+        memo_Testing = memo_Testing[0]
+        self.run = False
+        self.Dialog_memo_Bak.deleteLater()
+
+    def infoBackupNewInputDialog(self):     # instead QtWidgets.QInputDialog, here for adding QComboBox
+        global memo_Last_memo_Entry
+        global memo_Testing
+
+        memo_Testing = []
+        grid = QtWidgets.QGridLayout()
+
+        self.Dialog_memo_Bak = QtWidgets.QDialog()
+        self.Dialog_memo_Bak.setMinimumWidth(200)
+        self.Dialog_memo_Bak.setWindowIcon(QIconFromXPMString(__icon__))
+        self.Dialog_memo_Bak.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.Dialog_memo_Bak.setWindowTitle(u"Info Backup")
+        self.Dialog_memo_Bak.setLayout(grid)
+
+        self.ComboBox_Memo = QtWidgets.QComboBox()
+        self.ComboBox_Memo.addItem(memo_Last_memo_Entry)
+        self.ComboBox_Memo.setToolTip("Latest memo entry")
+        QtCore.QObject.connect(self.ComboBox_Memo, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Memo_Clicked)
+        grid.addWidget(self.ComboBox_Memo, 0, 0, 1, 2)
+
+        self.lineEdit_memo_Bak_Txt = QtWidgets.QLineEdit()
+        self.lineEdit_memo_Bak_Txt.setPlaceholderText("Memo text goes here")
+        grid.addWidget(self.lineEdit_memo_Bak_Txt, 1, 0, 1, 2)
+
+        self.buttonAccept = QtWidgets.QPushButton()
+        self.buttonAccept.setText("Ok")
+        self.buttonAccept.setIcon(QtGui.QIcon.fromTheme("ok",QtGui.QIcon(":/icons/edit_OK.svg")))
+        self.buttonAccept.setToolTip("Run the macro")
+        self.buttonAccept.clicked.connect(self.on_Dialog_accept)
+        grid.addWidget(self.buttonAccept,2, 0)
+
+        self.buttonReject = QtWidgets.QPushButton()
+        self.buttonReject.setText("Abord")
+        self.buttonReject.setIcon(QtGui.QIcon.fromTheme("abord",QtGui.QIcon(":/icons/process-stop.svg")))
+        self.buttonReject.setToolTip("Abord the command")
+        self.buttonReject.clicked.connect(self.on_Dialog_cancel)
+        grid.addWidget(self.buttonReject,2, 1)
+
+        self.Dialog_memo_Bak.show()
+
+        self.run = True
+        while self.run:
+            #https://forum.freecadweb.org/viewtopic.php?f=22&t=41377
+            QtWidgets.QApplication.instance().processEvents()
+
+    def on_ComboBox_Memo_Clicked(self, text):
+        #self.lineEdit_memo_Bak_Txt.clear()
+        self.lineEdit_memo_Bak_Txt.setText(text)
+
+    ########## infoBackupNewInputDialog()
+    #######################################################################
+
     def runMacroBtnClicked(self):
         global path
         global fileNameBAK
-
-
-
-
-
+        global memo_Testing
 
         try:
             FreeCAD.ActiveDocument.openTransaction("EdAss")    # memorise les actions (avec annuler restore)
@@ -996,70 +1128,124 @@ Type 'help(editor)' in the console for help.\n\
 
         if (dummy == "FCMACRO" or dummyPy == "PY"):
             filename = windowName
+
             if (windowName.find("\\") == -1) and (windowName.find("/") == -1):  ## for case drag/drop the complete path is already given
                 filename = path + windowName
-            plainText = self.getText()
+
             switchAllIsGood = True
+
+            try:
+                FreeCAD.ActiveDocument.openTransaction("Run Macro")
+            except Exception:
+                None
             if self.fileBackupDelBtn.isVisible():  # save Bak file
-                now = QtCore.QDateTime.currentDateTime().toString(setFormatBackupDateTime)
-                windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !?
-                windowName2 = windowName2.replace("[*]","")
-                fileNameBAK = setPathFileBackup + windowName2 + ".BAK"
-                os.makedirs(fileNameBAK, exist_ok=True) #11:59:18  OSError: [WinError 123] La syntaxe du nom de fichier, de repertoire ou de volume est incorrecte ex: 'C:/Users/xxxx/AppData/Roaming/FreeCAD/Macro/C:' add "C:"
-                completeBakName = fileNameBAK + "/" + windowName2 + ".BAK_" + now
-                fileSave = open(completeBakName, 'w') # .BAK_ + setFormatBackupDateTime default: "yyyy-MM-dd_hhmmss"
-                try:
-                    fileSave.write(plainText)   # .Bak file
-                    self.setListFilesBak(fileNameBAK) # upgrade
-                                                # .py .FCMacro file
-                except (UnicodeEncodeError):    # character '\ufffd'  RuntimeError, TypeError, NameError): # only in write file switch True detect "UnicodeDecodeError, UnicodeEncodeError" display toast
-                    switchAllIsGood = False     # not .Bak file
-                    fileSave.close()
+                ####
+                curLine = self.getLineNumberAtCursor()
+                ####
+                #memo_Testing = QtWidgets.QInputDialog.getText(None, "Editor Assistant", "Memo:")
+                self.infoBackupNewInputDialog() # QDialog with comboView 
+                ####
+                if str(memo_Testing[1]) == "True":
+                    memo_Bak_Txt = memo_Testing[0]
+                    ii = ""
+                    if memo_Bak_Txt != "":
+                        for i in memo_Bak_Txt:
+                            if i in "\x3c\x3e\x3a\x22\x2f\x5c\x7C\x3f\x2a\x2e\x20":
+                                i = "_"
+                            ii += i
+                        memo_Bak_Txt = "_##" + ii
+                    else:
+                        memo_Bak_Txt = "_##Curent_Line_" + str(curLine) # ici
+
+                    self.addBookmark([f"Bookmark line {curLine} last line of work ", curLine])  # for the file copy
+                    plainText = self.getText()
+                    ####
+                    now = QtCore.QDateTime.currentDateTime().toString(setFormatBackupDateTime)
+                    windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !?
+                    windowName2 = windowName2.replace("[*]","")
+                    fileNameBAK = setPathFileBackup + windowName2 + ".BAK"
+                    os.makedirs(fileNameBAK, exist_ok=True) #11:59:18  OSError: [WinError 123] La syntaxe du nom de fichier, de repertoire ou de volume est incorrecte ex: 'C:/Users/xxxx/AppData/Roaming/FreeCAD/Macro/C:' add "C:"
+                    completeBakName = fileNameBAK + "/" + windowName2 + ".BAK_" + now + memo_Bak_Txt    #complete name with memo
+
+                    if len(completeBakName) > 255:
+                        completeBakName = completeBakName[:255] # cut 255 characters
                     try:
-                        os.remove(completeBakName)
-                    except Exception:
-                        None
-                    #### search formule for positioned the cursor example in position point 49710
-                    erreur = str(traceback.format_exc())    # error detected in executed macro and position the cursor in a eroneous line
-                    erreur = errorSave = str(erreur.split("UnicodeEncodeError:")[1])
-                    lineErrorStr = erreur.split("position")[1].split(":")[0]
-                    lineError = int(lineErrorStr)   # position error ex: 49710
+                        fileSave = open(completeBakName, 'w') # .BAK_ + setFormatBackupDateTime default: "yyyy-MM-dd_hhmmss"
+                        try:
+                            fileSave.write(plainText)   # .Bak file
+                            self.setListFilesBak(fileNameBAK) # upgrade
+                                                        # .py .FCMacro file
+                        except (UnicodeEncodeError):    # character '\ufffd'  RuntimeError, TypeError, NameError): # only in write file switch True detect "UnicodeDecodeError, UnicodeEncodeError" display toast
+                            switchAllIsGood = False     # not .Bak file
+                            try:
+                                fileSave.close()
+                            except Exception as e:
+                                classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
+                                self.toast(str(erreur))
+                                self.FreeCAD_Console_PrintError(str(erreur))
+                                switchAllIsGood = False     # not .Bak file
+                            try:
+                                os.remove(completeBakName)
+                            except Exception:
+                                None
+                            #### search formule for positioned the cursor example in position point 49710 (characters)
+                            erreur = str(traceback.format_exc())     # error detected in executed macro and position the cursor in a eroneous line
+                            erreur = errorSave = str(erreur.split("UnicodeEncodeError:")[1])
+                            lineErrorStr = erreur.split("position")[1].split(":")[0]
+                            if "-" in lineErrorStr:                  # a cause de ex:  ' 2261-2267' 
+                                dummy = ""
+                                dummy = str(lineErrorStr)
+                                lineErrorStr = dummy.split("-")[0]
+                            lineError = int(lineErrorStr)            # position error ex: 49710
 
-                    #### begin calcul position X and Y of text ex: position 49710
-                    numberCR = plainText.count('\n', 0, lineError)   # line error (number of "\n" Carriage return)
-                    text_cursor = self.currentEditor.textCursor()
+                            #### begin calcul position X and Y of text ex: position 49710
+                            numberCR = plainText.count('\n', 0, lineError)   # line error (number of "\n" Carriage return)
+                            text_cursor = self.currentEditor.textCursor()
 
-                    text_cursor.setPosition(lineError)
-                    pos01 = text_cursor.blockNumber()        #  767
-                    text_cursor.setPosition(lineError - numberCR)
-                    pos02 = text_cursor.blockNumber()        #  752
-                    pos03 = pos01 - pos02                    #  15
-                    text_cursor.setPosition(lineError - numberCR + pos03)   #   48958 ( = 752, 106)
-                    text_cursor.positionInBlock()
-                    self.currentEditor.setTextCursor(text_cursor)
-                    line_y = text_cursor.blockNumber() + 1   #  753
-                    colon_x = text_cursor.columnNumber() + 1 #  107
+                            text_cursor.setPosition(lineError)
+                            pos01 = text_cursor.blockNumber()        #  767
+                            text_cursor.setPosition(lineError - numberCR)
+                            pos02 = text_cursor.blockNumber()        #  752
+                            pos03 = pos01 - pos02                    #  15
+                            text_cursor.setPosition(lineError - numberCR + pos03)   #   48958 ( = 752, 106)
+                            text_cursor.positionInBlock()
+                            self.currentEditor.setTextCursor(text_cursor)
+                            line_y = text_cursor.blockNumber() + 1   #  753
+                            colon_x = text_cursor.columnNumber() + 1 #  107
 
-                    self.gotoLineEdit.setText(str(line_y))
-                    self.currentEditor.centerCursor()
-                    #
-                    text_cursor.setPosition(lineError - numberCR + pos03 + 1, QtGui.QTextCursor.KeepAnchor) # for select 1 character
-                    self.currentEditor.setTextCursor(text_cursor)
-                    #### end calcul position X and Y of text
+                            self.gotoLineEdit.setText(str(line_y))
+                            self.currentEditor.centerCursor()
+                            #
+                            text_cursor.setPosition(lineError - numberCR + pos03 + 1, QtGui.QTextCursor.KeepAnchor) # for select 1 character
+                            self.currentEditor.setTextCursor(text_cursor)
+                            #### end calcul position X and Y of text
 
-                    self.colorError(text_cursor)
+                            self.colorError(text_cursor)
 
-                    classErr = str(sys.exc_info()[0]) # <class 'SyntaxError'>    # error detected in editor_assistant_dlg.FCMacro
-                    self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + " : " + classErr + "\n" + " " + errorSave + " (Bak not saved)")
-                    self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + ")" + "\n" + " : " + classErr + "\n" + " (Bak not saved)", "Python")
-                    self.FreeCAD_Console_PrintError(erreur)
-                finally:
-                    fileSave.close()
-                    self.setIconCurrentEditor(fileNameBAK)
-                    None
+                            classErr = str(sys.exc_info()[0]) # <class 'SyntaxError'>    # error detected in editor_assistant_dlg.FCMacro
+                            self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + " : " + classErr + "\n" + " " + errorSave + " (Bak not saved)")
+                            self.toast("Error on line : (" + str(line_y) + "," + str(colon_x) + ")" + "\n" + " : " + classErr + "\n" + " (Bak not saved)", "Python")
+                            self.FreeCAD_Console_PrintError(erreur)
+                        finally:
+                            try:
+                                fileSave.close()
+                            except OSError as erreur:
+                                classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
+                                self.toast(str(erreur))
+                                self.FreeCAD_Console_PrintError(str(erreur))
+                                switchAllIsGood = False     # not .Bak file
+                            self.setIconCurrentEditor(fileNameBAK)
+                            None
+                    except OSError as erreur:
+                        classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
+                        self.toast(str(erreur))
+                        self.FreeCAD_Console_PrintError(str(erreur))
+                        switchAllIsGood = False     # not .Bak file
+                    curLine = self.getLineNumberAtCursor()
+                    self.toggleBookmark()           # delete for restitue the original document
 
-            if switchAllIsGood:
-
+            if (switchAllIsGood) and (str(memo_Testing[1]) == "True"):
+                plainText = self.getText()
                 if windowName0 == windowTitleName0:
                     Gui.SendMsgToActiveView("Save")   # save without display the window Yes/No (if it is in a 3D View, the 3D View is saved in a .FCstd file)
                 else:
@@ -1078,10 +1264,13 @@ Type 'help(editor)' in the console for help.\n\
                     else:
                         with open(filename, 'r') as file:
                             data = file.read()
-                except (UnicodeDecodeError, RuntimeError, TypeError, NameError): # only in read file switch True detect "UnicodeDecodeError" display toast stop the run
+                except (UnicodeDecodeError, RuntimeError, TypeError, NameError, FileNotFoundError): # only in read file switch True detect "UnicodeDecodeError" display toast stop the run
                     self.toast(str(sys.exc_info()[0]),"Python")
                 finally:    #except OSError:
-                    file.close()
+                    try:
+                        file.close()
+                    except Exception:
+                        None
 
                 my_name = 'my_macro'
                 my_spec = importlib.util.spec_from_loader(my_name, loader=None)
@@ -1090,7 +1279,6 @@ Type 'help(editor)' in the console for help.\n\
                 my_macro.App = FreeCAD
                 my_macro.Gui = FreeCADGui
                 my_macro.FreeCADGui = FreeCADGui
-
                 try:
                     exec(data, my_macro.__dict__)
                 except Exception as err:
@@ -1098,7 +1286,6 @@ Type 'help(editor)' in the console for help.\n\
                     counterCirconflex = erreur.count("^")
                     counterCirconflexPos = erreur.find("^")
                     numberCRCirconflex = erreur.count('\n')   # line error (number of "\n" Carriage return)
-
                     argument = str(err.args)
                     lineError = colError = lineColError = switchSelectCompleteLine = 0
                     text_cursor = self.currentEditor.textCursor()
@@ -1107,20 +1294,24 @@ Type 'help(editor)' in the console for help.\n\
                     except Exception:
                         lineError = 0
                         None
-                    if str(type(err)) == "<class 'UnboundLocalError'>":
+                    if str(type(err)) == "<class 'UnboundLocalError'>": # if error detected  and not line detected : select all correspondence word (variable)
                         wordError = (str(err.args).replace("'","").split(",")[0].split(" "))[2]
                         lineError = None
                         self.findEdit.setText(wordError)
                         self.onFindBtnClicked(True)     # change every run
                         ##
                         errS = str(erreur).split("\n")
-                        lineError = errS[-3].split()
-                        lineError = lineError[3].split(",")
-                        lineError = int(lineError[0])
+                        try:
+                            lineError = errS[-3].split()
+                            lineError = lineError[3].split(",")
+                            lineError = int(lineError[0])
+                        except TypeError:
+                            self.matchCaseCheckBox.setChecked(True) #???
                         ##
                         self.gotoLine(lineError)
                         self.gotoLineEdit.setText(str(lineError))
                         try:
+                            self.matchCaseCheckBox.setChecked(True) #???
                             text_cursor = self.currentEditor.textCursor()
                             pos01 = text_cursor.blockNumber()
                             pos02 = text_cursor.position()
@@ -1145,7 +1336,7 @@ Type 'help(editor)' in the console for help.\n\
                         elif str(type(err)) == "<class 'SyntaxError'>":
                             lineError = err.lineno
                             colError = err.offset
-                        elif str(type(err)) == "<class 'IndentationError'>":
+                        elif str(type(err)) == "<class 'IndentationError'>": # verifier erreur si l'indentation est negative (fccircularText line 3147)
                             lineError = err.lineno
                             colError = err.offset
                         elif str(type(err)) == "<class 'TabError'>":
@@ -1469,7 +1660,6 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         elif msgType == 'Information':
             self.msgBtn.setStyleSheet("color:blue")
 
-
         #self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
         QtCore.QTimer().singleShot(length,self.clearToast)
 
@@ -1548,26 +1738,52 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.ComboBox_Find.setCurrentText(text)
         self.findEdit.setText(text)
 
+    def convertToNewFormatBAK(self, completePath):  # convert Name To New Format BAK "-" to "_"
+        import os
+
+        if os.path.exists(completePath):
+            #print("exists, and convert")
+            for i in os.listdir(completePath):   #list of files in directory
+                if "-" in i:
+                    new = i.replace("-","_")
+                    os.rename(completePath + "/" + i, completePath + "/" + new)
 
     def setListFilesBak(self, text):
         global takenBakFiles
 
         try:
+            self.convertToNewFormatBAK(text)
             if ".FCMACRO" in text.upper():
                 text = text.split(".FCMacro")[0]
                 text = text + ".FCMacro.BAK"
             elif ".PY" in text.upper():
                 text = text.split(".py")[0]
                 text = text + ".py.BAK"
-#            text = text.replace("[*]","")
-            self.ComboBox_Bak_Files.clear()
+            text = text.replace("[*]","")
+            try:
+                self.ComboBox_Bak_Files.clear()
+            except Exception:
+                self.ComboBox_Bak_Files = QtWidgets.QComboBox()
+
             takenBakFiles = []
             if os.path.exists(text):
                 for i in enumerate(os.listdir(text)):   #list of files in directory
-                    convertName = i[1].split(".")[-1]
-                    self.ComboBox_Bak_Files.addItem( str((i[0] + 1)) + " : " + convertName) # text in comboBox
-                    takenBakFiles.append([str(i[0]), convertName, text, i[1]])
+                    dummy = i[1].split("_##")
+                    convertName = dummy[0].split(".")[-1]
+                    if len(dummy) == 2:
+                        memo_Bak_Txt = dummy[1]
+                    else:
+                        memo_Bak_Txt = ""
+                    #
+                    if switchMemoBakUpDisplayOnComboBox:
+                        memo_Bak_Display = "_" + memo_Bak_Txt[:254]
+                    else:
+                        memo_Bak_Display = ""
+
+                    self.ComboBox_Bak_Files.addItem( str((i[0] + 1)) + " : " + convertName + memo_Bak_Display) # text in comboBox
+                    takenBakFiles.append([str(i[0]), convertName, text, i[1], memo_Bak_Txt])
                 self.setIconCurrentEditor(text)
+
         except Exception:
             None
 
@@ -1575,14 +1791,19 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         global takenBakFiles
         global fileNameBAK  #            lenBackUpFile = len(os.listdir(fileNameBAK))
 
-
         try:
             if len(takenBakFiles) != 0:
+                filename = bakNickName = pathBak = nameBak = memo_Bak_Txt = ""
                 itemFile = int(text.split(":")[0]) -1
                 ##itemFile = takenBakFiles[itemFile][0])    # 5 # index
                 bakNickName = takenBakFiles[itemFile][1]    # BAK_2023-09-04_174848
                 pathBak  = takenBakFiles[itemFile][2]       # C:/Users/Tyty/AppData/Roaming/FreeCAD/Macro/Tyty.py.BAK
-                nameBak  = takenBakFiles[itemFile][3]       # Tyty.py.BAK_2023-09-04_174848
+                nameRealFile = pathBak.split("/")[-1]
+                nameRealFile = nameRealFile[:-4]            # Tyty.py
+                nameBak  = takenBakFiles[itemFile][3]       # Tyty.py.BAK_2023-09-04_174848_memo_Bak_Txt
+
+                memo_Bak_Txt = takenBakFiles[itemFile][4]   # memo_Bak_Txt
+
                 filename = pathBak + "/" + nameBak
                 doc = FreeCAD.ActiveDocument if FreeCAD.ActiveDocument else FreeCAD.newDocument()
                 textDoc = doc.addObject("App::TextDocument", bakNickName)
@@ -1594,22 +1815,31 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
                 switchFrameInfoBackUpOnFile = pg.GetBool("switchFrameInfoBackUpOnFile")
                 switchFrameInfoOnBeginOrEnd = pg.GetBool("switchFrameInfoOnBeginOrEnd")
                 if switchFrameInfoBackUpOnFile == True:
+                    curLine = self.getLineNumberAtCursor()
+                    bookmarkSaved = "Bookmark to line " + str(curLine) + " last line of work "
                     lDataII = len(data)
                     lDataI = len(str(lDataII))
                     aI = len(bakNickName)
                     bI = len(nameBak.split('.BAK_')[0])
-                    cI = len(nameBak.split('.BAK_')[1])
+                    cI = len(nameBak.split('.BAK_')[1].split('_##')[0])
                     d = "(Info include by Editor_Assistant " + __version__ + ")"
                     dI = len(d)
                     e = pathBak.split('.BAK')[0]
                     eI = len(e)
+                    f = memo_Bak_Txt
+                    fI = len(f)
+                    g = bookmarkSaved
+                    gI = len(bookmarkSaved)
 
-                    x = max(aI, bI, cI, dI, eI, lDataI) + 2
+                    x = max(aI, bI, cI, dI, eI, lDataI, fI) + 2
                     a = bakNickName + " "*(x - aI)
                     b = nameBak.split('.BAK_')[0] + " "*(x - bI)
-                    c = nameBak.split('.BAK_')[1] + " "*(x - cI)
+                    c = nameBak.split('.BAK_')[1].split('_##')[0] + " "*(x - cI)
                     e = e + " "*(x - eI)
+                    f = " " + f + " "*(x - fI)
                     lData = str(lDataII) + " byte(s)" + " "*(x - lDataI - 8)
+                    g = " " + g + " "*(x - gI)
+
                     ## create frame info begin
                     backInfo = """####""" + "#"*(x + 2) + """####
 ######""" + d + '#'*(x - dI) + """####
@@ -1617,12 +1847,15 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 ####  """ + a + """####
 #### Length : """ + ' '*(x - 8) + """####
 ####  """ + lData + """####
-#### is one backUp of the file : """ + " "*(x - 27) + """####
+#### is one backUp of the file : """ + ' '*(x - 27) + """####
 ####  """ + b + """####
 #### Date Time : """ + ' '*(x - 11) + """####
 ####  """ + c + """####
-#### Original : """ + ' '*(x - 10) +"""####
+#### Original (without memo) : """ + ' '*(x - 25) +"""####
 ####  """ + e + """####
+#### Memo : """ + ' '*(x - 6) + """####
+#### """ + g + """####
+#### """ + f + """####
 ####""" + '#'*(x + 2) + """####
 """
                     ## create frame info end
@@ -1631,13 +1864,41 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
                     else:
                         data = data + "\n" + backInfo   # info en bas
                 #### include info end
-
                 textDoc.Text = data
-                self.toast("Back file reload " + "\n" + filename,"Message")
+                self.toast("Back file reload " + "\n" + filename,"Message") # restablished after add : line 337 self.msgBtn.setFixedWidth(300)
+                #self.toast("Back file reload " + "\n" + pathBak,"Message")
                 textDoc.ViewObject.doubleClicked()
                 doc.recompute()
         except Exception:
-            self.toast("Back file reload Error " + "\n" + filename,"Error")
+            try:
+                self.toast("Back file reload Error " + "\n" + filename,"Error")
+            except Exception:
+                self.toast("Back file reload Error " + "\n" + "XXXX", "Error")
+
+    def on_Header_Bak_File_Info(self, text):
+        global takenBakFiles
+        global fileNameBAK  #            lenBackUpFile = len(os.listdir(fileNameBAK))
+
+        try:
+            if len(takenBakFiles) != 0:
+                itemFile = int(text.split(":")[0]) -1
+                ##itemFile = takenBakFiles[itemFile][0])    # 5 # index
+                bakNickName = takenBakFiles[itemFile][1]    # BAK_2023-09-04_174848
+                pathBak  = takenBakFiles[itemFile][2]       # C:/Users/Tyty/AppData/Roaming/FreeCAD/Macro/Tyty.py.BAK
+                nameRealFile = pathBak.split("/")[-1]
+                nameRealFile = nameRealFile[:-4]            # Tyty.py
+                nameBak  = takenBakFiles[itemFile][3]       # Tyty.py.BAK_2023-09-04_174848_##memo_Bak_Txt
+                memo_Bak_Txt = takenBakFiles[itemFile][4]   # memo_Bak_Txt
+                filename = pathBak + "/" + nameBak
+
+                if memo_Bak_Txt == "" : memo_Bak_Txt = "?"
+                toolTipComboBox = "\n" + nameRealFile + "\n\n" + bakNickName + "\n\n" + pathBak + "\n\n" + memo_Bak_Txt + "\n"
+                self.ComboBox_Bak_Files.setItemData(itemFile, toolTipComboBox, QtCore.Qt.ToolTipRole)
+        except Exception:
+            try:
+                self.toast("Back file reload Error " + "\n" + filename,"Error")
+            except Exception:
+                self.toast("Back file reload Error " + "\n" + "XXXX", "Error")
 
     def on_Clear_FindReplaceCB_Clicked(self):
         self.findEdit.clear()
@@ -2235,7 +2496,6 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
 #drag to forum
         dragToForumAction = QtWidgets.QAction("Drag to forum")
-
         dragToForumAction.setIcon(QIconFromXPMString(pythonToForum_icon))
         dragToForumEnabled = hasattr(self.editorList.currentItem(),"text")
         dragToForumAction.setEnabled(dragToForumEnabled)
@@ -2245,7 +2505,6 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 #close menu
         if self.isTabbed:
             closeAction = QtWidgets.QAction("Close")
-
             closeAction.setIcon(QIconFromXPMString(Btn_Quit_icon))
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
@@ -2255,15 +2514,12 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab","#B3F88C")
         bHighlightActiveTab = bool(COLOR_ACTIVE_TAB != "" and COLOR_ACTIVE_TAB != "0")
         if bHighlightActiveTab: #is active, so toggle it false by setting parameter to "0"
-            print("deactivating tab highlighting")
             pg.SetString("ColorActiveTab","0")
             mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: QPalette.Base;}")
         else:
-            print("activating tab highlighting")
             pg.SetString("ColorActiveTab","#B3F88C")
             COLOR_ACTIVE_TAB = pg.GetString("ColorActiveTab","#B3F88C")
             mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:only-one {background-color: " + COLOR_ACTIVE_TAB + ";}")
-
 
     #credit Amartel at stackoverflow for this bit of code
     def getLineNumberAtCursor(self):
@@ -2387,6 +2643,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
     def getTemplateString(self):
         """updates self.templateDictString from templates file, returns dict"""
         import os
+
         real_path = os.path.realpath(__file__)
         dir_path = os.path.dirname(real_path)
         template_file = real_path.replace(".FCMacro","_Templates.txt")
@@ -3421,7 +3678,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             return
         lines = self.getLines()
         curLine = bookmark[1]
-        lines[curLine-1] = lines[curLine-1] + BOOKMARK_MARKER + bookmark[0]
+        recul = 1
+        while True:
+            try:
+                lines[curLine-recul] = lines[curLine-recul] + BOOKMARK_MARKER + bookmark[0]
+                break
+            except Exception:
+                recul += 1
         plainText = '\n'.join(lines)
         if lines[-1] == '':
             plainText += "\n"
@@ -3758,8 +4021,8 @@ class TemplateEditor(QtWidgets.QWidget):
         self.layout.addLayout(editLine)
         dlgButtonBox = QtWidgets.QHBoxLayout()
         self.layout.addLayout(dlgButtonBox)
-        self.layout.setAlignment(dlgButtonBox, Qt.AlignBottom)
-        self.layout.setAlignment(dlgButtonBox, Qt.AlignCenter)
+        self.layout.setAlignment(dlgButtonBox, QtCore.Qt.AlignBottom)
+        self.layout.setAlignment(dlgButtonBox, QtCore.Qt.AlignCenter)
 
         dlgButtonBox.addWidget(self.applyBtn)
         dlgButtonBox.addWidget(self.acceptBtn)
@@ -4123,7 +4386,8 @@ def showEditorAssistantAsDockWidget(floating = False):
 def showEditorAssistantDialog():
     '''show the editor assistant dialog'''
     dlg = TaskEditorAssistant()
-    comboView = mw.findChild(QtGui.QDockWidget,"Combo View")
+#ori    comboView = mw.findChild(QtGui.QDockWidget,"Combo View")
+    comboView = mw.findChild(QtWidgets.QDockWidget,"Combo View")
     tabWidget = None
     if comboView:
         tabWidget = comboView.findChild(QtWidgets.QTabWidget)
@@ -8090,5 +8354,6 @@ if not children:
         showEditorAssistantAsDockWidget(floating=True)
     else:
         showEditorAssistantDialog()
+
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
