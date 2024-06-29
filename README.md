@@ -272,6 +272,11 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.97
+* accept PR from mario52
+* set fixed width for some elements to prevent them getting too wide at times
+* change backup file name formatting
+### 1.96 (? forgot to add changelog)
 ### 1.95
 * tabify with the Model view if the combo view isn't found (combo view is gone now in 0.22)
 ### 1.92 (2023.09.15)
