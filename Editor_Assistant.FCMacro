@@ -8,14 +8,25 @@
 #2022, <TheMarkster> LGPL2.1 or later
 #
 #
+#OS: Windows 10 build 19045                                 #OS: Windows 10 build 19045                                  #OS: Ubuntu 20.04.3 LTS (KDE/plasma)                         #OS: Linux Mint 20.1 (X-Cinnamon/cinnamon)
+#Word size of FreeCAD: 64-bit                               #Word size of FreeCAD: 64-bit                                #Word size of FreeCAD: 64-bit                                #Word size of FreeCAD: 64-bit
+#Version: 0.21.2.33771 (Git)                                #Version: 0.22.0dev.38079 (Git)                              #Version: 0.22.0dev.37928 (Git) AppImage                     #Version: 0.22.0dev.37928 (Git) AppImage
+#Build type: Release                                        #Build type: Release                                         #Build type: Release                                         #Build type: Release
+#Branch: releases/FreeCAD-0-21                              #Branch: main                                                #Branch: main                                                #Branch: main
+#Hash: b9bfa5c5507506e4515816414cd27f4851d00489             #Hash: de508e437d13e7eb35baffceea496fb9107888cb              #Hash: e7699b531eba4bee262f7214699f07b96f66ba7b              #Hash: e7699b531eba4bee262f7214699f07b96f66ba7b
+#Python 3.8.10, Qt 5.15.2, Coin 4.0.1, Vtk 8.2.0, OCC 7.6.3 #Python 3.11.9, Qt 5.15.13, Coin 4.0.2, Vtk 9.2.6, OCC 7.7.2 #Python 3.11.9, Qt 5.15.13, Coin 4.0.2, Vtk 9.2.6, OCC 7.7.2 #Python 3.11.9, Qt 5.15.13, Coin 4.0.2, Vtk 9.2.6, OCC 7.7.2
+#Locale: French/Mars (fr_MA)                                #Locale: French/Mars (fr_MA)                                 #Locale: French/Mars (fr_MA)                                 #Locale: C/Default (C)
+#
+#
 __title__   = "Editor_Assistant"
 __author__  = "TheMarkster"
 __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
 __forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
-__version__ = "1.97" 
-__date__    = "2024/06/22" 
+__requires__= "0.21.2.33771 and higher" 
+__version__ = "1.98" 
+__date__    = "2024/07/11"  
 #
 ##
 ####path#########################################################################
@@ -77,6 +88,7 @@ MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
 pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
 from PySide import QtCore, QtGui, QtWidgets
+from PySide.QtGui import QImage, QPainter
 import FreeCAD, FreeCADGui
 
 import difflib
@@ -103,6 +115,8 @@ global duplicate_Find   ; duplicate_Find    = []
 global duplicate_Replace; duplicate_Replace = []
 global duplicate_Indent_Memo; duplicate_Indent_Memo = []
 global fileNameBAK      ; fileNameBAK = ""
+global buttonDelBak     ; buttonDelBak = False
+
 global takenBakFiles    ; takenBakFiles = []
 
 hasQtXmlPatterns = False
@@ -394,7 +408,6 @@ Find results = results of searches for text in Find line edit\n\
             self.gotoMenuBtn.setVisible(showRefreshLine)
             self.gotoLineEdit.setVisible(showRefreshLine)
 
-
         self.runMacroBtn = QtWidgets.QPushButton()
         self.runMacroBtn.setIcon(QIconFromXPMString(runSave_icon))
         self.runMacroBtn.setMaximumWidth(MAX_ICONIZED_BUTTON_WIDTH)
@@ -582,7 +595,6 @@ Find results = results of searches for text in Find line edit\n\
         self.ComboBox_Find.setMaxVisibleItems(16)
         self.ComboBox_Find.setDuplicatesEnabled(False)    # not work ?
         self.ComboBox_Find.setEditable(True)              # editable
-
         #QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Find_Clicked)
         QtCore.QObject.connect(self.ComboBox_Find, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Find_Clicked)
         findEditLayout2.addWidget(self.ComboBox_Find)
@@ -686,7 +698,6 @@ Find results = results of searches for text in Find line edit\n\
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.on_ComboBox_Indent_Memo_Clicked)
         QtCore.QObject.connect(self.ComboBox_Indent_Memo, QtCore.SIGNAL("editTextChanged (QString)"), self.on_ComboBox_Indent_Memo_Changed_Clicked)
         indentLayout.addWidget(self.ComboBox_Indent_Memo)
-
 
         #indentLayout.addStretch()
         self.matchWholeCheckBox = QtWidgets.QCheckBox()
@@ -820,7 +831,7 @@ Type 'help(editor)' in the console for help.\n\
                 cursor = self.editors[ii].textCursor()
                 self.takeSnap(title, cursor, "Auto snapshot",self.editors[ii].toPlainText())
 
-##https://doc.qt.io/qt-6/stylesheet-examples.html
+        ##https://doc.qt.io/qt-6/stylesheet-examples.html
         if (COLOR_ACTIVE_TAB == "0") or (COLOR_ACTIVE_TAB == ""):
             mw.findChild(QtWidgets.QMdiArea).setStyleSheet("QTabBar::tab:selected, QTabBar::tab:hover {background-color: QPalette.Base;}")
         else:
@@ -965,7 +976,6 @@ Type 'help(editor)' in the console for help.\n\
         else:
             nameBAK = name.split("[")[0].split("/")[-1] # case drag/drop !?
         nameBAK = nameBAK.replace("[*]","")             # case drag/drop !?
-
         fileNameBAK = setPathFileBackup + nameBAK + ".BAK"
         self.setIconCurrentEditor(fileNameBAK)
         self.setListFilesBak(fileNameBAK)
@@ -985,38 +995,49 @@ Type 'help(editor)' in the console for help.\n\
             if not name in self.editorDict:
                 QtCore.QTimer().singleShot(50, self.refresh)
 
-
-    def fileBackupDelBtnClicked(self):  
-        global fileNameBAK
-
-        if (fileNameBAK != "") and (os.path.exists(fileNameBAK)):
-
-            lenBackUpFile = 0
-            lenBackUpFile = len(os.listdir(fileNameBAK))
-            diag = QtWidgets.QMessageBox(QtWidgets.QMessageBox.Critical, "Warning Delete BAK", "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br/><br/>" +
-                                                                         "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br/><br/>" +
-                                                                         "Name of .BAK directory : " + "<br/><br/>" +
-                                                                         "<b>" + fileNameBAK + "</b>")
-            diag.setWindowIcon(QIconFromXPMString(__icon__))
-            diag.addButton("Ok Delete", QtWidgets.QMessageBox.AcceptRole) #0
-            diag.addButton("  Abort  ", QtWidgets.QMessageBox.RejectRole) #1
-
-            diag.setWindowModality(QtCore.Qt.ApplicationModal)
-            button = diag.exec_()
-            if button == QtWidgets.QMessageBox.AcceptRole:                #0
-                try:
-                    shutil.rmtree(fileNameBAK)  # del the complete directory and files
-                    self.ComboBox_Bak_Files.clear()
-                except OSError:
-                    None
-                self.setIconCurrentEditor(fileNameBAK)
-
     def FreeCAD_Console_PrintError(self, txt):
         switchDisplayConsolePrintError = pg.GetBool("switchDisplayConsolePrintError")
         if switchDisplayConsolePrintError:
             FreeCAD.Console.PrintMessage("_____Info Editor assistant_____Begin" + "\n")
             FreeCAD.Console.PrintError(str(txt) + "\n")
             FreeCAD.Console.PrintMessage("_____Info Editor assistant_____End" + "\n")
+
+    def fileBackupDelBtnClicked(self):  
+        global fileNameBAK
+        global buttonDelBak
+
+        if ".FCMACRO - " in fileNameBAK.upper():                                    ##cause : /media/mint/cd01/Macro/000x.FCMacro - Editor.BAK
+            fileNameBAK = fileNameBAK.split(".FCMacro - ")[0] + ".FCMacro" + ".BAK" ##result: /media/mint/cd01/Macro/000x.FCMacro.BAK
+        elif ".PY - " in fileNameBAK.upper():                                       ##cause : /media/mint/cd01/Macro/000x.py - Editor.BAK
+            fileNameBAK = fileNameBAK.split(".py - ")[0] + ".py" + ".BAK"           ##result: /media/mint/cd01/Macro/000x.py.BAK
+
+        if (fileNameBAK != "") and (os.path.exists(fileNameBAK)):
+            lenBackUpFile = 0
+            lenBackUpFile = len(os.listdir(fileNameBAK))
+
+            self.infoBackupNewInputDialog(title = "Warning Delete BAK", 
+                                          backUp_Or_Info = False, 
+                                          texto = "<b>" + "Warning Delete BAK" + "</b>" + "<br/><br/>" +
+                                                  "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br/><br/>" +
+                                                  "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br/><br/>" +
+                                                  "Name of .BAK directory : " + "<br/><br/>" +
+                                                  "<b>" + str(fileNameBAK) + "</b>")
+
+            if buttonDelBak == True:
+                try:
+                    try:
+                        FreeCAD.ActiveDocument.openTransaction("Del_BAK")    # memorise les actions (avec annuler restore)
+                    except Exception:
+                        None
+                    shutil.rmtree(fileNameBAK)  # del the complete directory and files
+                    self.ComboBox_Bak_Files.clear()
+                except OSError as erreur:
+                    self.FreeCAD_Console_PrintError(erreur) # in windows the error can be cause to the name shortcut ex: C:\....\BACKUP~1\EDITOR~1.BAK\EDITOR~2.BAK
+                    self.toast(str(erreur),"Error")
+                self.setIconCurrentEditor(fileNameBAK)
+        else:
+            self.FreeCAD_Console_PrintError(os.path.exists(fileNameBAK))
+            self.toast(str(os.path.exists(fileNameBAK)),"Error")
 
     def colorError(self, text_cursor=""):
         lenTextDetected = len(text_cursor.selectedText())
@@ -1054,45 +1075,90 @@ Type 'help(editor)' in the console for help.\n\
         self.run = False
         self.Dialog_memo_Bak.deleteLater()
 
-    def infoBackupNewInputDialog(self):     # instead QtWidgets.QInputDialog, here for adding QComboBox
+    def on_Dialog_accept_Delete(self):
+        global buttonDelBak
+
+        buttonDelBak = True
+        self.run = False
+        self.Dialog_memo_Bak.setVisible(False)
+        self.Dialog_memo_Bak.deleteLater()
+
+    def infoBackupNewInputDialog(self, title = "", backUp_Or_Info = True, texto = ""):     # instead QtWidgets.QInputDialog, here for adding QComboBox and texto
         global memo_Last_memo_Entry
         global memo_Testing
+        global buttonDelBak
 
+        buttonDelBak = False
         memo_Testing = []
         grid = QtWidgets.QGridLayout()
 
         self.Dialog_memo_Bak = QtWidgets.QDialog()
-        self.Dialog_memo_Bak.setMinimumWidth(200)
-        self.Dialog_memo_Bak.setWindowIcon(QIconFromXPMString(__icon__))
         self.Dialog_memo_Bak.setWindowModality(QtCore.Qt.ApplicationModal)
-        self.Dialog_memo_Bak.setWindowTitle(u"Info Backup")
+        self.Dialog_memo_Bak.setWindowTitle(title)
         self.Dialog_memo_Bak.setLayout(grid)
 
-        self.ComboBox_Memo = QtWidgets.QComboBox()
-        self.ComboBox_Memo.addItem(memo_Last_memo_Entry)
-        self.ComboBox_Memo.setToolTip("Latest memo entry")
-        QtCore.QObject.connect(self.ComboBox_Memo, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Memo_Clicked)
-        grid.addWidget(self.ComboBox_Memo, 0, 0, 1, 2)
-
-        self.lineEdit_memo_Bak_Txt = QtWidgets.QLineEdit()
-        self.lineEdit_memo_Bak_Txt.setPlaceholderText("Memo text goes here")
-        grid.addWidget(self.lineEdit_memo_Bak_Txt, 1, 0, 1, 2)
-
         self.buttonAccept = QtWidgets.QPushButton()
-        self.buttonAccept.setText("Ok")
-        self.buttonAccept.setIcon(QtGui.QIcon.fromTheme("ok",QtGui.QIcon(":/icons/edit_OK.svg")))
-        self.buttonAccept.setToolTip("Run the macro")
-        self.buttonAccept.clicked.connect(self.on_Dialog_accept)
+        self.buttonAccept.setIcon(QIconFromXPMString(accept_Template_icon))
         grid.addWidget(self.buttonAccept,2, 0)
 
         self.buttonReject = QtWidgets.QPushButton()
         self.buttonReject.setText("Abord")
-        self.buttonReject.setIcon(QtGui.QIcon.fromTheme("abord",QtGui.QIcon(":/icons/process-stop.svg")))
+        self.buttonReject.setIcon(QIconFromXPMString(reject_Template_icon))
         self.buttonReject.setToolTip("Abord the command")
         self.buttonReject.clicked.connect(self.on_Dialog_cancel)
         grid.addWidget(self.buttonReject,2, 1)
 
-        self.Dialog_memo_Bak.show()
+        if backUp_Or_Info == False: #backUp_Or_Info = False = Warning window
+            self.Dialog_memo_Bak.resize(300, 100)
+            self.Dialog_memo_Bak.setWindowIcon(QIconFromXPMString(msgBtn_Warning_icon))
+
+            self.buttonAccept.setText("Ok Delete")
+            self.buttonAccept.setToolTip("Delete the complete directory")
+            self.buttonAccept.clicked.connect(self.on_Dialog_accept_Delete)
+            label = QtGui.QLabel()
+            label.setVisible(False)
+            ####
+            #### def QIconFromXPMString(xpm_string):    # cutted for use here
+            xpm = msgBtn_Warning_icon.replace("\"","").replace(',','').splitlines()[4:-1]
+            for line in reversed(xpm):
+                if line.startswith("/*") and line.endswith("*/"):
+                    xpm.pop(xpm.index(line))
+            pixmap = QtGui.QPixmap(xpm)
+            #### icon = QtGui.QIcon(pixmap)
+            #### return icon
+            ####
+            label.setPixmap(QtGui.QPixmap(pixmap))
+            grid.addWidget(label,0, 0)
+            label2 = QtGui.QLabel()
+            label2.setText(str(texto))
+            grid.addWidget(label2,0, 1)
+            self.Dialog_memo_Bak.show()
+            label.show()
+            # center screen
+            ecran = FreeCADGui.getMainWindow().frameGeometry()
+            fenetre = self.Dialog_memo_Bak.frameGeometry()
+            xF = fenetre.width()
+            yF = fenetre.height()
+            xW = (ecran.width()/2) - (xF/2)
+            yW = (ecran.height()/2)- (yF/2)
+            self.Dialog_memo_Bak.setGeometry(xW, yW, xF, yF)
+            ####
+        else:                       # backUp_Or_Info = True = Yes/No run
+            self.Dialog_memo_Bak.setMinimumWidth(200)
+            self.Dialog_memo_Bak.setWindowIcon(QIconFromXPMString(__icon__))
+
+            self.buttonAccept.clicked.connect(self.on_Dialog_accept)
+            self.buttonAccept.setText("Ok Run")
+            self.buttonAccept.setToolTip("Run the macro")
+            self.ComboBox_Memo = QtWidgets.QComboBox()
+            self.ComboBox_Memo.addItem(memo_Last_memo_Entry)
+            self.ComboBox_Memo.setToolTip("Latest memo entry")
+            QtCore.QObject.connect(self.ComboBox_Memo, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Memo_Clicked)
+            grid.addWidget(self.ComboBox_Memo, 0, 0, 1, 2)
+            self.lineEdit_memo_Bak_Txt = QtWidgets.QLineEdit()
+            self.lineEdit_memo_Bak_Txt.setPlaceholderText("Memo text goes here")
+            grid.addWidget(self.lineEdit_memo_Bak_Txt, 1, 0, 1, 2)
+            self.Dialog_memo_Bak.show()
 
         self.run = True
         while self.run:
@@ -1102,7 +1168,6 @@ Type 'help(editor)' in the console for help.\n\
     def on_ComboBox_Memo_Clicked(self, text):
         #self.lineEdit_memo_Bak_Txt.clear()
         self.lineEdit_memo_Bak_Txt.setText(text)
-
     ########## infoBackupNewInputDialog()
     #######################################################################
 
@@ -1142,8 +1207,7 @@ Type 'help(editor)' in the console for help.\n\
                 ####
                 curLine = self.getLineNumberAtCursor()
                 ####
-                #memo_Testing = QtWidgets.QInputDialog.getText(None, "Editor Assistant", "Memo:")
-                self.infoBackupNewInputDialog() # QDialog with comboView 
+                self.infoBackupNewInputDialog(title = "Info Backup") # QDialog with comboView and icon in Button
                 ####
                 if str(memo_Testing[1]) == "True":
                     memo_Bak_Txt = memo_Testing[0]
@@ -1161,12 +1225,15 @@ Type 'help(editor)' in the console for help.\n\
                     plainText = self.getText()
                     ####
                     now = QtCore.QDateTime.currentDateTime().toString(setFormatBackupDateTime)
-                    windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !?
+                    windowName2 = windowName.split("[")[0].split("/")[-1] # case drag/drop !? "000x.FCMacro[*] - Editor.BAK"
                     windowName2 = windowName2.replace("[*]","")
                     fileNameBAK = setPathFileBackup + windowName2 + ".BAK"
-                    os.makedirs(fileNameBAK, exist_ok=True) #11:59:18  OSError: [WinError 123] La syntaxe du nom de fichier, de repertoire ou de volume est incorrecte ex: 'C:/Users/xxxx/AppData/Roaming/FreeCAD/Macro/C:' add "C:"
+                    try:
+                        os.makedirs(fileNameBAK, exist_ok=True) #11:59:18  OSError: [WinError 123] La syntaxe du nom de fichier, de repertoire ou de volume est incorrecte ex: 'C:/Users/xxxx/AppData/Roaming/FreeCAD/Macro/C:' add "C:"
+                    except OSError as erreur:
+                        self.FreeCAD_Console_PrintError(erreur)
+                        self.toast(str(erreur),"Error")
                     completeBakName = fileNameBAK + "/" + windowName2 + ".BAK_" + now + memo_Bak_Txt    #complete name with memo
-
                     if len(completeBakName) > 255:
                         completeBakName = completeBakName[:255] # cut 255 characters
                     try:
@@ -1181,7 +1248,7 @@ Type 'help(editor)' in the console for help.\n\
                                 fileSave.close()
                             except Exception as e:
                                 classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
-                                self.toast(str(erreur))
+                                self.toast(str(erreur),"Error")
                                 self.FreeCAD_Console_PrintError(str(erreur))
                                 switchAllIsGood = False     # not .Bak file
                             try:
@@ -1231,14 +1298,14 @@ Type 'help(editor)' in the console for help.\n\
                                 fileSave.close()
                             except OSError as erreur:
                                 classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
-                                self.toast(str(erreur))
+                                self.toast(str(erreur),"Error")
                                 self.FreeCAD_Console_PrintError(str(erreur))
                                 switchAllIsGood = False     # not .Bak file
                             self.setIconCurrentEditor(fileNameBAK)
                             None
                     except OSError as erreur:
                         classErr = str(sys.exc_info()[0]) # error detected in editor_assistant_dlg.FCMacro
-                        self.toast(str(erreur))
+                        self.toast(str(erreur),"Error")
                         self.FreeCAD_Console_PrintError(str(erreur))
                         switchAllIsGood = False     # not .Bak file
                     curLine = self.getLineNumberAtCursor()
@@ -1415,7 +1482,7 @@ Type 'help(editor)' in the console for help.\n\
                         self.currentEditor.setTextCursor(text_cursor)
 
                     classErr = str(sys.exc_info()[0]) # <class 'SyntaxError'>       # error detected in editor_assistant_dlg.FCMacro
-                    self.toast(erreur)
+                    self.toast(str(erreur),"Error")
                     self.toast("Error on line : " + str(lineError) + "\n" + argument + "\n" + " : " + str(classErr), "Python")
                     self.FreeCAD_Console_PrintError(erreur)
 
@@ -1645,10 +1712,10 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
             self.msgBtn.setText(msg)
         if log:
             self.toastsLog.append(tuple([msg, msgType]))
+
         if msgType == 'Error':
             self.msgBtn.setStyleSheet("color:red")
             self.msgBtn.setIcon(QIconFromXPMString(msgBtn_Critical_icon))
-
         elif msgType == 'Python':
             self.msgBtn.setStyleSheet("color:yellow;background-color:red;font-weight:bold")
             self.msgBtn.setIcon(QIconFromXPMString(pythonPY_icon))
@@ -8357,3 +8424,4 @@ if not children:
 
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
+
