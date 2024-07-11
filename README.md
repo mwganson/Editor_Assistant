@@ -272,6 +272,8 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 1.98
+* accept mario52 PR
 ### 1.97
 * accept PR from mario52
 * set fixed width for some elements to prevent them getting too wide at times
