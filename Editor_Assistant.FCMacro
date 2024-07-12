@@ -25,8 +25,8 @@ __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
 __forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
 __requires__= "0.21.2.33771 and higher" 
-__version__ = "1.99" 
-__date__    = "2024/07/11"  
+__version__ = "2.00" 
+__date__    = "2024/07/12" 
 #
 ##
 ####path#########################################################################
@@ -87,8 +87,12 @@ pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
 MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
 pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
+import PySide   
 from PySide import QtCore, QtGui, QtWidgets
 from PySide.QtGui import QImage, QPainter
+#from PySide.QtCore import * 
+#from PySide.QtGui import * 
+#from PySide.QtWidgets import * #:Bookmark line 93
 import FreeCAD, FreeCADGui
 
 import difflib
@@ -3108,14 +3112,14 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         """save all snaps to a JSON text file"""
         global setPathLatestDirectory
 
-        if platform.node() == "mint":
-            fname, filter = PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
+        if platform.node() == "mint":   
+            fname, filter = QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "(*.json);; (*.*);; (*)")#PySide Mint
             filter = filter[filter.find("."):filter.find(")")]
             if filter[-2:] == ".*":
                  filter = filter[:-2]
             fname = fname + filter
-        else:
-            fname, filter =  PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+        else:   
+            fname, filter =  QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "json (*.json);; Any (*.*);; Any (*)")
 
         if not fname:
             return
@@ -3132,10 +3136,10 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         """load previously saved snaps from a JSON file"""
         global setPathLatestDirectory
 
-        if platform.node() == "mint":
-            fname, filter = PySide.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
-        else:
-            fname, filter =  PySide.QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
+        if platform.node() == "mint":   
+            fname, filter = QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
+        else:   
+            fname, filter =  QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
 
         if not fname:
             return
@@ -3247,14 +3251,14 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             return
         else:
 
-            if platform.node() == "mint":
-                fname, filter = PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide Mint
+            if platform.node() == "mint":   
+                fname, filter = QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide Mint
                 filter = filter[filter.find("."):filter.find(")")]
                 if filter[-2:] == ".*":
                      filter = filter[:-2]
                 fname = fname + filter
-            else:
-                fname, filter =  PySide.QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
+            else:   
+                fname, filter =  QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
 
             if not fname:
                 return
