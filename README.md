@@ -272,6 +272,7 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 2.01 -- accept mario52 PR to add secondary storage support
 ### 2.00 -- accept mario52 PR to remove some direct references to PySide
 ### 1.99 -- workaround an issue where FreeCAD has removed QtWebEngineWidgets
 ### 1.98
