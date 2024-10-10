@@ -25,8 +25,8 @@ __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
 __forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
 __requires__= "0.21.2.33771 and higher" 
-__version__ = "2.00" 
-__date__    = "2024/07/12" 
+__version__ = "2.01"
+__date__    = "2024/11/11"
 #
 ##
 ####path#########################################################################
@@ -55,6 +55,9 @@ pg.SetBool("switch_Unicode_Read_File",switch_Unicode_Read_File)
 
 setPathFileBackup = pg.GetString("setPathFileBackup", path)
 pg.SetString("setPathFileBackup", setPathFileBackup)
+
+setPathFileSecondStorage = pg.GetString("setPathFileSecondStorage", "")
+pg.SetString("setPathFileSecondStorage", setPathFileSecondStorage)
 
 setFormatBackupDateTime = "yyyy_MM_dd_HH_mm_ss"
 #setFormatBackupDateTime = pg.GetString("setFormatBackupDateTime", "yyyy_MM_dd_HH_mm_ss")
@@ -92,7 +95,7 @@ from PySide import QtCore, QtGui, QtWidgets
 from PySide.QtGui import QImage, QPainter
 #from PySide.QtCore import * 
 #from PySide.QtGui import * 
-#from PySide.QtWidgets import * #:Bookmark line 93
+#from PySide.QtWidgets import * 
 import FreeCAD, FreeCADGui
 
 import difflib
@@ -444,9 +447,17 @@ Find results = results of searches for text in Find line edit\n\
                                     "Path for the backup files (Default: the macro directory)" + "<br/>"
                                     "Actual : <b>'" + setPathFileBackup + "'</b><br/>"
                                     "<br/>"
+                                    "<b>setPathFileSecondStorage</b>" + "<br/>"
+                                    "You have the possibility to save the macro in a second storage space" + "<br/>"
+                                    "This option save the file only if the code is good" + "<br/>"
+                                    "Go to preferences space and give the path in the <b>setPathFileSecondStorage</b> variable" + "<br/>"
+                                    "If setPathFileSecondStorage is empty the function is ignored" + "<br/>"
+                                    "If the path is erroneous the function is also ignored" + "<br/>"
+                                    "Actual : <b>'" + setPathFileSecondStorage + "'</b>" + "<br/>"
+                                    "<br/>"
                                     "<b>switchDisplayConsolePrintError</b>" + "<br/>"
                                     "Display or not the complete error info in the reportView" + "<br/>"
-                                    "Actual : <b>'" + str(switchDisplayConsolePrintError) + "'</b><br/>"
+                                    "Actual : <b>'" + str(switchDisplayConsolePrintError) + "'</b>" + "<br/>"
                                     "<br/>"
                                     "</body></html>")
         if not ShowRunMacroBtn:
@@ -1175,6 +1186,24 @@ Type 'help(editor)' in the console for help.\n\
     ########## infoBackupNewInputDialog()
     #######################################################################
 
+    def saveFileSecondStorage(self, text = "", storeFile = ""):
+        storePath = pg.GetString("setPathFileSecondStorage")
+        if storePath != "":
+            if (storePath[-1] == "/") or (storePath[-1] == "\\"):
+                None
+            else:
+                storePath = storePath + "/"
+            try:
+                fileSaveSecondStorage = open(storePath + storeFile,'w') # save and display the window Yes/No (case execute macro with EditorAss and work in a 3D window)
+                fileSaveSecondStorage.write(text)
+            except Exception:
+                self.toast("The path " + storePath + " not exist","Error")
+            finally:
+                try:
+                    fileSaveSecondStorage.close()
+                except Exception:
+                    None
+
     def runMacroBtnClicked(self):
         global path
         global fileNameBAK
@@ -1200,6 +1229,7 @@ Type 'help(editor)' in the console for help.\n\
 
             if (windowName.find("\\") == -1) and (windowName.find("/") == -1):  ## for case drag/drop the complete path is already given
                 filename = path + windowName
+            filenameSecondStorage = windowName
 
             switchAllIsGood = True
 
@@ -1321,7 +1351,7 @@ Type 'help(editor)' in the console for help.\n\
                     Gui.SendMsgToActiveView("Save")   # save without display the window Yes/No (if it is in a 3D View, the 3D View is saved in a .FCstd file)
                 else:
                     try:
-                        fileSave = open(filename,'w') # save and display the window Yes/No (case execute macro with EditorAss and work in a 3D window)
+                        fileSave = fileSaveSecondStorage = open(filename,'w') # save and display the window Yes/No (case execute macro with EditorAss and work in a 3D window)
                         fileSave.write(plainText)
                     except (UnicodeEncodeError):      # character '\ufffd'  RuntimeError, TypeError, NameError): # only in write file switch True detect "UnicodeDecodeError, UnicodeEncodeError" display toast
                         None
@@ -1352,6 +1382,7 @@ Type 'help(editor)' in the console for help.\n\
                 my_macro.FreeCADGui = FreeCADGui
                 try:
                     exec(data, my_macro.__dict__)
+                    self.saveFileSecondStorage(text = plainText, storeFile = filenameSecondStorage) # save only if the code is good 
                 except Exception as err:
                     erreur = str(traceback.format_exc())      # !! error detected in executed macro and position the cursor in a eroneous line
                     counterCirconflex = erreur.count("^")
@@ -8434,4 +8465,3 @@ if not children:
 
 else:
     FreeCAD.Console.PrintError("Editor assistant already running\n")
-
