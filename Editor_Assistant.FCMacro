@@ -24,9 +24,9 @@ __url__     = "https://forum.freecadweb.org/viewtopic.php?f=22&t=67242"
 __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
 __forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
-__requires__= "0.21.2.33771 and higher" 
-__version__ = "2.01"
-__date__    = "2024/11/11"
+__requires__= "0.21.2.33771 and higher"
+__version__ = "2.02"
+__date__    = "2025/06/02"
 #
 ##
 ####path#########################################################################
@@ -40,6 +40,18 @@ path = path.replace(u"\\","/")                                       # convert t
 #print( u"Path for the icons : " , path )                            #
 #################################################################################
 ##
+try:
+    import shiboken6 as shiboken
+    #FreeCAD.Console.PrintMessage("Editor Assistant: Shiboken imported\n")
+except:
+    FreeCAD.Console.PrintWarning("Editor Assistant: Cannot import shiboken6, trying shiboken2...\n")
+    try:
+        import shiboken2 as shiboken
+    except:
+        FreeCAD.Console.PrintWarning("Editor Assistant: Cannot import shiboken2, setting shiboken to None...\n")
+        shiboken = None
+
+
 pg = FreeCAD.ParamGet("User parameter:Plugins/"+__title__)
 
 pg.SetString("Version", __version__ + " (" + __date__ + ")")
@@ -90,12 +102,12 @@ pg.SetString("BookmarkMarker", BOOKMARK_MARKER)
 MAX_ICONIZED_BUTTON_WIDTH = pg.GetInt("MaxIconizedButtonWidth", 32)
 pg.SetInt("MaxIconizedButtonWidth", MAX_ICONIZED_BUTTON_WIDTH)
 
-import PySide   
+import PySide
 from PySide import QtCore, QtGui, QtWidgets
 from PySide.QtGui import QImage, QPainter
-#from PySide.QtCore import * 
-#from PySide.QtGui import * 
-#from PySide.QtWidgets import * 
+#from PySide.QtCore import *
+#from PySide.QtGui import *
+#from PySide.QtWidgets import *
 import FreeCAD, FreeCADGui
 
 import difflib
@@ -203,10 +215,6 @@ try:
 except ImportError:
     pass
 
-try:
-    import shiboken2 as shiboken
-except:
-    shiboken = None
 mw = FreeCADGui.getMainWindow()
 
 class FindEdit(QtWidgets.QLineEdit):
@@ -220,7 +228,7 @@ class FindEdit(QtWidgets.QLineEdit):
 
     def eventFilter(self, watched, event):
         if watched == self and event.type() == QtCore.QEvent.MouseButtonDblClick:
-            if shiboken.isValid(self.form.currentEditor) and self.form.currentEditor:
+            if shiboken and shiboken.isValid(self.form.currentEditor) and self.form.currentEditor:
                 sel = self.form.currentEditor.textCursor().selectedText()
                 if sel:
                     self.setText(sel)
@@ -349,12 +357,12 @@ class TaskEditorAssistant:
         self.mainMenuBtn.setToolTip("Main menu")
         self.mainMenuBtn.clicked.connect(self.onMainMenuBtnClicked)
         topLabelLayout.addWidget(self.mainMenuBtn)
-        topLabelLayout.addStretch() 
+        topLabelLayout.addStretch()
 
         self.msgBtn = QtWidgets.QPushButton()
         self.msgBtn.clicked.connect(self.onMsgBtnClicked)
         self.msgBtn.setIcon(QIconFromXPMString(File_Dialog_Info_View_icon))
-        self.msgBtn.setFixedWidth(300)  
+        self.msgBtn.setFixedWidth(300)
         self.msgBtn.setToolTip("Toast message area," + "\n" +
                                "click to see most recent message displayed in the report view")
         topLabelLayout.addWidget(self.msgBtn)
@@ -475,12 +483,12 @@ Find results = results of searches for text in Find line edit\n\
         self.ComboBox_Bak_Files.setMaxVisibleItems(25)
         self.ComboBox_Bak_Files.setEditable(False)              # not editable
         ## later    #self.ComboBox_Bak_Files.setEditable(True)  # editable
-        self.ComboBox_Bak_Files.setFixedWidth(270)  
+        self.ComboBox_Bak_Files.setFixedWidth(270)
 
         if not ShowRunShowFilesBak:
             self.ComboBox_Bak_Files.setVisible(ShowRunShowFilesBak)
         QtCore.QObject.connect(self.ComboBox_Bak_Files, QtCore.SIGNAL("textActivated (QString)"), self.on_ComboBox_Bak_Files_Clicked)
-        self.ComboBox_Bak_Files.textHighlighted.connect(self.on_Header_Bak_File_Info) 
+        self.ComboBox_Bak_Files.textHighlighted.connect(self.on_Header_Bak_File_Info)
         ## later    #self.ComboBox_Bak_Files.currentTextChanged.connect(self.on_Header_Bak_File_Info_Changed)  # avec editable
 
         runMacroLayout = QtWidgets.QHBoxLayout()
@@ -835,7 +843,7 @@ Type 'help(editor)' in the console for help.\n\
         self.parents = [ed.parent() for ed in self.editors]
         self.grandparents = [p.parent() for p in self.parents]
         self.titles = [g.windowTitle() for g in self.grandparents]
-        if hasattr(self, "editorList") and shiboken.isValid(self.editorList):
+        if hasattr(self, "editorList") and shiboken and shiboken.isValid(self.editorList):
             curNames = [self.editorList.item(ii).text() for ii in range(0, self.editorList.count())]
             for ii,title in enumerate(self.titles):
                 if not title in curNames:
@@ -966,7 +974,7 @@ Type 'help(editor)' in the console for help.\n\
     def setCurrentEditor(self, name="", focus=True):
         global fileNameBAK
 
-        if not shiboken.isValid(self.editorList):
+        if shiboken and not shiboken.isValid(self.editorList):
             return
         if name:
             if not name in self.editorDict:
@@ -996,7 +1004,7 @@ Type 'help(editor)' in the console for help.\n\
         self.setListFilesBak(fileNameBAK)
 
     def onSubWindowActivated(self, arg1):
-        if not shiboken.isValid(self.editorList):
+        if shiboken and not shiboken.isValid(self.editorList):
             return
         sub = self.mdi.activeSubWindow()
         ed = sub.findChild(QtWidgets.QPlainTextEdit) if sub else None
@@ -1017,7 +1025,7 @@ Type 'help(editor)' in the console for help.\n\
             FreeCAD.Console.PrintError(str(txt) + "\n")
             FreeCAD.Console.PrintMessage("_____Info Editor assistant_____End" + "\n")
 
-    def fileBackupDelBtnClicked(self):  
+    def fileBackupDelBtnClicked(self):
         global fileNameBAK
         global buttonDelBak
 
@@ -1030,8 +1038,8 @@ Type 'help(editor)' in the console for help.\n\
             lenBackUpFile = 0
             lenBackUpFile = len(os.listdir(fileNameBAK))
 
-            self.infoBackupNewInputDialog(title = "Warning Delete BAK", 
-                                          backUp_Or_Info = False, 
+            self.infoBackupNewInputDialog(title = "Warning Delete BAK",
+                                          backUp_Or_Info = False,
                                           texto = "<b>" + "Warning Delete BAK" + "</b>" + "<br/><br/>" +
                                                   "Delete the complete " + "<b>" + ".BAK" + "</b>" + " directory" + "<br/><br/>" +
                                                   "Number of .BAK file(s) : " + "<b>" + str(lenBackUpFile) + "</b>" + "<br/><br/>" +
@@ -1063,7 +1071,7 @@ Type 'help(editor)' in the console for help.\n\
         self.currentEditor.setExtraSelections([extraSelection])
 
     #######################################################################
-    ########## infoBackupNewInputDialog() 
+    ########## infoBackupNewInputDialog()
     global memo_Testing; memo_Testing = []
     global memo_Last_memo_Entry; memo_Last_memo_Entry = ""
 
@@ -1073,7 +1081,7 @@ Type 'help(editor)' in the console for help.\n\
 
         self.run = False
         if self.lineEdit_memo_Bak_Txt.text() != "":
-            memox = memo_Last_memo_Entry = self.lineEdit_memo_Bak_Txt.text() 
+            memox = memo_Last_memo_Entry = self.lineEdit_memo_Bak_Txt.text()
             memo_Testing.append((memox, True))
             self.ComboBox_Memo.addItem(memox)
         else:
@@ -1293,7 +1301,7 @@ Type 'help(editor)' in the console for help.\n\
                             erreur = str(traceback.format_exc())     # error detected in executed macro and position the cursor in a eroneous line
                             erreur = errorSave = str(erreur.split("UnicodeEncodeError:")[1])
                             lineErrorStr = erreur.split("position")[1].split(":")[0]
-                            if "-" in lineErrorStr:                  # a cause de ex:  ' 2261-2267' 
+                            if "-" in lineErrorStr:                  # a cause de ex:  ' 2261-2267'
                                 dummy = ""
                                 dummy = str(lineErrorStr)
                                 lineErrorStr = dummy.split("-")[0]
@@ -1382,7 +1390,7 @@ Type 'help(editor)' in the console for help.\n\
                 my_macro.FreeCADGui = FreeCADGui
                 try:
                     exec(data, my_macro.__dict__)
-                    self.saveFileSecondStorage(text = plainText, storeFile = filenameSecondStorage) # save only if the code is good 
+                    self.saveFileSecondStorage(text = plainText, storeFile = filenameSecondStorage) # save only if the code is good
                 except Exception as err:
                     erreur = str(traceback.format_exc())      # !! error detected in executed macro and position the cursor in a eroneous line
                     counterCirconflex = erreur.count("^")
@@ -1740,7 +1748,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
         self.onConsoleBtnClicked(True)
 
     def toast(self,msg,msgType='Error',length=5000,log=True,priority="high"):
-        if not hasattr(self, "msgBtn") or not shiboken.isValid(self.msgBtn):
+        if not hasattr(self, "msgBtn") or bool (shiboken and not shiboken.isValid(self.msgBtn)):
             return
         self.timers.append(msg)
         if priority == "high" or not self.msgBtn.text():
@@ -1767,7 +1775,7 @@ del(__editors__, __parents__, __grandparents__, __editor__,__dlg__)
 
     def clearToast(self):
         #in case there are new messages we don't want to delete them yet, let their timers do it later
-        if not shiboken.isValid(self.msgBtn) or not self.form or not self.form.parent():
+        if shiboken and not shiboken.isValid(self.msgBtn) or not self.form or not self.form.parent():
             return
         if len(self.timers) == 1:
             self.msgBtn.setText("")
@@ -2010,7 +2018,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onFindEditTextChanged(self, arg1):
         matchCase = self.matchCaseCheckBox.checkState()
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
         plainText = self.currentEditor.toPlainText()
@@ -2027,7 +2035,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onFindBtnClicked(self, arg1=True):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid","Error")
             return
         self.currentEditor.setFocus()
@@ -3143,13 +3151,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         """save all snaps to a JSON text file"""
         global setPathLatestDirectory
 
-        if platform.node() == "mint":   
+        if platform.node() == "mint":
             fname, filter = QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "(*.json);; (*.*);; (*)")#PySide Mint
             filter = filter[filter.find("."):filter.find(")")]
             if filter[-2:] == ".*":
                  filter = filter[:-2]
             fname = fname + filter
-        else:   
+        else:
             fname, filter =  QtWidgets.QFileDialog.getSaveFileName(None, "Save all snaps to a JSON file", setPathLatestDirectory, "json (*.json);; Any (*.*);; Any (*)")
 
         if not fname:
@@ -3167,9 +3175,9 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         """load previously saved snaps from a JSON file"""
         global setPathLatestDirectory
 
-        if platform.node() == "mint":   
+        if platform.node() == "mint":
             fname, filter = QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, " (*.*);; (*)")#PySide Mint
-        else:   
+        else:
             fname, filter =  QtWidgets.QFileDialog.getOpenFileName(None, "Open a JSON file", setPathLatestDirectory, "Any (*.*);; Any (*)")
 
         if not fname:
@@ -3282,13 +3290,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             return
         else:
 
-            if platform.node() == "mint":   
+            if platform.node() == "mint":
                 fname, filter = QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, " (*.FCMacro);; (*.py);; (*.txt);; (*.*);; (*)")#PySide Mint
                 filter = filter[filter.find("."):filter.find(")")]
                 if filter[-2:] == ".*":
                      filter = filter[:-2]
                 fname = fname + filter
-            else:   
+            else:
                 fname, filter =  QtWidgets.QFileDialog.getSaveFileName(None, "Save snapshot to text file", setPathLatestDirectory, "Macro (*.FCMacro *.py);;Text file (*.txt);;Any (*.*);;Any (*)")
 
             if not fname:
@@ -3390,7 +3398,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onFindBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid","Error")
             return
         self.currentEditor.setFocus()
@@ -3427,7 +3435,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onIndentBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
@@ -3481,7 +3489,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onIndentBackBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
@@ -3511,7 +3519,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onReplaceAllBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
@@ -3523,7 +3531,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def onReplaceBtnClicked(self, arg1):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor) or not self.currentEditor:
+        if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
         self.currentEditor.setFocus()
@@ -3846,7 +3854,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
     def gotoLine(self,line,silent=False,eol=False):
         self.onRefreshBtnClicked(True)
-        if not shiboken.isValid(self.currentEditor):
+        if shiboken and not shiboken.isValid(self.currentEditor):
             self.toast("No valid current editor","Error")
             return
         document = self.currentEditor.document()
@@ -3884,7 +3892,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
     def getFindResults(self, useSelection=False):
         lines = self.getTrimmedLines()
         findResults = []
-        if not shiboken.isValid(self.currentEditor):
+        if shiboken and not shiboken.isValid(self.currentEditor):
             return []
         selTxt = self.currentEditor.textCursor().selectedText() if self.currentEditor else ""
         find = self.findEdit.text() if not useSelection else selTxt
@@ -3974,7 +3982,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
     def populateList(self):
         self.blockSignals = True
         current = None
-        if not shiboken.isValid(self.editorList):
+        if shiboken and not shiboken.isValid(self.editorList):
             return
         if self.editorList.count() != 0:
             current = self.editorList.currentItem().text() if self.editorList.currentItem() else ""
