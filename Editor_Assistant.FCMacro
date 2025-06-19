@@ -25,8 +25,8 @@ __github__  = "https://github.com/mwganson/Editor_Assistant/"
 __wiki__    = "https://wiki.freecad.org/Macro_Editor_Assistant"
 __forum__   = "https://forum.freecad.org/viewtopic.php?t=67242"
 __requires__= "0.21.2.33771 and higher"
-__version__ = "2.02"
-__date__    = "2025/06/02"
+__version__ = "2.04"
+__date__    = "2025/06/19"
 #
 ##
 ####path#########################################################################
@@ -251,17 +251,17 @@ class FindEdit(QtWidgets.QLineEdit):
 
     def _addCustomMenuItems(self, menu):
         menu.addSeparator()
-        action = QtWidgets.QAction("Use selected", self)
+        action = QtGui.QAction("Use selected", self)
         action.triggered.connect(self.useSelected)
         action.setEnabled(self.form.currentEditor.textCursor().selectedText() != "" if self.form.currentEditor else False)
         menu.addAction(action)
 
-        actionClear = QtWidgets.QAction("Clear", self)
+        actionClear = QtGui.QAction("Clear", self)
         actionClear.triggered.connect(self.clear)
         actionClear.setEnabled(len(self.text()))
         menu.addAction(actionClear)
 
-        actionHighlight = QtWidgets.QAction("Highlight",self)
+        actionHighlight = QtGui.QAction("Highlight",self)
         actionHighlight.triggered.connect(self.highlight)
         actionHighlight.setEnabled(len(self.text()))
         if self == self.form.findEdit:
@@ -1004,7 +1004,7 @@ Type 'help(editor)' in the console for help.\n\
         self.setListFilesBak(fileNameBAK)
 
     def onSubWindowActivated(self, arg1):
-        if shiboken and not shiboken.isValid(self.editorList):
+        if hasattr(self, "editorList") and shiboken and not shiboken.isValid(self.editorList):
             return
         sub = self.mdi.activeSubWindow()
         ed = sub.findChild(QtWidgets.QPlainTextEdit) if sub else None
@@ -1657,8 +1657,8 @@ Type 'help(editor)' in the console for help.\n\
         """replaces plainText.find(txt, searchFrom=0) with same find using re
            respecting states of match case checkbox and whole words checkbox
             returns list of tuples[(idx, idx2),(idx, idx2),...]"""
-        flags = 0 if self.matchCaseCheckBox.checkState() else re.IGNORECASE
-        compiled = re.compile(r"\b" + re.escape(txt) + r"\b", flags=flags) if self.matchWholeCheckBox.checkState() else re.compile(re.escape(txt), flags=flags)
+        flags = 0 if self.matchCaseCheckBox.isChecked() else re.IGNORECASE
+        compiled = re.compile(r"\b" + re.escape(txt) + r"\b", flags=flags) if self.matchWholeCheckBox.isChecked() else re.compile(re.escape(txt), flags=flags)
         reIter = compiled.finditer(plainText, pos=searchFrom)
         indices = []
         for ii, match in enumerate(reIter):
@@ -1688,9 +1688,9 @@ Type 'help(editor)' in the console for help.\n\
         str1 = "'"
         findFlagsList = []
 
-        if self.matchCaseCheckBox.checkState():
+        if self.matchCaseCheckBox.isChecked():
             findFlagsList.append("QtGui.QTextDocument.FindFlag.FindCaseSensitively")
-        if self.matchWholeCheckBox.checkState():
+        if self.matchWholeCheckBox.isChecked():
             findFlagsList.append("QtGui.QTextDocument.FindFlag.FindWholeWords")
         if backward:
             findFlagsList.append("QtGui.QTextDocument.FindFlag.FindBackward")
@@ -2017,7 +2017,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.ComboBox_replace.clear()
 
     def onFindEditTextChanged(self, arg1):
-        matchCase = self.matchCaseCheckBox.checkState()
+        matchCase = self.matchCaseCheckBox.isChecked()
         if shiboken and not shiboken.isValid(self.currentEditor) or not self.currentEditor:
             self.toast("current editor is invalid", "Error")
             return
@@ -2044,7 +2044,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.highlight(name)
 
         txt = self.findEdit.text()
-        matchCase = self.matchCaseCheckBox.checkState()
+        matchCase = self.matchCaseCheckBox.isChecked()
         modifiers = QtWidgets.QApplication.keyboardModifiers()
         if modifiers == QtCore.Qt.AltModifier:
             selText = self.currentEditor.textCursor().selectedText()
@@ -2055,7 +2055,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.found = False
         self.find(name, txt)
         if not self.found:
-            if self.loopCheckBox.checkState():
+            if self.loopCheckBox.isChecked():
                 self.toast(f"{txt} not found in {name} --Looping back to start","Warning")
                 self.gotoLine(1, silent=True)
         self.on_ComboBox_Find_Clicked(txt)
@@ -2240,109 +2240,109 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         settingsMenu.addMenu(layoutMenu)
         togglers = []
 #settings -> layout
-        editorListAction = QtWidgets.QAction("Editor list", layoutMenu, checkable=True)
+        editorListAction = QtGui.QAction("Editor list", layoutMenu, checkable=True)
         editorListAction.setChecked(showEditorList)
         togglers.append(makeToggler("ShowEditorList",not editorListAction.isChecked()))
         editorListAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(editorListAction)
 
-        refreshLineAction = QtWidgets.QAction("Refresh line/Run",layoutMenu, checkable=True)
+        refreshLineAction = QtGui.QAction("Refresh line/Run",layoutMenu, checkable=True)
         refreshLineAction.setChecked(showRefreshLine)
         togglers.append(makeToggler("ShowRefreshLine", not refreshLineAction.isChecked()))
         refreshLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(refreshLineAction)
 
-        gotoLineAction = QtWidgets.QAction("Goto/Bookmark line",layoutMenu, checkable=True)
+        gotoLineAction = QtGui.QAction("Goto/Bookmark line",layoutMenu, checkable=True)
         gotoLineAction.setChecked(showGotoLine)
         togglers.append(makeToggler("ShowGotoLine", not gotoLineAction.isChecked()))
         gotoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(gotoLineAction)
 
-        runMacroAction = QtWidgets.QAction("Run Macro",layoutMenu, checkable=True)
+        runMacroAction = QtGui.QAction("Run Macro",layoutMenu, checkable=True)
         runMacroAction.setChecked(ShowRunMacroBtn)
         togglers.append(makeToggler("ShowRunMacroBtn", not runMacroAction.isChecked()))
         runMacroAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(runMacroAction)
 
-#        runBackUpAction = QtWidgets.QAction("Backup",layoutMenu, checkable=True)
-        runBackUpAction = QtWidgets.QAction("Run Backup",layoutMenu, checkable=True)
+#        runBackUpAction = QtGui.QAction("Backup",layoutMenu, checkable=True)
+        runBackUpAction = QtGui.QAction("Run Backup",layoutMenu, checkable=True)
         runBackUpAction.setChecked(ShowRunBackUpAction)
         togglers.append(makeToggler("ShowRunBackUpAction", not runBackUpAction.isChecked()))
         runBackUpAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(runBackUpAction)
 
-#        runShowFilesBak = QtWidgets.QAction("Show Bak files",layoutMenu, checkable=True)
-        runShowFilesBak = QtWidgets.QAction("Run Show Bak files",layoutMenu, checkable=True)
+#        runShowFilesBak = QtGui.QAction("Show Bak files",layoutMenu, checkable=True)
+        runShowFilesBak = QtGui.QAction("Run Show Bak files",layoutMenu, checkable=True)
         runShowFilesBak.setChecked(ShowRunShowFilesBak)
         togglers.append(makeToggler("ShowRunShowFilesBak", not runShowFilesBak.isChecked()))
         runShowFilesBak.toggled.connect(togglers[-1])
         layoutMenu.addAction(runShowFilesBak)
 
-        undoLineAction = QtWidgets.QAction("Undo line", layoutMenu, checkable=True)
+        undoLineAction = QtGui.QAction("Undo line", layoutMenu, checkable=True)
         undoLineAction.setChecked(showUndoLine)
         togglers.append(makeToggler("ShowUndoLine", not undoLineAction.isChecked()))
         undoLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(undoLineAction)
 
-        findLineAction = QtWidgets.QAction("Find line", layoutMenu, checkable=True)
+        findLineAction = QtGui.QAction("Find line", layoutMenu, checkable=True)
         findLineAction.setChecked(showFindLine)
         togglers.append(makeToggler("ShowFindLine", not findLineAction.isChecked()))
         findLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(findLineAction)
 
-        findLine2Action = QtWidgets.QAction("Find line2", layoutMenu, checkable=True)
+        findLine2Action = QtGui.QAction("Find line2", layoutMenu, checkable=True)
         findLine2Action.setChecked(showFindLine2)
         togglers.append(makeToggler("ShowFindLine2", not findLine2Action.isChecked()))
         findLine2Action.toggled.connect(togglers[-1])
         layoutMenu.addAction(findLine2Action)
 
-        replaceLineAction = QtWidgets.QAction("Replace line", layoutMenu, checkable=True)
+        replaceLineAction = QtGui.QAction("Replace line", layoutMenu, checkable=True)
         replaceLineAction.setChecked(showReplaceLine)
         togglers.append(makeToggler("ShowReplaceLine", not replaceLineAction.isChecked()))
         replaceLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(replaceLineAction)
 
-        replaceLine2Action = QtWidgets.QAction("Replace line2", layoutMenu, checkable=True)
+        replaceLine2Action = QtGui.QAction("Replace line2", layoutMenu, checkable=True)
         replaceLine2Action.setChecked(showReplaceLine2)
         togglers.append(makeToggler("ShowReplaceLine2", not replaceLine2Action.isChecked()))
         replaceLine2Action.toggled.connect(togglers[-1])
         layoutMenu.addAction(replaceLine2Action)
 
-        indentLineAction = QtWidgets.QAction("Indent line", layoutMenu, checkable=True)
+        indentLineAction = QtGui.QAction("Indent line", layoutMenu, checkable=True)
         indentLineAction.setChecked(showIndentLine)
         togglers.append(makeToggler("ShowIndentLine", not indentLineAction.isChecked()))
         indentLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(indentLineAction)
 
-        snapsLineAction = QtWidgets.QAction("Snaps line", layoutMenu, checkable=True)
+        snapsLineAction = QtGui.QAction("Snaps line", layoutMenu, checkable=True)
         snapsLineAction.setChecked(showSnapsLine)
         togglers.append(makeToggler("ShowSnapsLine", not snapsLineAction.isChecked()))
         snapsLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(snapsLineAction)
 
-        consoleLineAction = QtWidgets.QAction("Console line", layoutMenu, checkable=True)
+        consoleLineAction = QtGui.QAction("Console line", layoutMenu, checkable=True)
         consoleLineAction.setChecked(showConsoleLine)
         togglers.append(makeToggler("ShowConsoleLine", not consoleLineAction.isChecked()))
         consoleLineAction.toggled.connect(togglers[-1])
         layoutMenu.addAction(consoleLineAction)
 
         settingsMenu.addSeparator()
-        showAllAction = QtWidgets.QAction("Show all", layoutMenu)
+        showAllAction = QtGui.QAction("Show all", layoutMenu)
         showAllAction.triggered.connect(lambda: show(allLines))
         settingsMenu.addAction(showAllAction)
 
-        showDefaultsAction = QtWidgets.QAction("Show defaults", settingsMenu)
+        showDefaultsAction = QtGui.QAction("Show defaults", settingsMenu)
         showDefaultsAction.triggered.connect(lambda: show(defaultLines))
         settingsMenu.addAction(showDefaultsAction)
 
-        showMinimalAction = QtWidgets.QAction("Show Minimal", settingsMenu)
+        showMinimalAction = QtGui.QAction("Show Minimal", settingsMenu)
         showMinimalAction.triggered.connect(lambda: show(minimalLines))
         settingsMenu.addAction(showMinimalAction)
 
 #end settings->layout
         settingsMenu.addSeparator()
         bHighlightActiveTab = pg.GetString("ColorActiveTab","#B3F88C") == "#B3F88C"
-        highlightActiveTabAction = QtWidgets.QAction("Highlight active tab", settingsMenu, checkable = True)
+        highlightActiveTabAction = QtGui.QAction("Highlight active tab", settingsMenu, checkable = True)
         highlightActiveTabAction.setChecked(bHighlightActiveTab)
         highlightActiveTabAction.triggered.connect(self.toggleActiveTabHighlighting)
         settingsMenu.addAction(highlightActiveTabAction)
@@ -2364,7 +2364,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         templatesMenu = QtWidgets.QMenu("Templates")
 
         templatesMenu.setIcon(QIconFromXPMString(template_icon))
-        insertFromTemplateAction = QtWidgets.QAction("Insert from dialog")
+        insertFromTemplateAction = QtGui.QAction("Insert from dialog")
         insertFromTemplateAction.triggered.connect(self.setupInsertFromTemplate)
         templatesMenu.addAction(insertFromTemplateAction)
 
@@ -2380,13 +2380,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         for ii, k in enumerate(sorted(templateDict.keys())):
             if ii % 25 == 0:
                 insertSubmenus.append(QtWidgets.QMenu(f"Start from -- {k}"))
-            templateActions.append(QtWidgets.QAction(k))
+            templateActions.append(QtGui.QAction(k))
             templateActions[-1].triggered.connect(templateLambdas[ii])
             insertSubmenus[-1].addAction(templateActions[-1])
         for sub in insertSubmenus:
             insertMenu.addMenu(sub)
 
-        editTemplateAction = QtWidgets.QAction("Edit templates")
+        editTemplateAction = QtGui.QAction("Edit templates")
         editTemplateAction.triggered.connect(self.editTemplates)
         templatesMenu.addAction(editTemplateAction)
 
@@ -2441,16 +2441,16 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         moduleActions = []
         modules = []
         for k,v in packagesDict.items():
-            moduleActions.append(QtWidgets.QAction(k))
+            moduleActions.append(QtGui.QAction(k))
             modules.append(makeModule(v))
             moduleActions[-1].triggered.connect(modules[-1])
             moduleMenu.addAction(moduleActions[-1])
 
-        FreeCADAction = QtWidgets.QAction("FreeCAD/App")
+        FreeCADAction = QtGui.QAction("FreeCAD/App")
         FreeCADAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCAD))
         helpReferenceMenu.addAction(FreeCADAction)
 
-        FreeCADGuiAction = QtWidgets.QAction("FreeCADGui/Gui")
+        FreeCADGuiAction = QtGui.QAction("FreeCADGui/Gui")
         FreeCADGuiAction.triggered.connect(lambda :self.makeReferenceMenu(FreeCADGui))
         helpReferenceMenu.addAction(FreeCADGuiAction)
 
@@ -2458,128 +2458,128 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         qtMenu = QtWidgets.QMenu("Qt/PySide")
         helpReferenceMenu.addMenu(qtMenu)
 
-        QtCoreAction = QtWidgets.QAction("QtCore")
+        QtCoreAction = QtGui.QAction("QtCore")
         QtCoreAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore))
         qtMenu.addAction(QtCoreAction)
 
-        QtCore_QtAction = QtWidgets.QAction("QtCore.Qt")
+        QtCore_QtAction = QtGui.QAction("QtCore.Qt")
         QtCore_QtAction.triggered.connect(lambda :self.makeReferenceMenu(QtCore.Qt))
         qtMenu.addAction(QtCore_QtAction)
 
-        QtGuiAction = QtWidgets.QAction("QtGui")
+        QtGuiAction = QtGui.QAction("QtGui")
         QtGuiAction.triggered.connect(lambda :self.makeReferenceMenu(QtGui))
         qtMenu.addAction(QtGuiAction)
 
-        QtWidgetsAction = QtWidgets.QAction("QtWidgets")
+        QtWidgetsAction = QtGui.QAction("QtWidgets")
         QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
         qtMenu.addAction(QtWidgetsAction)
 
-        QtNetworkAction = QtWidgets.QAction("QtNetwork") if hasQtNetwork else QtWidgets.QAction("QtNetwork (not installed)")
+        QtNetworkAction = QtGui.QAction("QtNetwork") if hasQtNetwork else QtGui.QAction("QtNetwork (not installed)")
         QtNetworkAction.triggered.connect(lambda :self.makeReferenceMenu(QtNetwork))
         qtMenu.addAction(QtNetworkAction)
         if not hasQtNetwork:
             QtNetWorkAction.setEnabled(False)
 
-        QtHelpAction = QtWidgets.QAction("QtHelp") if hasQtHelp else QtWidgets.QAction("QtHelp (not installed)")
+        QtHelpAction = QtGui.QAction("QtHelp") if hasQtHelp else QtGui.QAction("QtHelp (not installed)")
         QtHelpAction.triggered.connect(lambda :self.makeReferenceMenu(QtHelp))
         qtMenu.addAction(QtHelpAction)
         if not hasQtHelp:
             QtHelpAction.setEnabled(False)
 
-        QtMultimediaAction = QtWidgets.QAction("QtMultimedia") if hasQtMultimedia else QtWidgets.QAction("QtMultimedia (not installed)")
+        QtMultimediaAction = QtGui.QAction("QtMultimedia") if hasQtMultimedia else QtGui.QAction("QtMultimedia (not installed)")
         QtMultimediaAction.triggered.connect(lambda :self.makeReferenceMenu(QtMultimedia))
         qtMenu.addAction(QtMultimediaAction)
         if not hasQtMultimedia:
             QtMultimediaAction.setEnabled(False)
 
-        QtOpenGLAction = QtWidgets.QAction("QtOpenGL") if hasQtOpenGL else QtWidgets.QAction("QtOpenGL (not installed)")
+        QtOpenGLAction = QtGui.QAction("QtOpenGL") if hasQtOpenGL else QtGui.QAction("QtOpenGL (not installed)")
         QtOpenGLAction.triggered.connect(lambda :self.makeReferenceMenu(QtOpenGL))
         qtMenu.addAction(QtOpenGLAction)
         if not hasQtOpenGL:
             QtOpenGLAction.setEnabled(False)
 
-        QtPrintSupportAction = QtWidgets.QAction("QtPrintSupport") if hasQtPrintSupport else QtWidgets.QAction("QtPrintSupport (not installed)")
+        QtPrintSupportAction = QtGui.QAction("QtPrintSupport") if hasQtPrintSupport else QtGui.QAction("QtPrintSupport (not installed)")
         QtPrintSupportAction.triggered.connect(lambda :self.makeReferenceMenu(QtPrintSupport))
         qtMenu.addAction(QtPrintSupportAction)
         if not hasQtPrintSupport:
             QtPrintSupportAction.setEnabled(False)
 
-        QtSqlAction = QtWidgets.QAction("QtSql") if hasQtSql else QtWidgets.QAction("QtSql (not installed)")
+        QtSqlAction = QtGui.QAction("QtSql") if hasQtSql else QtGui.QAction("QtSql (not installed)")
         QtSqlAction.triggered.connect(lambda :self.makeReferenceMenu(QtSql))
         qtMenu.addAction(QtSqlAction)
         if not hasQtSql:
             QtSqlAction.setEnabled(False)
 
-        QtSvgAction = QtWidgets.QAction("QtSvg") if hasQtSvg else QtWidgets.QAction("QtSvg (not installed)")
+        QtSvgAction = QtGui.QAction("QtSvg") if hasQtSvg else QtGui.QAction("QtSvg (not installed)")
         QtSvgAction.triggered.connect(lambda :self.makeReferenceMenu(QtSvg))
         qtMenu.addAction(QtSvgAction)
         if not hasQtSvg:
             QtSvgAction.setEnabled(False)
 
-        QtTestAction = QtWidgets.QAction("QtTest") if hasQtTest else QtWidgets.QAction("QtTest (not installed)")
+        QtTestAction = QtGui.QAction("QtTest") if hasQtTest else QtGui.QAction("QtTest (not installed)")
         QtTestAction.triggered.connect(lambda :self.makeReferenceMenu(QtTest))
         qtMenu.addAction(QtTestAction)
         if not hasQtTest:
             QtTestAction.setEnabled(False)
 
-        QtWidgetsAction = QtWidgets.QAction("QtWidgets") if hasQtWidgets else QtWidgets.QAction("QtWidgets (not installed)")
+        QtWidgetsAction = QtGui.QAction("QtWidgets") if hasQtWidgets else QtGui.QAction("QtWidgets (not installed)")
         QtWidgetsAction.triggered.connect(lambda :self.makeReferenceMenu(QtWidgets))
         qtMenu.addAction(QtWidgetsAction)
         if not hasQtWidgets:
             QtWidgetsAction.setEnabled(False)
 
-        QtXmlAction = QtWidgets.QAction("QtXml") if hasQtXml else QtWidgets.QAction("QtXml (not installed)")
+        QtXmlAction = QtGui.QAction("QtXml") if hasQtXml else QtGui.QAction("QtXml (not installed)")
         QtXmlAction.triggered.connect(lambda :self.makeReferenceMenu(QtXml))
         qtMenu.addAction(QtXmlAction)
         if not hasQtXml:
             QtXmlAction.setEnabled(False)
 
-        QtXmlPatternsAction = QtWidgets.QAction("QtXmlPatterns") if hasQtXmlPatterns else QtWidgets.QAction("QtXmlPatterns (not installed)")
+        QtXmlPatternsAction = QtGui.QAction("QtXmlPatterns") if hasQtXmlPatterns else QtGui.QAction("QtXmlPatterns (not installed)")
         QtXmlPatternsAction.triggered.connect(lambda :self.makeReferenceMenu(QtXmlPatterns))
         qtMenu.addAction(QtXmlPatternsAction)
         if not hasQtXmlPatterns:
             QtXmlPatternsAction.setEnabled(False)
 
         searchMenu = QtWidgets.QMenu("Search source code")
-        searchAction = QtWidgets.QAction("Use find edit text")
+        searchAction = QtGui.QAction("Use find edit text")
         searchAction.triggered.connect(self.makeSearchFromFindEdit)
         searchMenu.addAction(searchAction)
 
-        searchSelAction = QtWidgets.QAction("Use selected text")
+        searchSelAction = QtGui.QAction("Use selected text")
         searchSelAction.triggered.connect(self.makeSearchFromSelection)
         searchMenu.addAction(searchSelAction)
 
-        searchAskAction = QtWidgets.QAction("Ask for query")
+        searchAskAction = QtGui.QAction("Ask for query")
         searchAskAction.triggered.connect(self.makeSearchFromImmediate)
         searchMenu.addAction(searchAskAction)
 
         helpMenu.addMenu(searchMenu)
 
         qSearchMenu = QtWidgets.QMenu("Search Qt")
-        qSearchAction = QtWidgets.QAction("Use find edit text")
+        qSearchAction = QtGui.QAction("Use find edit text")
         qSearchAction.triggered.connect(self.makeqSearchFromFindEdit)
         qSearchMenu.addAction(qSearchAction)
 
-        qSearchSelAction = QtWidgets.QAction("Use selected text")
+        qSearchSelAction = QtGui.QAction("Use selected text")
         qSearchSelAction.triggered.connect(self.makeqSearchFromSelection)
         qSearchMenu.addAction(qSearchSelAction)
 
-        qSearchAskAction = QtWidgets.QAction("Ask for query")
+        qSearchAskAction = QtGui.QAction("Ask for query")
         qSearchAskAction.triggered.connect(self.makeqSearchFromImmediate)
         qSearchMenu.addAction(qSearchAskAction)
 
         helpMenu.addMenu(qSearchMenu)
 
         wSearchMenu = QtWidgets.QMenu("Search wiki")
-        wSearchAction = QtWidgets.QAction("Use find edit text")
+        wSearchAction = QtGui.QAction("Use find edit text")
         wSearchAction.triggered.connect(self.makewSearchFromFindEdit)
         wSearchMenu.addAction(wSearchAction)
 
-        wSearchSelAction = QtWidgets.QAction("Use selected text")
+        wSearchSelAction = QtGui.QAction("Use selected text")
         wSearchSelAction.triggered.connect(self.makewSearchFromSelection)
         wSearchMenu.addAction(wSearchSelAction)
 
-        wSearchAskAction = QtWidgets.QAction("Ask for query")
+        wSearchAskAction = QtGui.QAction("Ask for query")
         wSearchAskAction.triggered.connect(self.makewSearchFromImmediate)
         wSearchMenu.addAction(wSearchAskAction)
 
@@ -2589,23 +2589,23 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         highlightMenu = QtWidgets.QMenu("Highlight", mw)
 
         highlightMenu.setIcon(QIconFromXPMString(high_Light_icon))
-        highlightFromSelectionAction = QtWidgets.QAction("From selection")
+        highlightFromSelectionAction = QtGui.QAction("From selection")
         highlightFromSelectionAction.triggered.connect(self.highlightFromSelection)
         highlightMenu.addAction(highlightFromSelectionAction)
 
-        highlightFromFindAction = QtWidgets.QAction("From find")
+        highlightFromFindAction = QtGui.QAction("From find")
         highlightFromFindAction.triggered.connect(self.highlightFromFind)
         highlightMenu.addAction(highlightFromFindAction)
         mainMenu.addMenu(highlightMenu)
 
-        highlightFromReplaceAction = QtWidgets.QAction("From replace")
+        highlightFromReplaceAction = QtGui.QAction("From replace")
         highlightFromReplaceAction.triggered.connect(self.on_Refresh_Aqua_HighlightR_clicked)
         highlightMenu.addAction(highlightFromReplaceAction)
         mainMenu.addMenu(highlightMenu)
         mainMenu.addSeparator()
 
 #drag to forum
-        dragToForumAction = QtWidgets.QAction("Drag to forum")
+        dragToForumAction = QtGui.QAction("Drag to forum")
         dragToForumAction.setIcon(QIconFromXPMString(pythonToForum_icon))
         dragToForumEnabled = hasattr(self.editorList.currentItem(),"text")
         dragToForumAction.setEnabled(dragToForumEnabled)
@@ -2614,7 +2614,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
 #close menu
         if self.isTabbed:
-            closeAction = QtWidgets.QAction("Close")
+            closeAction = QtGui.QAction("Close")
             closeAction.setIcon(QIconFromXPMString(Btn_Quit_icon))
             closeAction.triggered.connect(self.close)
             mainMenu.addAction(closeAction)
@@ -2875,7 +2875,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         attributeStrings = [att for att in dir(mod) if not "__" in att]
 
         attrActions = []
-        attrActions.append(QtWidgets.QAction(f"{mod.__name__}"))
+        attrActions.append(QtGui.QAction(f"{mod.__name__}"))
         attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}"))
         refMenu.addAction(attrActions[-1])
         if not attributeStrings:
@@ -2887,7 +2887,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
                 ii += 1
             if not hasattr(mod, "__name__"):
                 continue
-            attrActions.append(QtWidgets.QAction(f"{mod.__name__}.{attr}"))
+            attrActions.append(QtGui.QAction(f"{mod.__name__}.{attr}"))
             attrActions[-1].triggered.connect(makeReference(f"{mod.__name__}.{attr}"))
             subMenus[-1].addAction(attrActions[-1])
             ii += 1
@@ -2960,23 +2960,23 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             self.toast("No current editor","Error")
         snaps = [snap for snap in reversed(self.snaps) if snap["name"] == curName]
 
-        takeSnapshotAction = QtWidgets.QAction("Take snapshot", mw)
+        takeSnapshotAction = QtGui.QAction("Take snapshot", mw)
         takeSnapshotAction.triggered.connect(lambda: self.onTakeSnapBtnClicked(True))
         snapsMenu.addAction(takeSnapshotAction)
         takeSnapshotAction.setEnabled(curName != "")
 
         restoreMenu = QtWidgets.QMenu("Restore last snap")
-        restoreToCurrentEditorAction = QtWidgets.QAction("Restore to current editor", mw)
+        restoreToCurrentEditorAction = QtGui.QAction("Restore to current editor", mw)
         restoreToCurrentEditorAction.triggered.connect(self.doRestoreToCurrentEditor)
         restoreToCurrentEditorAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToCurrentEditorAction)
 
-        restoreToClipboardAction = QtWidgets.QAction("Restore to clipboard", mw)
+        restoreToClipboardAction = QtGui.QAction("Restore to clipboard", mw)
         restoreToClipboardAction.triggered.connect(self.doRestoreToClipboard)
         restoreToClipboardAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToClipboardAction)
 
-        restoreToTextDocumentAction = QtWidgets.QAction("Restore to new Text document", mw)
+        restoreToTextDocumentAction = QtGui.QAction("Restore to new Text document", mw)
         restoreToTextDocumentAction.triggered.connect(self.doRestoreToTextDocument)
         restoreToTextDocumentAction.setEnabled(len(snaps) > 0)
         restoreMenu.addAction(restoreToTextDocumentAction)
@@ -2991,7 +2991,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         restoreAnyActions = []
         restoreAnyLambdas = [makeRestoreAnyLambda(tup[0],tup[1],ii) for ii,tup in enumerate(restoreAnys)]
         for ii,tup in enumerate(restoreAnys):
-            restoreAnyActions.append(QtWidgets.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
+            restoreAnyActions.append(QtGui.QAction(f"Restore {tup[0]}: {tup[1]}", mw))
             restoreAnyActions[-1].triggered.connect(restoreAnyLambdas[ii])
             restoreAnysMenu.addAction(restoreAnyActions[-1])
         snapsMenu.addMenu(restoreAnysMenu)
@@ -2999,12 +2999,12 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             restoreAnysMenu.setEnabled(False)
 
         saveMenu = QtWidgets.QMenu("Save")
-        saveSnapshotAsAction = QtWidgets.QAction("Save snapshot as...", mw)
+        saveSnapshotAsAction = QtGui.QAction("Save snapshot as...", mw)
         saveSnapshotAsAction.triggered.connect(self.doSaveSnapshotAs)
         saveSnapshotAsAction.setEnabled(len(snaps) > 0)
         saveMenu.addAction(saveSnapshotAsAction)
 
-        saveAllSnapshotAsAction = QtWidgets.QAction("Save all snaps to JSON file...", mw)
+        saveAllSnapshotAsAction = QtGui.QAction("Save all snaps to JSON file...", mw)
         saveAllSnapshotAsAction.triggered.connect(self.saveSnapsToJSON)
         saveAllSnapshotAsAction.setEnabled(len(snaps) > 0)
         saveMenu.addAction(saveAllSnapshotAsAction)
@@ -3013,7 +3013,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             saveMenu.setEnabled(False)
 
         loadMenu = QtWidgets.QMenu("Load")
-        loadSnapshotAction = QtWidgets.QAction("Load snapshots from JSON...", mw)
+        loadSnapshotAction = QtGui.QAction("Load snapshots from JSON...", mw)
         loadSnapshotAction.triggered.connect(self.loadSnapsFromJSON)
         loadMenu.addAction(loadSnapshotAction)
 
@@ -3022,13 +3022,13 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
         def makeDiscardSnapLambda(x): return lambda: self.discardSnap(x)
 
-        discardAction = QtWidgets.QAction("Discard latest snap", mw)
+        discardAction = QtGui.QAction("Discard latest snap", mw)
         discardAction.setToolTip("Discards most recent snap for the current editor")
         discardAction.triggered.connect(self.discardSnap)
         discardAction.setEnabled(len(snaps) > 0)
         discardMenu.addAction(discardAction)
 
-        discardAllAction = QtWidgets.QAction("Discard all snaps", mw)
+        discardAllAction = QtGui.QAction("Discard all snaps", mw)
         discardAllAction.setToolTip("Disards all snaps for all editors")
         discardAllAction.triggered.connect(self.discardAllSnaps)
         discardAllAction.setEnabled(len(snaps) > 0)
@@ -3038,7 +3038,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         discardSnapActions = []
         discardSnapLambdas = [makeDiscardSnapLambda(ii) for ii,snap in enumerate(discardSnaps)]
         for ii,snap in enumerate(discardSnaps):
-            discardSnapActions.append(QtWidgets.QAction(f"Discard {snap['reason']}", mw))
+            discardSnapActions.append(QtGui.QAction(f"Discard {snap['reason']}", mw))
             discardSnapActions[-1].triggered.connect(discardSnapLambdas[ii])
             discardMenu.addAction(discardSnapActions[-1])
         if not discardSnaps:
@@ -3053,21 +3053,21 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         diffSnapActions = []
         diffSnapLambdas = [makeDiffLambda(snap['name'],ii) for ii,snap in enumerate(diffSnaps)]
         for ii,snap in enumerate(diffSnaps):
-            diffSnapActions.append(QtWidgets.QAction(f"Diff {snap['reason']}", mw))
+            diffSnapActions.append(QtGui.QAction(f"Diff {snap['reason']}", mw))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[ii])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         for edName in self.editorDict.keys():
             if edName == curName:
                 continue
-            diffSnapActions.append(QtWidgets.QAction(f"Diff {edName}", mw))
+            diffSnapActions.append(QtGui.QAction(f"Diff {edName}", mw))
             diffSnapLambdas.append(makeDiffLambda(self.getText(edName), self.getText(curName), curName, edName))
             diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
             diffSnapsMenu.addAction(diffSnapActions[-1])
 
         clipText = QtGui.QClipboard().text()
 
-        diffSnapActions.append(QtWidgets.QAction(f"Diff clipboard text", mw))
+        diffSnapActions.append(QtGui.QAction(f"Diff clipboard text", mw))
         diffSnapLambdas.append(makeDiffLambda(clipText, self.getText(curName),curName, "Clipboard text"))
         diffSnapActions[-1].triggered.connect(diffSnapLambdas[-1])
         diffSnapsMenu.addAction(diffSnapActions[-1])
@@ -3085,7 +3085,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         editReasonActions = []
         editReasonLambdas = [makeEditReasonLambda(tup[0],tup[1],ii) for ii,tup in enumerate(editReasons)]
         for ii,tup in enumerate(editReasons):
-            editReasonActions.append(QtWidgets.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
+            editReasonActions.append(QtGui.QAction(f"Edit reason {tup[0]}: {tup[1]}", mw))
             editReasonActions[-1].triggered.connect(editReasonLambdas[ii])
             editReasonsMenu.addAction(editReasonActions[-1])
         snapsMenu.addMenu(editReasonsMenu)
@@ -3415,7 +3415,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         self.found = False
         self.find(name, txt, True)
         if not self.found:
-            if self.loopCheckBox.checkState():
+            if self.loopCheckBox.isChecked():
                 self.toast(f"{txt} not found in {name} --Looping back to end","Warning")
                 self.gotoLine(-1, silent=True, eol=True)
             else:
@@ -3637,7 +3637,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         gotoLineLambdas = [makeLambda(lineNum) for lineNum in lineNums]
         gotoLineActions = []
         for ii,lineNum in enumerate(lineNums):
-            gotoLineActions.append(QtWidgets.QAction(f"Go to line {lineNum}", mw))
+            gotoLineActions.append(QtGui.QAction(f"Go to line {lineNum}", mw))
             gotoLineActions[-1].triggered.connect(gotoLineLambdas[ii])
             gotoLineActions[-1].setEnabled(len(self.gotoLineEdit.text()) > 0)
             lineNumsMenu.addAction(gotoLineActions[-1])
@@ -3655,9 +3655,9 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
             if ii % 25 == 0:
                 classDefSubmenus.append(QtWidgets.QMenu(f"Start from -- {classDefLine[2]}"))
             if "class" in classDefLine[1]:
-                classDefLineActions.append(QtWidgets.QAction(f"{classDefLine[2]}..{classDefLine[1]}", mw))
+                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..{classDefLine[1]}", mw))
             else: #def line
-                classDefLineActions.append(QtWidgets.QAction(f"{classDefLine[2]}..({classDefLine[0]}) {classDefLine[1]}", mw))
+                classDefLineActions.append(QtGui.QAction(f"{classDefLine[2]}..({classDefLine[0]}) {classDefLine[1]}", mw))
             classDefLineActions[-1].triggered.connect(classDefLineLambdas[ii])
             classDefSubmenus[-1].addAction(classDefLineActions[-1])
         for sub in classDefSubmenus:
@@ -3668,22 +3668,22 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
 
         bookmarks = sorted(self.getBookmarks())
         bookmarksMenu = QtWidgets.QMenu("Bookmarks")
-        toggleBookmarkAction = QtWidgets.QAction("Toggle Bookmark current line", mw)
+        toggleBookmarkAction = QtGui.QAction("Toggle Bookmark current line", mw)
         toggleBookmarkAction.triggered.connect(self.toggleBookmark)
         toggleBookmarkAction.setEnabled(curName != "")
         bookmarksMenu.addAction(toggleBookmarkAction)
 
-        removeAllBookmarksAction = QtWidgets.QAction("Remove all bookmarks", mw)
+        removeAllBookmarksAction = QtGui.QAction("Remove all bookmarks", mw)
         removeAllBookmarksAction.triggered.connect(self.removeAllBookmarks)
         removeAllBookmarksAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(removeAllBookmarksAction)
 
-        nextBookmarkAction = QtWidgets.QAction("Goto next bookmark", mw)
+        nextBookmarkAction = QtGui.QAction("Goto next bookmark", mw)
         nextBookmarkAction.triggered.connect(self.nextBookmark)
         nextBookmarkAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(nextBookmarkAction)
 
-        previousBookmarkAction = QtWidgets.QAction("Goto previous bookmark", mw)
+        previousBookmarkAction = QtGui.QAction("Goto previous bookmark", mw)
         previousBookmarkAction.triggered.connect(self.previousBookmark)
         previousBookmarkAction.setEnabled(bool(bookmarks))
         bookmarksMenu.addAction(previousBookmarkAction)
@@ -3692,7 +3692,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         bookmarkActions = []
         bookmarkLambdas = [makeLambda(bm[1]) for bm in bookmarks]
         for ii,bm in enumerate(bookmarks):
-            bookmarkActions.append(QtWidgets.QAction(f"{bm[0]} ({bm[1]})", mw))
+            bookmarkActions.append(QtGui.QAction(f"{bm[0]} ({bm[1]})", mw))
             bookmarkActions[-1].triggered.connect(bookmarkLambdas[ii])
             bookmarksMenu.addAction(bookmarkActions[-1])
         gotoMenu.addMenu(bookmarksMenu)
@@ -3705,7 +3705,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         for ii,fr in enumerate(findResults):
             if ii % 25 == 0:
                 findResultsSubmenus.append(QtWidgets.QMenu(f"Start from -- {fr[0]}"))
-            findResultActions.append(QtWidgets.QAction(f"{fr[0]}..{fr[1]}{fr[2]}{fr[3]}..", mw))
+            findResultActions.append(QtGui.QAction(f"{fr[0]}..{fr[1]}{fr[2]}{fr[3]}..", mw))
             findResultActions[-1].triggered.connect(findResultLambdas[ii])
             findResultsSubmenus[-1].addAction(findResultActions[-1])
         for sub in findResultsSubmenus:
@@ -3714,7 +3714,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         if not findResults:
             findResultsMenu.setEnabled(False)
         else:
-            if self.matchWholeCheckBox.checkState():
+            if self.matchWholeCheckBox.isChecked():
                 self.toast("Whole words checkbox ignored in Find results menu","Warning")
 
         findSelResults = sorted(self.getFindResults(useSelection=True))
@@ -3725,7 +3725,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         for ii,fsr in enumerate(findSelResults):
             if ii % 25 == 0:
                 findSelResultsSubmenus.append(QtWidgets.QMenu(f"Start from --{fsr[0]}"))
-            findSelResultActions.append(QtWidgets.QAction(f"{fsr[0]}..{fsr[1]}{fsr[2]}{fsr[3]}..", mw))
+            findSelResultActions.append(QtGui.QAction(f"{fsr[0]}..{fsr[1]}{fsr[2]}{fsr[3]}..", mw))
             findSelResultActions[-1].triggered.connect(findSelResultLambdas[ii])
             findSelResultsSubmenus[-1].addAction(findSelResultActions[-1])
         for sub in findSelResultsSubmenus:
@@ -3734,15 +3734,15 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         if not findSelResults:
             findSelResultsMenu.setEnabled(False)
         else:
-            if self.matchWholeCheckBox.checkState():
+            if self.matchWholeCheckBox.isChecked():
                 self.toast("Whole words checkbox ignored in Find selection results menu","Warning")
 
-        gotoHomeAction = QtWidgets.QAction("Home", mw)
+        gotoHomeAction = QtGui.QAction("Home", mw)
         gotoHomeAction.triggered.connect(lambda: self.onGotoHomeBtnClicked(True))
         gotoHomeAction.setEnabled(curName != "")
         gotoMenu.addAction(gotoHomeAction)
 
-        gotoEndAction = QtWidgets.QAction("End", mw)
+        gotoEndAction = QtGui.QAction("End", mw)
         gotoEndAction.triggered.connect(lambda: self.onGotoEndBtnClicked(True))
         gotoEndAction.setEnabled(curName != "")
         gotoMenu.addAction(gotoEndAction)
@@ -3900,7 +3900,7 @@ dlg = Gui.getMainWindow().findChild(QtWidgets.QWidget,"Editor assistant").form
         preContext = 10
         if not find:
             return []
-        matchCase = self.matchCaseCheckBox.checkState()
+        matchCase = self.matchCaseCheckBox.isChecked()
         if not matchCase:
             find = find.lower()
         for ii,line in enumerate(lines):
@@ -4161,8 +4161,8 @@ class TemplateEditor(QtWidgets.QWidget):
         items=[]
         filter = self.filterEdit.text()
         for k,v in self.templateDict.items():
-            if self.useFilterCheckBox.checkState():
-                if self.matchCaseCheckBox.checkState():
+            if self.useFilterCheckBox.isChecked():
+                if self.matchCaseCheckBox.isChecked():
                     if filter == "" or filter in k:
                         items.append(k)
                 else:
@@ -4408,7 +4408,7 @@ class DiffSaver (QtWidgets.QDialog):
         """make the diff, expensive operation should only be done when necessary"""
         d = difflib.HtmlDiff(tabsize=4)
         numlines2 = 5 if not self.numlinesSpinBox else self.numlinesSpinBox.value()
-        context2 = self.contextCheckBox.checkState() if self.contextCheckBox else True
+        context2 = self.contextCheckBox.isChecked() if self.contextCheckBox else True
         self.diff = d.make_file(fromlines = self.snapText, tolines = self.plainText, fromdesc = self.label1, todesc = self.label2, context=context2, numlines=numlines2)
 
     def updateTitle(self):
