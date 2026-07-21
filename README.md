@@ -272,6 +272,7 @@ A "reason" is a short documentation for a snapshot.  By editing the reason you a
 
 
 ## Changelog
+### 2.05 -- replace exec_() with exec() to avoid deprecation warning/errors
 ### 2.04 -- fix issue with find not working with partial words, e.g. search for Py instead of PySide
 ### 2.03 -- skipped (temporary test iterations 2.03, 2.03b, and 2.03c were forum only)
 ### 2.02 -- support shiboken6 (Qt6 builds)
